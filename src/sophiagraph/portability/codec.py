@@ -20,12 +20,12 @@ from sophiagraph.models import (
     MemoryRecord,
     MemoryRelation,
     MemoryTierTransition,
-    _as_candidate_status,
-    _as_memory_relation_type,
-    _as_memory_source,
-    _as_memory_tier,
-    _as_memory_tier_transition_reason,
-    _as_memory_type,
+    coerce_candidate_status,
+    coerce_memory_relation_type,
+    coerce_memory_source,
+    coerce_memory_tier,
+    coerce_memory_tier_transition_reason,
+    coerce_memory_type,
 )
 
 from sophiagraph.portability.models import MemoryBundleSnapshot
@@ -37,14 +37,23 @@ _BUNDLE_ROOT = "memory-bundle"
 _MANIFEST_NAME = "manifest.json"
 
 
-def _json_dumps(value: Any, *, indent: int | None = None) -> str:
+def json_dumps(value: Any, *, indent: int | None = None) -> str:
     return json.dumps(
         value, ensure_ascii=True, sort_keys=True, indent=indent, default=str
     )
 
 
+_json_dumps = json_dumps
+
+
 def _sha256_bytes(data: bytes) -> str:
     return sha256(data).hexdigest()
+
+
+def _required(data: dict[str, Any], field_name: str) -> Any:
+    if field_name not in data or data[field_name] is None:
+        raise InvalidArgumentError(f"missing required field: {field_name}")
+    return data[field_name]
 
 
 def _artifact_refs_from_payload(raw_refs: Any) -> list[ArtifactRef]:
@@ -78,21 +87,22 @@ def _review_from_payload(raw_review: Any) -> CandidateReview | None:
     )
 
 
-def _record_from_dict(data: dict[str, Any]) -> MemoryRecord:
+def record_from_dict(data: dict[str, Any]) -> MemoryRecord:
+    scope = str(_required(data, "scope"))
     raw_namespace = data.get("namespace")
     if isinstance(raw_namespace, MemoryNamespace):
         namespace = raw_namespace
     elif isinstance(raw_namespace, dict) and raw_namespace:
         namespace = MemoryNamespace.from_dict(raw_namespace)
     else:
-        namespace = MemoryNamespace.from_scope(str(data.get("scope", "")))
+        namespace = MemoryNamespace.from_scope(scope)
     return MemoryRecord(
-        id=str(data.get("id", "")),
-        scope=str(data.get("scope", "")),
-        type=_as_memory_type(str(data.get("type", ""))),
-        content=data.get("content", ""),
-        created_at=str(data.get("created_at", "")),
-        updated_at=str(data.get("updated_at", "")),
+        id=str(_required(data, "id")),
+        scope=scope,
+        type=coerce_memory_type(str(_required(data, "type"))),
+        content=_required(data, "content"),
+        created_at=str(_required(data, "created_at")),
+        updated_at=str(_required(data, "updated_at")),
         key=str(data.get("key")) if data.get("key") is not None else None,
         title=str(data.get("title")) if data.get("title") is not None else None,
         tags=[str(item) for item in data.get("tags", [])]
@@ -101,7 +111,7 @@ def _record_from_dict(data: dict[str, Any]) -> MemoryRecord:
         entities=[str(item) for item in data.get("entities", [])]
         if isinstance(data.get("entities"), list)
         else [],
-        source=_as_memory_source(str(data.get("source", "agent_inferred"))),
+        source=coerce_memory_source(str(data.get("source", "agent_inferred"))),
         confidence=float(data.get("confidence", 0.5) or 0.5),
         evidence_refs=_artifact_refs_from_payload(data.get("evidence_refs")),
         expires_at=str(data.get("expires_at"))
@@ -138,32 +148,46 @@ def _record_from_dict(data: dict[str, Any]) -> MemoryRecord:
         deleted_reason=str(data.get("deleted_reason"))
         if data.get("deleted_reason") is not None
         else None,
-        tier=_as_memory_tier(str(data.get("tier", "working"))),
+        tier=coerce_memory_tier(str(data.get("tier", "working"))),
         access_count=max(0, int(data.get("access_count", 0) or 0)),
     )
 
 
-def _candidate_from_dict(data: dict[str, Any]) -> MemoryCandidate:
+def candidate_from_dict(data: dict[str, Any]) -> MemoryCandidate:
+    raw_namespace = data.get("namespace")
+    namespace = None
+    if isinstance(raw_namespace, MemoryNamespace):
+        namespace = raw_namespace
+    elif isinstance(raw_namespace, dict) and raw_namespace:
+        namespace = MemoryNamespace.from_dict(raw_namespace)
     return MemoryCandidate(
-        candidate_id=str(data.get("candidate_id", "")),
-        session_id=str(data.get("session_id", "")),
-        proposed_scope=str(data.get("proposed_scope", "")),
-        type=_as_memory_type(str(data.get("type", ""))),
-        content=data.get("content", ""),
+        candidate_id=str(_required(data, "candidate_id")),
+        session_id=str(_required(data, "session_id")),
+        proposed_scope=str(_required(data, "proposed_scope")),
+        type=coerce_memory_type(str(_required(data, "type"))),
+        content=_required(data, "content"),
         tags=[str(item) for item in data.get("tags", [])]
         if isinstance(data.get("tags"), list)
         else [],
         entities=[str(item) for item in data.get("entities", [])]
         if isinstance(data.get("entities"), list)
         else [],
-        source=_as_memory_source(str(data.get("source", "agent_inferred"))),
+        source=coerce_memory_source(str(data.get("source", "agent_inferred"))),
         confidence=float(data.get("confidence", 0.5) or 0.5),
         evidence_refs=_artifact_refs_from_payload(data.get("evidence_refs")),
-        status=_as_candidate_status(str(data.get("status", "proposed"))),
+        status=coerce_candidate_status(str(data.get("status", "proposed"))),
         key=str(data.get("key")) if data.get("key") is not None else None,
         title=str(data.get("title")) if data.get("title") is not None else None,
         review=_review_from_payload(data.get("review")),
         meta=dict(data.get("meta", {})) if isinstance(data.get("meta"), dict) else {},
+        namespace=namespace,
+        claim_key=str(data.get("claim_key"))
+        if data.get("claim_key") is not None
+        else None,
+        polarity=str(data.get("polarity", "asserts")),
+        source_class=str(data.get("source_class"))
+        if data.get("source_class") is not None
+        else None,
         created_at=str(data.get("created_at"))
         if data.get("created_at") is not None
         else None,
@@ -173,38 +197,44 @@ def _candidate_from_dict(data: dict[str, Any]) -> MemoryCandidate:
     )
 
 
-def _relation_from_dict(data: dict[str, Any]) -> MemoryRelation:
+def relation_from_dict(data: dict[str, Any]) -> MemoryRelation:
     return MemoryRelation(
-        relation_id=str(data.get("relation_id", "")),
-        source_record_id=str(data.get("source_record_id", "")),
-        target_record_id=str(data.get("target_record_id", "")),
-        relation_type=_as_memory_relation_type(
-            str(data.get("relation_type", "related_to"))
+        relation_id=str(_required(data, "relation_id")),
+        source_record_id=str(_required(data, "source_record_id")),
+        target_record_id=str(_required(data, "target_record_id")),
+        relation_type=coerce_memory_relation_type(
+            str(_required(data, "relation_type"))
         ),
-        created_at=str(data.get("created_at", "")),
+        created_at=str(_required(data, "created_at")),
         meta=dict(data.get("meta", {})) if isinstance(data.get("meta"), dict) else {},
     )
 
 
-def _tier_transition_from_dict(data: dict[str, Any]) -> MemoryTierTransition:
+def tier_transition_from_dict(data: dict[str, Any]) -> MemoryTierTransition:
     return MemoryTierTransition(
-        transition_id=str(data.get("transition_id", "")),
-        record_id=str(data.get("record_id", "")),
-        scope=str(data.get("scope", "")),
-        record_type=_as_memory_type(str(data.get("record_type", ""))),
-        from_tier=_as_memory_tier(str(data.get("from_tier", ""))),
-        to_tier=_as_memory_tier(str(data.get("to_tier", ""))),
-        transition_reason=_as_memory_tier_transition_reason(
-            str(data.get("transition_reason", ""))
+        transition_id=str(_required(data, "transition_id")),
+        record_id=str(_required(data, "record_id")),
+        scope=str(_required(data, "scope")),
+        record_type=coerce_memory_type(str(_required(data, "record_type"))),
+        from_tier=coerce_memory_tier(str(_required(data, "from_tier"))),
+        to_tier=coerce_memory_tier(str(_required(data, "to_tier"))),
+        transition_reason=coerce_memory_tier_transition_reason(
+            str(_required(data, "transition_reason"))
         ),
-        transition_at=str(data.get("transition_at", "")),
+        transition_at=str(_required(data, "transition_at")),
         access_count=max(0, int(data.get("access_count", 0) or 0)),
         meta=dict(data.get("meta", {})) if isinstance(data.get("meta"), dict) else {},
     )
 
 
+_record_from_dict = record_from_dict
+_candidate_from_dict = candidate_from_dict
+_relation_from_dict = relation_from_dict
+_tier_transition_from_dict = tier_transition_from_dict
+
+
 def _serialize_rows(rows: list[Any]) -> bytes:
-    payload = "\n".join(_json_dumps(asdict(row)) for row in rows)
+    payload = "\n".join(json_dumps(asdict(row)) for row in rows)
     if payload:
         payload += "\n"
     return payload.encode("utf-8")
@@ -262,7 +292,7 @@ def build_manifest(
 def _serialize_provenance_traces(traces: list[TurnProvenanceTrace]) -> bytes:
     """Serialize provenance traces as JSONL via the contract `to_dict()` helper."""
 
-    payload = "\n".join(_json_dumps(trace.to_dict()) for trace in traces)
+    payload = "\n".join(json_dumps(trace.to_dict()) for trace in traces)
     if payload:
         payload += "\n"
     return payload.encode("utf-8")
@@ -299,7 +329,7 @@ def write_bundle_snapshot(snapshot: MemoryBundleSnapshot, out_path: str | Path) 
         )
 
     manifest = build_manifest(snapshot=snapshot, files=files)
-    manifest_bytes = _json_dumps(manifest, indent=2).encode("utf-8")
+    manifest_bytes = json_dumps(manifest, indent=2).encode("utf-8")
 
     with tarfile.open(out, "w:gz") as archive:
         for name, payload in {**files, _MANIFEST_NAME: manifest_bytes}.items():
@@ -339,18 +369,18 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
         if expected_sha != _sha256_bytes(members[name]):
             raise InvalidArgumentError(f"checksum mismatch for {name}")
 
-    records = _hydrate_jsonl(members.get("records.jsonl", b""), _record_from_dict)
+    records = _hydrate_jsonl(members.get("records.jsonl", b""), record_from_dict)
     candidates = _hydrate_jsonl(
         members.get("candidates.jsonl", b""),
-        _candidate_from_dict,
+        candidate_from_dict,
     )
     relations = _hydrate_jsonl(
         members.get("relations.jsonl", b""),
-        _relation_from_dict,
+        relation_from_dict,
     )
     tier_transitions = _hydrate_jsonl(
         members.get("tier_transitions.jsonl", b""),
-        _tier_transition_from_dict,
+        tier_transition_from_dict,
     )
     provenance_traces = _hydrate_provenance_traces(members.get("provenance.jsonl", b""))
     return MemoryBundleSnapshot(
@@ -366,6 +396,11 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
 __all__ = [
     "MEMORY_BUNDLE_VERSION",
     "build_manifest",
+    "candidate_from_dict",
+    "json_dumps",
     "read_bundle_snapshot",
+    "record_from_dict",
+    "relation_from_dict",
+    "tier_transition_from_dict",
     "write_bundle_snapshot",
 ]

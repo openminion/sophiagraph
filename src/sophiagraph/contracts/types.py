@@ -1,4 +1,10 @@
-"""Durable-knowledge contract DTOs."""
+"""Durable-knowledge contract DTOs for package and host-runtime adapters.
+
+These DTOs are retained as explicit cross-package handshake shapes. They are
+not used by every package-local store method yet, but OpenMinion and future
+service adapters can use them without importing host-framework modules back
+into `sophiagraph`.
+"""
 
 from __future__ import annotations
 
