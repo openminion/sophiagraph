@@ -79,50 +79,42 @@ SessionSummaryOutcome = Literal[
 _SCOPE_PATTERN = re.compile(r"^(session|agent|project|global):[A-Za-z0-9._:-]+$")
 _NAMESPACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]+$")
 
+
 def _as_memory_type(value: str) -> MemoryType:
-    """Narrow a runtime-validated string to MemoryType."""
     return cast(MemoryType, value)
 
 
 def _as_memory_source(value: str) -> MemorySource:
-    """Narrow a runtime-validated string to MemorySource."""
     return cast(MemorySource, value)
 
 
 def _as_memory_tier(value: str) -> MemoryTier:
-    """Narrow a runtime-validated string to MemoryTier."""
     return cast(MemoryTier, value)
 
 
 def _as_candidate_status(value: str) -> CandidateStatus:
-    """Narrow a runtime-validated string to CandidateStatus."""
     return cast(CandidateStatus, value)
 
 
 def _as_claim_key_polarity(value: str) -> ClaimKeyPolarity:
-    """Narrow a runtime-validated string to ClaimKeyPolarity."""
     return cast(ClaimKeyPolarity, value)
 
 
 def _as_memory_source_class(value: str) -> MemorySourceClass:
-    """Narrow a runtime-validated string to MemorySourceClass."""
     return cast(MemorySourceClass, value)
 
 
 def _as_memory_relation_type(value: str) -> MemoryRelationType:
-    """Narrow a runtime-validated string to MemoryRelationType."""
     return cast(MemoryRelationType, value)
 
 
 def _as_memory_tier_transition_reason(value: str) -> MemoryTierTransitionReason:
-    """Narrow a runtime-validated string to MemoryTierTransitionReason."""
     return cast(MemoryTierTransitionReason, value)
 
 
 def _as_memory_type_list(
     values: list[str] | list[Any] | None,
 ) -> list[MemoryType] | None:
-    """Narrow a list of runtime-validated strings to list[MemoryType]."""
     if values is None:
         return None
     return cast(list[MemoryType], list(values))
@@ -131,7 +123,6 @@ def _as_memory_type_list(
 def _as_memory_relation_type_list(
     values: list[str] | None,
 ) -> list[MemoryRelationType] | None:
-    """Narrow a list of runtime-validated strings to list[MemoryRelationType]."""
     if values is None:
         return None
     return cast(list[MemoryRelationType], list(values))
@@ -390,7 +381,7 @@ class MemoryRecord:
 
     @property
     def superseded(self) -> bool:
-        """VKCR-01 readability helper: True when this record has been"""
+        """Return True when this record has been superseded."""
         return self.superseded_by_id is not None
 
     def is_invalidated_at(self, when: datetime | str | None = None) -> bool:
@@ -661,9 +652,6 @@ class SessionSummaryContent(TypedDict):
     outcome: SessionSummaryOutcome
     turn_count: int
     summary_text: str
-
-
-# Gateway patch result — shared between V2 gateway adapter and Brain adapter.
 
 
 @dataclass(frozen=True)

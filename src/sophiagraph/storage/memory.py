@@ -37,7 +37,7 @@ from sophiagraph.storage.helpers import (
 
 
 class SophiaGraphMemoryStore(SophiaGraphStore):
-    """Pure in-memory backend that proves the package contract beyond SQLite."""
+    """In-memory implementation of the storage contract."""
 
     contract_version = MEMORY_CONTRACT_VERSION
 

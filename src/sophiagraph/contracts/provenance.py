@@ -1,25 +1,4 @@
-"""Memory-provenance contracts (MPF-01).
-
-Two typed surfaces that compose:
-
-- ``MemoryProvenanceEntry`` — a single memory's per-turn contribution.
-  Carries the memory ID, where the memory came from (its ``source`` and
-  ``scope``), when it was written, the score that retrieval awarded it
-  this turn, the breakdown of that score, and a short citation context
-  string that the caller may attach.
-
-- ``TurnProvenanceTrace`` — aggregate per-turn record keyed by
-  ``(session_id, turn_id)`` with the list of ``MemoryProvenanceEntry``
-  entries plus the retrieval cutoff used.
-
-Both dataclasses are frozen so callers cannot mutate them after
-construction. JSON-round-trip helpers (``to_dict`` / ``from_dict``)
-are provided so the API + CLI surfaces can serialize without each
-re-deriving the schema.
-
-MPF-07 (bundle round-trip) consumes the same dataclasses; do NOT
-introduce a parallel "provenance bundle" representation.
-"""
+"""Memory-provenance contracts."""
 
 from __future__ import annotations
 
@@ -30,25 +9,7 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 
 @dataclass(frozen=True)
 class MemoryProvenanceEntry:
-    """A single memory's contribution to a specific turn's retrieval.
-
-    Fields:
-        memory_id: stable ID of the memory record that contributed.
-        source: ``MemoryRecord.source`` value at the time of retrieval
-            (e.g. ``user_input``, ``tool_result``, ``agent_inferred``).
-            Captured at retrieval time so later mutation of the record
-            does not invalidate the trace.
-        written_at: ISO timestamp of the original ``MemoryRecord.created_at``.
-        retrieval_score: the unified-scorer composite score this memory
-            received for this turn's query.
-        score_breakdown: per-signal breakdown produced by
-            ``unified_scorer``. Typically includes ``relevance``,
-            ``recency``, ``feedback``, ``type_bonus``, ``confidence``,
-            ``outcome_utility``.
-        citation_context: optional caller-supplied short string
-            describing how the memory was used (e.g. ``"answer_grounding"``
-            or ``"plan_step_3"``). Free-form text up to 200 chars.
-    """
+    """A single memory's contribution to a turn retrieval."""
 
     memory_id: str
     source: str
@@ -86,27 +47,7 @@ class MemoryProvenanceEntry:
 
 @dataclass(frozen=True)
 class TurnProvenanceTrace:
-    """Per-turn aggregate of memory-retrieval provenance.
-
-    A trace is written once per turn at the conclusion of memory
-    retrieval. The same trace is later queryable by either
-    ``(session_id, turn_id)`` (to answer "which memories influenced
-    this turn?") or by ``memory_id`` (to answer "which turns cited
-    this memory?").
-
-    Fields:
-        session_id: the session the turn belongs to.
-        turn_id: the turn within the session.
-        recorded_at: ISO timestamp of when the trace was written.
-        entries: ordered list of ``MemoryProvenanceEntry`` for every
-            memory that scored above the retrieval cutoff. Order is
-            the same order the retrieval surface ranked them.
-        retrieval_cutoff: the composite-score cutoff applied at
-            retrieval time. Entries are guaranteed to have
-            ``retrieval_score >= retrieval_cutoff``.
-        query: the retrieval query string used for this turn. Persisted
-            so audit queries can answer "what was the agent looking for".
-    """
+    """Per-turn aggregate of memory-retrieval provenance."""
 
     session_id: str
     turn_id: str

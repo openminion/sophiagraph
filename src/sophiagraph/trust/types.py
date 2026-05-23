@@ -1,4 +1,4 @@
-"""Typed trust contracts for the memory poisoning-defense lane."""
+"""Typed trust contracts for memory poisoning defense."""
 
 from __future__ import annotations
 
