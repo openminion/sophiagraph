@@ -1,0 +1,88 @@
+# sophiagraph API Compatibility Policy
+
+Owner: `sophiagraph`
+Status: `active`
+Scope: stable import-root and versioning policy for external `sophiagraph` consumers
+
+## Purpose
+
+Define what external consumers can rely on when they build against the
+standalone `sophiagraph` package.
+
+## Stable import roots
+
+External consumers should treat these import roots as the supported public API:
+
+- `sophiagraph`
+- `sophiagraph.models`
+- `sophiagraph.query`
+- `sophiagraph.storage`
+- `sophiagraph.portability`
+- `sophiagraph.audit`
+- `sophiagraph.trust`
+- `sophiagraph.temporal`
+- `sophiagraph.contracts`
+
+The top-level `sophiagraph` package is the preferred entrypoint for common usage.
+
+## Stable top-level exports
+
+The following top-level exports are part of the current public contract:
+
+- `sophiagraph.__version__`
+- `sophiagraph.DEFAULT_DB_FILENAME`
+- `sophiagraph.SophiaGraphSqliteStore`
+- `sophiagraph.SophiaGraphMemoryStore`
+- `sophiagraph.MemoryNamespace`
+- `sophiagraph.MemoryNamespaceComponent`
+- `sophiagraph.create_sqlite_store(...)`
+- `sophiagraph.create_memory_store()`
+- `sophiagraph.default_db_path(...)`
+- `sophiagraph.audit`
+- `sophiagraph.contracts`
+- `sophiagraph.portability`
+- `sophiagraph.trust`
+- `sophiagraph.coerce_temporal_dt`
+
+## Versioning posture
+
+`sophiagraph` is currently `0.x` software.
+
+That means:
+
+1. additive API changes are preferred,
+2. breaking changes are still possible,
+3. breaking changes must be called out in release notes and package docs,
+4. stable import roots should not be moved casually even during `0.x`.
+
+## Deprecation policy
+
+When a public symbol or import path needs to change:
+
+1. prefer an additive replacement first,
+2. document the new path in `README.md`,
+3. keep the old path available for at least one `0.x` release when practical,
+4. remove only after the deprecation is documented in release notes.
+
+If a safety or correctness issue requires immediate removal, the release notes
+must say so explicitly.
+
+## Compatibility tests
+
+Public-contract confidence should be enforced by tests that cover:
+
+1. import-root availability,
+2. public top-level export availability,
+3. store-behavior regressions for package-owned backends,
+4. portability round-trip expectations,
+5. namespace-safe query/export/import boundaries,
+6. release/install smoke for built artifacts.
+
+## Non-goals
+
+This policy does not promise:
+
+1. host-framework orchestration semantics,
+2. compatibility for private helper modules,
+3. long-term support for undocumented import paths,
+4. compatibility with every possible third-party graph backend.
