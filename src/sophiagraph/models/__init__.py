@@ -1,16 +1,117 @@
 """Canonical durable-knowledge models and helpers."""
 
-from .core import *  # noqa: F401,F403
-from .core import (
-    _as_candidate_status as _as_candidate_status,
-    _as_claim_key_polarity as _as_claim_key_polarity,
-    _as_memory_relation_type as _as_memory_relation_type,
-    _as_memory_relation_type_list as _as_memory_relation_type_list,
-    _as_memory_source as _as_memory_source,
-    _as_memory_source_class as _as_memory_source_class,
-    _as_memory_tier as _as_memory_tier,
-    _as_memory_tier_transition_reason as _as_memory_tier_transition_reason,
-    _as_memory_type as _as_memory_type,
-    _as_memory_type_list as _as_memory_type_list,
-    _coerce_temporal_dt as _coerce_temporal_dt,
+from .candidate import CandidateReview, MemoryCandidate
+from .document import (
+    DocumentBlockType,
+    DocumentSourceFormat,
+    KnowledgeDocument,
+    KnowledgeDocumentBlock,
+    content_hash,
 )
+from .link import (
+    ContextUnit,
+    ExplicitLinkResolver,
+    LinkKind,
+    LinkResolution,
+    LinkResolutionCandidate,
+    LinkResolutionStatus,
+    StructuralLink,
+    normalize_link_target,
+    split_target_parts,
+)
+from .namespace import MemoryNamespace, MemoryNamespaceComponent, MemoryScope
+from . import primitives as _primitive_models
+from .primitives import (
+    CandidateStatus,
+    MemoryRelationType,
+    MemorySource,
+    MemoryTier,
+    MemoryTierTransitionReason,
+    MemoryType,
+    NamespaceKind,
+    RecordVisibility,
+    RelationDirection,
+    Scope,
+    ScopeKind,
+    SessionSummaryOutcome,
+    SessionSummaryThreadStatus,
+    coerce_candidate_status,
+    coerce_memory_relation_type,
+    coerce_memory_source,
+    coerce_memory_tier,
+    coerce_memory_tier_transition_reason,
+    coerce_memory_type,
+)
+from .record import (
+    ArtifactRef,
+    MemoryPatchResult,
+    MemoryRecord,
+    RetrievalFilters,
+    SessionSummaryActiveThread,
+    SessionSummaryContent,
+)
+from . import record as _record_models
+from .relation import MemoryRelation
+from .tier import MemoryTierTransition
+
+_SCOPE_PATTERN = _primitive_models._SCOPE_PATTERN
+_as_candidate_status = _primitive_models._as_candidate_status
+_as_claim_key_polarity = _primitive_models._as_claim_key_polarity
+_as_memory_relation_type = _primitive_models._as_memory_relation_type
+_as_memory_relation_type_list = _primitive_models._as_memory_relation_type_list
+_as_memory_source = _primitive_models._as_memory_source
+_as_memory_source_class = _primitive_models._as_memory_source_class
+_as_memory_tier = _primitive_models._as_memory_tier
+_as_memory_tier_transition_reason = _primitive_models._as_memory_tier_transition_reason
+_as_memory_type = _primitive_models._as_memory_type
+_as_memory_type_list = _primitive_models._as_memory_type_list
+_coerce_temporal_dt = _record_models._coerce_temporal_dt
+
+__all__ = [
+    "ArtifactRef",
+    "CandidateReview",
+    "CandidateStatus",
+    "ContextUnit",
+    "DocumentBlockType",
+    "DocumentSourceFormat",
+    "ExplicitLinkResolver",
+    "KnowledgeDocument",
+    "KnowledgeDocumentBlock",
+    "LinkKind",
+    "LinkResolution",
+    "LinkResolutionCandidate",
+    "LinkResolutionStatus",
+    "MemoryCandidate",
+    "MemoryNamespace",
+    "MemoryNamespaceComponent",
+    "MemoryPatchResult",
+    "MemoryRecord",
+    "MemoryRelation",
+    "MemoryRelationType",
+    "MemoryScope",
+    "MemorySource",
+    "MemoryTier",
+    "MemoryTierTransition",
+    "MemoryTierTransitionReason",
+    "MemoryType",
+    "NamespaceKind",
+    "RecordVisibility",
+    "RelationDirection",
+    "RetrievalFilters",
+    "Scope",
+    "ScopeKind",
+    "SessionSummaryActiveThread",
+    "SessionSummaryContent",
+    "SessionSummaryOutcome",
+    "SessionSummaryThreadStatus",
+    "StructuralLink",
+    "coerce_candidate_status",
+    "coerce_memory_relation_type",
+    "coerce_memory_source",
+    "coerce_memory_tier",
+    "coerce_memory_tier_transition_reason",
+    "coerce_memory_type",
+    "content_hash",
+    "normalize_link_target",
+    "split_target_parts",
+]

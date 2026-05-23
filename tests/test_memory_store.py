@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from sophiagraph.models import MemoryNamespace, MemoryRecord
+import pytest
+
+from sophiagraph.contracts.errors import InvalidArgumentError
+from sophiagraph.models import MemoryCandidate, MemoryNamespace, MemoryRecord
 from sophiagraph.portability.models import (
     MemoryBundleExportOptions,
     MemoryBundleImportOptions,
@@ -109,3 +112,40 @@ def test_memory_store_namespace_filters_and_export_boundaries() -> None:
         record.id
         for record in dest.list_records(ListQueryOptions(scopes=["agent:alpha"]))
     ] == ["mem-alpha"]
+
+
+def test_memory_store_candidate_promotion_preserves_candidate_namespace() -> None:
+    store = SophiaGraphMemoryStore()
+    namespace = MemoryNamespace(
+        tenant_id="tenant-acme",
+        user_id="user-j",
+        agent_id="agent-candidate",
+        session_id="session-1",
+    )
+    candidate = MemoryCandidate(
+        candidate_id="cand-ns",
+        session_id="session-1",
+        proposed_scope="agent:agent-candidate",
+        type="fact",
+        content={"text": "candidate namespace persists"},
+        namespace=namespace,
+    )
+    store.put_candidate(candidate)
+
+    promoted = store.promote_candidate("cand-ns", "agent:agent-candidate")
+
+    assert promoted.namespace == namespace
+    assert promoted.effective_namespace == namespace
+
+
+def test_memory_candidate_rejects_conflicting_meta_fields() -> None:
+    with pytest.raises(InvalidArgumentError, match="claim_key conflicts"):
+        MemoryCandidate(
+            candidate_id="cand-conflict",
+            session_id="session-1",
+            proposed_scope="agent:agent-candidate",
+            type="fact",
+            content={"text": "conflict"},
+            claim_key="project:a",
+            meta={"claim_key": "project:b"},
+        )

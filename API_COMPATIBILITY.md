@@ -18,6 +18,10 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.query`
 - `sophiagraph.storage`
 - `sophiagraph.portability`
+- `sophiagraph.adapters`
+- `sophiagraph.canvas`
+- `sophiagraph.extensions`
+- `sophiagraph.views`
 - `sophiagraph.audit`
 - `sophiagraph.trust`
 - `sophiagraph.temporal`
@@ -35,6 +39,22 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.SophiaGraphMemoryStore`
 - `sophiagraph.MemoryNamespace`
 - `sophiagraph.MemoryNamespaceComponent`
+- `sophiagraph.MemoryRecord`
+- `sophiagraph.MemoryCandidate`
+- `sophiagraph.MemoryRelation`
+- `sophiagraph.KnowledgeDocument`
+- `sophiagraph.KnowledgeDocumentBlock`
+- `sophiagraph.StructuralLink`
+- `sophiagraph.ExplicitLinkResolver`
+- `sophiagraph.LinkResolution`
+- `sophiagraph.LinkResolutionCandidate`
+- `sophiagraph.ListQueryOptions`
+- `sophiagraph.SearchQueryOptions`
+- `sophiagraph.LinkQueryOptions`
+- `sophiagraph.LocalGraphOptions`
+- `sophiagraph.GraphSnapshotOptions`
+- `sophiagraph.GraphSnapshot`
+- `sophiagraph.StructuralSearchQuery`
 - `sophiagraph.create_sqlite_store(...)`
 - `sophiagraph.create_memory_store()`
 - `sophiagraph.default_db_path(...)`
@@ -76,13 +96,24 @@ Public-contract confidence should be enforced by tests that cover:
 3. store-behavior regressions for package-owned backends,
 4. portability round-trip expectations,
 5. namespace-safe query/export/import boundaries,
-6. release/install smoke for built artifacts.
+6. explicit link/backlink/local-graph behavior across memory and SQLite stores,
+7. Markdown/frontmatter structural import behavior with no prose rewrites,
+8. release/install smoke for built artifacts.
+
+## Internal compatibility shims
+
+Underscore-prefixed model cast helpers and codec hydrator aliases may remain
+available during `0.x` for OpenMinion compatibility, but they are not part of
+`__all__` and should not be used by new external consumers. New code should use
+public model imports and public codec helpers such as `record_from_dict`.
 
 ## Non-goals
 
 This policy does not promise:
 
 1. host-framework orchestration semantics,
-2. compatibility for private helper modules,
-3. long-term support for undocumented import paths,
-4. compatibility with every possible third-party graph backend.
+2. an Obsidian editor, renderer, sync service, or plugin runtime,
+3. semantic inference of tags, links, relation types, or summaries from prose,
+4. compatibility for private helper modules,
+5. long-term support for undocumented import paths,
+6. compatibility with every possible third-party graph backend.

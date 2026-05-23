@@ -97,3 +97,35 @@ def test_memory_record_accepts_explicit_namespace() -> None:
     )
 
     assert record.effective_namespace == namespace
+
+
+def test_memory_record_validates_visibility_when_present() -> None:
+    MemoryRecord(
+        id="rec-private",
+        scope="agent:codex",
+        type="fact",
+        content={"text": "private is valid"},
+        created_at="2026-05-23T00:00:00+00:00",
+        updated_at="2026-05-23T00:00:00+00:00",
+        visibility="private",
+    )
+    MemoryRecord(
+        id="rec-shared",
+        scope="agent:codex",
+        type="fact",
+        content={"text": "shared is valid"},
+        created_at="2026-05-23T00:00:00+00:00",
+        updated_at="2026-05-23T00:00:00+00:00",
+        visibility="shared",
+    )
+
+    with pytest.raises(InvalidArgumentError, match="invalid visibility"):
+        MemoryRecord(
+            id="rec-bad",
+            scope="agent:codex",
+            type="fact",
+            content={"text": "bad visibility"},
+            created_at="2026-05-23T00:00:00+00:00",
+            updated_at="2026-05-23T00:00:00+00:00",
+            visibility="public",
+        )

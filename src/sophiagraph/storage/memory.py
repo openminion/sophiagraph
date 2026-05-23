@@ -10,10 +10,13 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
     MemoryCandidate,
+    MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
     MemoryTierTransition,
     MemoryType,
+    RelationDirection,
+    StructuralLink,
 )
 from sophiagraph.portability.models import (
     MemoryBundleExportOptions,
@@ -23,16 +26,27 @@ from sophiagraph.portability.models import (
 )
 from sophiagraph.query import (
     CandidateListOptions,
+    GraphSnapshot,
+    GraphSnapshotOptions,
+    LinkQueryOptions,
     ListQueryOptions,
+    LocalGraphOptions,
     RecordOrder,
     SearchQueryOptions,
+    StructuralSearchQuery,
 )
-from sophiagraph.portability.codec import _record_from_dict, build_manifest
+from sophiagraph.portability.codec import build_manifest, record_from_dict
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.helpers import (
     record_matches_namespaces,
     record_matches_query,
     utc_now_iso,
+)
+from sophiagraph.storage.graph_helpers import (
+    graph_edge_from_link,
+    graph_node_from_record,
+    namespace_matches_filters,
+    record_matches_structural_query,
 )
 
 
@@ -44,6 +58,7 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
     def __init__(self) -> None:
         self._records: dict[str, MemoryRecord] = {}
         self._relations: dict[str, MemoryRelation] = {}
+        self._links: dict[str, StructuralLink] = {}
         self._candidates: dict[str, MemoryCandidate] = {}
         self._transitions: dict[str, MemoryTierTransition] = {}
 
@@ -68,7 +83,7 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
             payload.setdefault("tier", "working")
             payload.setdefault("content", {})
             payload.setdefault("meta", {})
-            record = _record_from_dict(payload)
+            record = record_from_dict(payload)
         else:
             payload = existing.__dict__.copy()
             payload.update(record_patch)
@@ -76,7 +91,7 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
             payload["type"] = type
             payload["key"] = key
             payload["updated_at"] = now
-            record = _record_from_dict(payload)
+            record = record_from_dict(payload)
         self.put_record(record)
         return record
 
@@ -171,13 +186,17 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
         self,
         record_id: str,
         *,
+        direction: RelationDirection = "out",
         relation_types: list[Any] | None = None,
         limit: int | None = None,
     ) -> list[MemoryRelation]:
+        if direction not in {"out", "in", "both"}:
+            raise InvalidArgumentError(f"invalid relation direction: {direction!r}")
         relations = [
             relation
             for relation in self._relations.values()
-            if relation.source_record_id == record_id
+            if (direction in {"out", "both"} and relation.source_record_id == record_id)
+            or (direction in {"in", "both"} and relation.target_record_id == record_id)
         ]
         relations.sort(key=lambda relation: relation.created_at, reverse=True)
         if relation_types:
@@ -194,20 +213,225 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
         record_id: str,
         scopes: list[str],
         *,
+        direction: RelationDirection = "out",
         relation_types: list[Any] | None = None,
         limit: int | None = None,
     ) -> list[MemoryRecord]:
         relations = self.list_relations(
-            record_id, relation_types=relation_types, limit=limit
+            record_id,
+            direction=direction,
+            relation_types=relation_types,
+            limit=limit,
         )
         scope_allow = set(scopes)
-        records = [
-            record
-            for relation in relations
-            if (record := self.get_record(relation.target_record_id)) is not None
-            and record.scope in scope_allow
-        ]
+        records: list[MemoryRecord] = []
+        for relation in relations:
+            related_id = (
+                relation.target_record_id
+                if relation.source_record_id == record_id
+                else relation.source_record_id
+            )
+            record = self.get_record(related_id)
+            if record is not None and record.scope in scope_allow:
+                records.append(record)
         return records[: int(limit)] if limit is not None else records
+
+    def put_link(self, link: StructuralLink) -> str:
+        self._links[link.link_id] = link
+        return link.link_id
+
+    def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]:
+        links = [
+            link
+            for link in self._links.values()
+            if (
+                options.direction in {"out", "both"}
+                and link.source_record_id == options.record_id
+            )
+            or (
+                options.direction in {"in", "both"}
+                and link.target_record_id == options.record_id
+            )
+        ]
+        links = [
+            link
+            for link in links
+            if namespace_matches_filters(link.namespace, options.namespaces)
+        ]
+        if options.relation_types:
+            allowed = {str(item) for item in options.relation_types}
+            links = [link for link in links if link.relation_type in allowed]
+        links.sort(key=lambda link: (link.created_at or "", link.link_id), reverse=True)
+        bounded = [
+            link.with_context_bounds(
+                before=options.context_chars,
+                after=options.context_chars,
+            )
+            for link in links
+        ]
+        if options.limit is not None:
+            bounded = bounded[: int(options.limit)]
+        return bounded
+
+    def get_outgoing_links(
+        self, record_id: str, *, limit: int | None = None
+    ) -> list[StructuralLink]:
+        return self.list_links(
+            LinkQueryOptions(record_id=record_id, direction="out", limit=limit)
+        )
+
+    def get_backlinks(
+        self, record_id: str, *, limit: int | None = None
+    ) -> list[StructuralLink]:
+        return self.list_links(
+            LinkQueryOptions(record_id=record_id, direction="in", limit=limit)
+        )
+
+    def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot:
+        seen_nodes: set[str] = set()
+        frontier: list[tuple[str, int]] = [(options.record_id, 0)]
+        edges: list[Any] = []
+        edge_ids: set[str] = set()
+        degree_in: dict[str, int] = {}
+        degree_out: dict[str, int] = {}
+        while frontier and len(seen_nodes) < options.max_nodes:
+            record_id, depth = frontier.pop(0)
+            if record_id in seen_nodes:
+                continue
+            seen_nodes.add(record_id)
+            if depth >= options.depth:
+                continue
+            for link in self.list_links(
+                LinkQueryOptions(
+                    record_id=record_id,
+                    direction=options.direction,
+                    relation_types=options.relation_types,
+                    namespaces=options.namespaces,
+                    limit=None,
+                )
+            ):
+                if link.link_id not in edge_ids and len(edges) < options.max_edges:
+                    edges.append(graph_edge_from_link(link))
+                    edge_ids.add(link.link_id)
+                if link.target_record_id:
+                    degree_out[link.source_record_id] = (
+                        degree_out.get(link.source_record_id, 0) + 1
+                    )
+                    degree_in[link.target_record_id] = (
+                        degree_in.get(link.target_record_id, 0) + 1
+                    )
+                next_id = (
+                    link.target_record_id
+                    if link.source_record_id == record_id
+                    else link.source_record_id
+                )
+                if next_id and next_id not in seen_nodes:
+                    frontier.append((next_id, depth + 1))
+        records = [
+            self._records[record_id]
+            for record_id in sorted(seen_nodes)
+            if record_id in self._records
+            and namespace_matches_filters(
+                self._records[record_id].effective_namespace, options.namespaces
+            )
+        ]
+        nodes = [
+            graph_node_from_record(
+                record,
+                degree_in=degree_in.get(record.id, 0),
+                degree_out=degree_out.get(record.id, 0),
+            )
+            for record in records[: options.max_nodes]
+        ]
+        return GraphSnapshot(
+            nodes=nodes,
+            edges=edges,
+            root_record_id=options.record_id,
+            depth=options.depth,
+            direction=options.direction,
+            provenance={"store": "memory"},
+        )
+
+    def get_graph_snapshot(self, options: GraphSnapshotOptions) -> GraphSnapshot:
+        records = self.list_records(
+            ListQueryOptions(
+                scopes=options.scopes,
+                namespaces=options.namespaces,
+                limit=options.max_nodes,
+                include_invalidated=False,
+            )
+        )
+        record_ids = {record.id for record in records}
+        links = [
+            link
+            for link in self._links.values()
+            if link.source_record_id in record_ids
+            and (link.target_record_id is None or link.target_record_id in record_ids)
+            and namespace_matches_filters(link.namespace, options.namespaces)
+        ]
+        if options.relation_types:
+            allowed = {str(item) for item in options.relation_types}
+            links = [link for link in links if link.relation_type in allowed]
+        links = links[: options.max_edges]
+        degree_in: dict[str, int] = {}
+        degree_out: dict[str, int] = {}
+        for link in links:
+            if link.target_record_id:
+                degree_out[link.source_record_id] = (
+                    degree_out.get(link.source_record_id, 0) + 1
+                )
+                degree_in[link.target_record_id] = (
+                    degree_in.get(link.target_record_id, 0) + 1
+                )
+        nodes = [
+            graph_node_from_record(
+                record,
+                degree_in=degree_in.get(record.id, 0),
+                degree_out=degree_out.get(record.id, 0),
+            )
+            for record in records
+            if options.include_orphans
+            or degree_in.get(record.id, 0)
+            or degree_out.get(record.id, 0)
+        ]
+        return GraphSnapshot(
+            nodes=nodes,
+            edges=[graph_edge_from_link(link) for link in links],
+            provenance={"store": "memory"},
+        )
+
+    def structural_search_records(
+        self,
+        query: StructuralSearchQuery,
+        *,
+        scopes: list[str],
+    ) -> list[MemoryRecord]:
+        records = self.list_records(
+            ListQueryOptions(scopes=scopes, namespaces=query.namespaces)
+        )
+        matches = [
+            record
+            for record in records
+            if record_matches_structural_query(
+                record,
+                query,
+                outgoing_targets=[
+                    link.raw_target
+                    for link in self._links.values()
+                    if link.source_record_id == record.id
+                ],
+                incoming_sources=[
+                    link.source_record_id
+                    for link in self._links.values()
+                    if link.target_record_id == record.id
+                ],
+            )
+        ]
+        if query.sort == "title":
+            matches.sort(key=lambda record: record.title or "")
+        if query.limit is not None:
+            matches = matches[: int(query.limit)]
+        return matches
 
     def put_candidate(self, candidate: MemoryCandidate) -> str:
         self._candidates[candidate.candidate_id] = candidate
@@ -277,6 +501,7 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
             confidence=candidate.confidence,
             evidence_refs=list(candidate.evidence_refs),
             meta=dict(candidate.meta),
+            namespace=candidate.namespace or MemoryNamespace.from_scope(target_scope),
             event_time=candidate.created_at or now,
         )
         self.put_record(record)
@@ -431,6 +656,7 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
                     key=record.key,
                     title=record.title,
                     meta=dict(record.meta),
+                    namespace=record.effective_namespace,
                     created_at=record.created_at,
                     updated_at=record.updated_at,
                 )

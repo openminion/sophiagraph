@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
+
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
     MemoryCandidate,
     MemoryNamespace,
@@ -74,6 +77,7 @@ def test_sqlite_schema_uses_sophiagraph_table_names(tmp_path) -> None:
     assert {
         "sophiagraph_records",
         "sophiagraph_relations",
+        "sophiagraph_links",
         "sophiagraph_candidates",
         "sophiagraph_tier_transitions",
     } <= table_names
@@ -169,6 +173,62 @@ def test_sqlite_store_migrates_legacy_scope_records_to_namespace(tmp_path) -> No
     assert agent_id == "legacy"
 
 
+def test_sqlite_store_namespace_migration_is_version_gated(tmp_path) -> None:
+    db_path = tmp_path / "legacy-version.sqlite3"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE sophiagraph_records (
+                id TEXT PRIMARY KEY,
+                scope TEXT NOT NULL,
+                record_type TEXT NOT NULL,
+                record_key TEXT,
+                title TEXT,
+                tier TEXT NOT NULL,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                valid_to TEXT,
+                updated_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO sophiagraph_records(
+                id, scope, record_type, record_key, title, tier, updated_at, payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "rec-legacy",
+                "agent:legacy",
+                "fact",
+                "project:alpha",
+                "Legacy",
+                "working",
+                "2026-05-22T00:00:00+00:00",
+                '{"id":"rec-legacy","scope":"agent:legacy","type":"fact","key":"project:alpha","title":"Legacy","content":{"text":"old"},"created_at":"2026-05-22T00:00:00+00:00","updated_at":"2026-05-22T00:00:00+00:00"}',
+            ),
+        )
+
+    SophiaGraphSqliteStore(db_path)
+    with sqlite3.connect(db_path) as conn:
+        first_version = conn.execute("PRAGMA user_version").fetchone()[0]
+        first_payload = conn.execute(
+            "SELECT payload_json FROM sophiagraph_records WHERE id = 'rec-legacy'"
+        ).fetchone()[0]
+
+    SophiaGraphSqliteStore(db_path)
+    with sqlite3.connect(db_path) as conn:
+        second_version = conn.execute("PRAGMA user_version").fetchone()[0]
+        second_payload = conn.execute(
+            "SELECT payload_json FROM sophiagraph_records WHERE id = 'rec-legacy'"
+        ).fetchone()[0]
+
+    assert first_version == 3
+    assert second_version == 3
+    assert second_payload == first_payload
+
+
 def test_sqlite_store_candidate_promotion_and_relations(tmp_path) -> None:
     store = SophiaGraphSqliteStore(tmp_path / "sophiagraph.sqlite3")
     anchor = _record("rec-anchor")
@@ -201,6 +261,79 @@ def test_sqlite_store_candidate_promotion_and_relations(tmp_path) -> None:
         store.list_candidates(CandidateListOptions(status="promoted"))[0].candidate_id
         == "cand-1"
     )
+
+
+def test_sqlite_store_candidate_promotion_preserves_candidate_namespace(
+    tmp_path,
+) -> None:
+    store = SophiaGraphSqliteStore(tmp_path / "sophiagraph.sqlite3")
+    namespace = MemoryNamespace(
+        tenant_id="tenant-acme",
+        user_id="user-j",
+        agent_id="test",
+        session_id="session-1",
+    )
+    candidate = MemoryCandidate(
+        candidate_id="cand-ns",
+        session_id="session-1",
+        proposed_scope="agent:test",
+        type="fact",
+        content={"text": "candidate namespace persists"},
+        namespace=namespace,
+    )
+    store.put_candidate(candidate)
+
+    promoted = store.promote_candidate("cand-ns", "agent:test")
+
+    assert promoted.namespace == namespace
+    assert store.get_record(promoted.id).namespace == namespace
+
+
+def test_sqlite_store_relation_direction_contract(tmp_path) -> None:
+    store = SophiaGraphSqliteStore(tmp_path / "sophiagraph.sqlite3")
+    first = _record("rec-1")
+    second = _record("rec-2")
+    third = _record("rec-3")
+    store.put_record(first)
+    store.put_record(second)
+    store.put_record(third)
+    store.put_relation(
+        MemoryRelation(
+            relation_id="rel-out",
+            source_record_id=first.id,
+            target_record_id=second.id,
+            relation_type="supports",
+            created_at="2026-05-22T00:00:00+00:00",
+        )
+    )
+    store.put_relation(
+        MemoryRelation(
+            relation_id="rel-in",
+            source_record_id=third.id,
+            target_record_id=first.id,
+            relation_type="depends_on",
+            created_at="2026-05-22T01:00:00+00:00",
+        )
+    )
+
+    assert [item.relation_id for item in store.list_relations(first.id)] == ["rel-out"]
+    assert [
+        item.relation_id for item in store.list_relations(first.id, direction="in")
+    ] == ["rel-in"]
+    assert [
+        item.relation_id for item in store.list_relations(first.id, direction="both")
+    ] == ["rel-in", "rel-out"]
+    assert [
+        item.id
+        for item in store.get_related_records(
+            first.id,
+            ["agent:test"],
+            direction="both",
+        )
+    ] == [third.id, second.id]
+
+    with pytest.raises(InvalidArgumentError, match="invalid relation direction"):
+        store.list_relations(first.id, direction="sideways")
 
 
 def test_sqlite_store_invalidation_supersession_and_history(tmp_path) -> None:

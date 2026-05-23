@@ -20,6 +20,10 @@ and portable snapshots.
 - audit-event schemas
 - trust and temporal primitives
 - typed namespace DTOs for explicit tenant/user/agent/session isolation
+- directed relation APIs with explicit incoming/outgoing/bidirectional lookup
+- Obsidian-style structural document/link DTOs, Markdown/frontmatter adapter,
+  backlinks, outgoing links, local graph traversal, graph snapshots, structural
+  search DTOs, saved view DTOs, JSON Canvas DTOs, and extension hooks
 - a package-local SQLite durable engine
 - a package-local in-memory backend for tests and ephemeral consumers
 - a standalone smoke entrypoint for publish/install validation
@@ -29,8 +33,10 @@ and portable snapshots.
 This package does **not** provide:
 
 - application orchestration or gateway policy
+- a full Obsidian clone, editor, sync service, or visual renderer
 - provider/model routing
 - session orchestration
+- automatic link, tag, relation, entity, or summary inference from prose
 - implicit imports back into any host framework
 
 Host frameworks remain the orchestrators. `sophiagraph` owns reusable durable
@@ -125,6 +131,7 @@ Runnable example:
 
 ```bash
 PYTHONPATH=src python3.11 examples/basic_usage.py
+PYTHONPATH=src python3.11 examples/obsidian_substrate.py
 ```
 
 ## Typed Namespaces
@@ -166,6 +173,94 @@ does not infer tenant, user, project, or agent identity from prose. Existing
 SQLite rows without namespace columns are migrated from their explicit legacy
 `scope` value only; no content or title text is inspected.
 
+## Graph Relations
+
+Relations are explicit, typed, directed edges between records. Consumers can
+list outgoing, incoming, or bidirectional edges through the `direction` option:
+
+```python
+outgoing = store.list_relations("rec-1")
+incoming = store.list_relations("rec-1", direction="in")
+neighborhood = store.get_related_records(
+    "rec-1",
+    ["agent:demo"],
+    direction="both",
+)
+```
+
+The package does not infer relation types from prose. Callers must submit
+relation records directly.
+
+## Obsidian-Style Knowledge Graph Substrate
+
+`sophiagraph` now has package-core surfaces for Obsidian-comparable structural
+workflows:
+
+- `KnowledgeDocument` wraps document-profile `MemoryRecord` nodes with path,
+  title, aliases, content hash, namespace, timestamps, and provenance.
+- `StructuralLink` represents explicit wikilinks, Markdown links, embeds,
+  property links, external URLs, unresolved targets, headings, and block refs.
+- `extract_markdown(...)` parses frontmatter, aliases, tags, and explicit link
+  syntax without modifying note prose.
+- Store backends expose `put_link(...)`, `list_links(...)`,
+  `get_backlinks(...)`, `get_outgoing_links(...)`, `get_local_graph(...)`, and
+  `get_graph_snapshot(...)`.
+- Structural search, saved views, JSON Canvas, and extension hooks are durable
+  DTO/helper surfaces. They do not require a UI renderer or OpenMinion import.
+
+Example:
+
+```python
+from sophiagraph.adapters.markdown import extract_markdown
+from sophiagraph.models import LinkResolutionCandidate, MemoryNamespace
+from sophiagraph.query import LinkQueryOptions, LocalGraphOptions
+
+namespace = MemoryNamespace(agent_id="demo", graph_id="main")
+imported = extract_markdown(
+    "See [[Roadmap]].",
+    path="Index.md",
+    record_id="rec-index",
+    namespace=namespace,
+    resolver_candidates=[
+        LinkResolutionCandidate(
+            record_id="rec-roadmap",
+            path="Roadmap.md",
+            title="Roadmap",
+            namespace=namespace,
+        )
+    ],
+)
+for link in imported.links:
+    store.put_link(link)
+
+backlinks = store.list_links(LinkQueryOptions(record_id="rec-roadmap", direction="in"))
+local_graph = store.get_local_graph(LocalGraphOptions(record_id="rec-index", depth=1))
+```
+
+The resolver contract is deliberately structural: explicit path first, then
+case-insensitive title/alias matching inside the namespace. Unresolved and
+ambiguous targets are preserved as first-class outcomes. Unlinked mentions are
+not persisted as graph edges.
+
+## Alpha-Scale Search and SQLite Connections
+
+Current search is deterministic substring search over hydrated record payloads.
+It is suitable for alpha-scale package use and tests, but it is not yet an
+FTS5-backed or vector-backed retrieval engine. The hybrid retrieval roadmap owns
+the future FTS/vector/rerank design.
+
+`SophiaGraphSqliteStore` opens a short-lived SQLite connection per method call.
+That keeps alpha behavior simple and avoids hidden shared connection state. A
+pooled or long-lived connection strategy should be introduced only with a
+separate lifecycle/concurrency contract.
+
+## Cross-Package Compatibility DTOs
+
+Some contract DTOs, including runtime snapshot/capsule/query shapes and
+`MemoryPatchResult`, are retained for host-runtime adapters such as OpenMinion
+and future service surfaces. They are compatibility contracts; package-local
+stores are not required to instantiate every DTO.
+
 ## Import Boundary Rule
 
 `sophiagraph` must never import from host frameworks such as OpenMinion.
@@ -197,6 +292,10 @@ Supported import roots:
 - `sophiagraph.query`
 - `sophiagraph.storage`
 - `sophiagraph.portability`
+- `sophiagraph.adapters`
+- `sophiagraph.canvas`
+- `sophiagraph.extensions`
+- `sophiagraph.views`
 - `sophiagraph.audit`
 - `sophiagraph.trust`
 - `sophiagraph.temporal`

@@ -9,8 +9,10 @@ from sophiagraph.models import (
     MemoryCandidate,
     MemoryRecord,
     MemoryRelation,
+    RelationDirection,
     MemoryTierTransition,
     MemoryType,
+    StructuralLink,
 )
 from sophiagraph.portability.models import (
     MemoryBundleExportOptions,
@@ -18,7 +20,16 @@ from sophiagraph.portability.models import (
     MemoryBundleImportResult,
     MemoryBundleSnapshot,
 )
-from sophiagraph.query import CandidateListOptions, ListQueryOptions, SearchQueryOptions
+from sophiagraph.query import (
+    CandidateListOptions,
+    GraphSnapshot,
+    GraphSnapshotOptions,
+    LinkQueryOptions,
+    ListQueryOptions,
+    LocalGraphOptions,
+    SearchQueryOptions,
+    StructuralSearchQuery,
+)
 
 
 class SophiaGraphStore(Protocol):
@@ -63,6 +74,7 @@ class SophiaGraphStore(Protocol):
         self,
         record_id: str,
         *,
+        direction: RelationDirection = "out",
         relation_types: list[Any] | None = None,
         limit: int | None = None,
     ) -> list[MemoryRelation]: ...
@@ -72,8 +84,32 @@ class SophiaGraphStore(Protocol):
         record_id: str,
         scopes: list[str],
         *,
+        direction: RelationDirection = "out",
         relation_types: list[Any] | None = None,
         limit: int | None = None,
+    ) -> list[MemoryRecord]: ...
+
+    def put_link(self, link: StructuralLink) -> str: ...
+
+    def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]: ...
+
+    def get_outgoing_links(
+        self, record_id: str, *, limit: int | None = None
+    ) -> list[StructuralLink]: ...
+
+    def get_backlinks(
+        self, record_id: str, *, limit: int | None = None
+    ) -> list[StructuralLink]: ...
+
+    def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot: ...
+
+    def get_graph_snapshot(self, options: GraphSnapshotOptions) -> GraphSnapshot: ...
+
+    def structural_search_records(
+        self,
+        query: StructuralSearchQuery,
+        *,
+        scopes: list[str],
     ) -> list[MemoryRecord]: ...
 
     def put_candidate(self, candidate: MemoryCandidate) -> str: ...

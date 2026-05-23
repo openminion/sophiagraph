@@ -18,14 +18,16 @@ from sophiagraph.models import (
     MemoryRelation,
     MemoryTierTransition,
     MemoryType,
+    RelationDirection,
+    StructuralLink,
 )
 from sophiagraph.portability.codec import (
-    _candidate_from_dict,
-    _json_dumps,
-    _record_from_dict,
-    _relation_from_dict,
-    _tier_transition_from_dict,
     build_manifest,
+    candidate_from_dict,
+    json_dumps,
+    record_from_dict,
+    relation_from_dict,
+    tier_transition_from_dict,
 )
 from sophiagraph.portability.models import (
     MemoryBundleExportOptions,
@@ -35,9 +37,14 @@ from sophiagraph.portability.models import (
 )
 from sophiagraph.query import (
     CandidateListOptions,
+    GraphSnapshot,
+    GraphSnapshotOptions,
+    LinkQueryOptions,
     ListQueryOptions,
+    LocalGraphOptions,
     RecordOrder,
     SearchQueryOptions,
+    StructuralSearchQuery,
 )
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.helpers import (
@@ -45,6 +52,16 @@ from sophiagraph.storage.helpers import (
     record_matches_query,
     utc_now_iso,
 )
+from sophiagraph.storage.graph_helpers import (
+    graph_edge_from_link,
+    graph_node_from_record,
+    link_from_dict,
+    link_to_dict,
+    namespace_matches_filters,
+    record_matches_structural_query,
+)
+
+_SCHEMA_VERSION = 3
 
 
 def _row_json(row: sqlite3.Row, key: str = "payload_json") -> dict[str, Any]:
@@ -75,6 +92,21 @@ def _namespace_from_payload(payload: dict[str, Any], scope: str) -> MemoryNamesp
     return MemoryNamespace.from_scope(scope)
 
 
+def _namespace_filter_sql(
+    namespaces: list[MemoryNamespace] | None,
+) -> tuple[str, list[Any]]:
+    if not namespaces:
+        return "", []
+    groups: list[str] = []
+    params: list[Any] = []
+    for namespace in namespaces:
+        values = namespace.as_dict()
+        clauses = [f"{column} = ?" for column in values]
+        groups.append("(" + " AND ".join(clauses) + ")")
+        params.extend(values.values())
+    return "(" + " OR ".join(groups) + ")", params
+
+
 class SophiaGraphSqliteStore(SophiaGraphStore):
     """Small standalone SQLite-backed durable engine for ``sophiagraph``."""
 
@@ -92,6 +124,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
 
     def _ensure_schema(self) -> None:
         with self._connect() as conn:
+            schema_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
             conn.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS sophiagraph_records (
@@ -128,6 +161,8 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                 );
                 CREATE INDEX IF NOT EXISTS idx_sophiagraph_relations_source
                     ON sophiagraph_relations(source_record_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_sophiagraph_relations_target
+                    ON sophiagraph_relations(target_record_id, created_at DESC);
 
                 CREATE TABLE IF NOT EXISTS sophiagraph_candidates (
                     candidate_id TEXT PRIMARY KEY,
@@ -151,9 +186,41 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                 );
                 CREATE INDEX IF NOT EXISTS idx_sophiagraph_tier_transitions_record
                     ON sophiagraph_tier_transitions(record_id, transition_at DESC);
+
+                CREATE TABLE IF NOT EXISTS sophiagraph_links (
+                    link_id TEXT PRIMARY KEY,
+                    source_record_id TEXT NOT NULL,
+                    target_record_id TEXT,
+                    raw_target TEXT NOT NULL,
+                    link_kind TEXT NOT NULL,
+                    resolution_status TEXT NOT NULL,
+                    relation_type TEXT,
+                    tenant_id TEXT,
+                    org_id TEXT,
+                    user_id TEXT,
+                    agent_id TEXT,
+                    session_id TEXT,
+                    conversation_id TEXT,
+                    project_id TEXT,
+                    graph_id TEXT,
+                    created_at TEXT,
+                    payload_json TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_sophiagraph_links_source
+                    ON sophiagraph_links(source_record_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_sophiagraph_links_target
+                    ON sophiagraph_links(target_record_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_sophiagraph_links_namespace
+                    ON sophiagraph_links(
+                        tenant_id, org_id, user_id, agent_id, session_id,
+                        conversation_id, project_id, graph_id
+                    );
                 """
             )
-            self._migrate_namespace_columns(conn)
+            if schema_version < 2:
+                self._migrate_namespace_columns(conn)
+            if schema_version < _SCHEMA_VERSION:
+                conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
             conn.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_sophiagraph_records_namespace
@@ -200,22 +267,25 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                     namespace_values.get("conversation_id"),
                     namespace_values.get("project_id"),
                     namespace_values.get("graph_id"),
-                    _json_dumps(payload),
+                    json_dumps(payload),
                     row["id"],
                 ),
             )
 
     def _record_from_row(self, row: sqlite3.Row) -> MemoryRecord:
-        return _record_from_dict(_row_json(row))
+        return record_from_dict(_row_json(row))
 
     def _candidate_from_row(self, row: sqlite3.Row) -> MemoryCandidate:
-        return _candidate_from_dict(_row_json(row))
+        return candidate_from_dict(_row_json(row))
 
     def _relation_from_row(self, row: sqlite3.Row) -> MemoryRelation:
-        return _relation_from_dict(_row_json(row))
+        return relation_from_dict(_row_json(row))
+
+    def _link_from_row(self, row: sqlite3.Row) -> StructuralLink:
+        return link_from_dict(_row_json(row))
 
     def _transition_from_row(self, row: sqlite3.Row) -> MemoryTierTransition:
-        return _tier_transition_from_dict(_row_json(row))
+        return tier_transition_from_dict(_row_json(row))
 
     def put_record(self, record: MemoryRecord) -> str:
         payload = asdict(record)
@@ -247,7 +317,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                     1 if record.is_deleted else 0,
                     record.valid_to,
                     record.updated_at,
-                    _json_dumps(payload),
+                    json_dumps(payload),
                 ),
             )
         return record.id
@@ -273,7 +343,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
             payload.setdefault("tier", "working")
             payload.setdefault("content", {})
             payload.setdefault("meta", {})
-            record = _record_from_dict(payload)
+            record = record_from_dict(payload)
         else:
             payload = asdict(existing)
             payload.update(record_patch)
@@ -281,7 +351,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
             payload["type"] = type
             payload["key"] = key
             payload["updated_at"] = now
-            record = _record_from_dict(payload)
+            record = record_from_dict(payload)
         self.put_record(record)
         return record
 
@@ -304,12 +374,19 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
         if options.tiers:
             clauses.append("tier IN ({})".format(",".join("?" for _ in options.tiers)))
             params.extend(options.tiers)
+        if not options.include_invalidated:
+            clauses.append("(valid_to IS NULL OR valid_to > ?)")
+            params.append(utc_now_iso())
+        namespace_sql, namespace_params = _namespace_filter_sql(options.namespaces)
+        if namespace_sql:
+            clauses.append(namespace_sql)
+            params.extend(namespace_params)
         order = "updated_at DESC"
         if options.order_by == RecordOrder.UPDATED_AT_ASC:
             order = "updated_at ASC"
         limit_sql = ""
-        sql_limit = options.limit if not options.namespaces else None
-        sql_offset = options.offset if not options.namespaces else None
+        sql_limit = options.limit
+        sql_offset = options.offset
         if sql_limit is not None:
             limit_sql += " LIMIT ?"
             params.append(int(sql_limit))
@@ -326,17 +403,6 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
         records = [self._record_from_row(row) for row in rows]
-        if not options.include_invalidated:
-            records = [record for record in records if record.is_current_at()]
-        records = [
-            record
-            for record in records
-            if record_matches_namespaces(record, options.namespaces)
-        ]
-        if options.namespaces and options.offset is not None:
-            records = records[int(options.offset) :]
-        if options.namespaces and options.limit is not None:
-            records = records[: int(options.limit)]
         return records
 
     def search_records(self, options: SearchQueryOptions) -> list[MemoryRecord]:
@@ -358,7 +424,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
             if record_matches_query(
                 record,
                 options.query,
-                content_serializer=_json_dumps,
+                content_serializer=json_dumps,
             )
         ]
         if options.limit is not None:
@@ -420,7 +486,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                     relation.target_record_id,
                     relation.relation_type,
                     relation.created_at,
-                    _json_dumps(asdict(relation)),
+                    json_dumps(asdict(relation)),
                 ),
             )
         return relation.relation_id
@@ -429,20 +495,40 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
         self,
         record_id: str,
         *,
+        direction: RelationDirection = "out",
         relation_types: list[Any] | None = None,
         limit: int | None = None,
     ) -> list[MemoryRelation]:
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT payload_json FROM sophiagraph_relations WHERE source_record_id = ? ORDER BY created_at DESC",
-                (record_id,),
-            ).fetchall()
-        relations = [self._relation_from_row(row) for row in rows]
+        if direction not in {"out", "in", "both"}:
+            raise InvalidArgumentError(f"invalid relation direction: {direction!r}")
+        clauses: list[str] = []
+        params: list[Any] = []
+        if direction == "out":
+            clauses.append("source_record_id = ?")
+            params.append(record_id)
+        elif direction == "in":
+            clauses.append("target_record_id = ?")
+            params.append(record_id)
+        else:
+            clauses.append("(source_record_id = ? OR target_record_id = ?)")
+            params.extend([record_id, record_id])
         if relation_types:
-            allowed = {str(item) for item in relation_types}
-            relations = [row for row in relations if row.relation_type in allowed]
+            allowed = [str(item) for item in relation_types]
+            clauses.append(
+                "relation_type IN ({})".format(",".join("?" for _ in allowed))
+            )
+            params.extend(allowed)
+        query = (
+            "SELECT payload_json FROM sophiagraph_relations WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY created_at DESC"
+        )
         if limit is not None:
-            relations = relations[: int(limit)]
+            query += " LIMIT ?"
+            params.append(int(limit))
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        relations = [self._relation_from_row(row) for row in rows]
         return relations
 
     def get_related_records(
@@ -450,22 +536,284 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
         record_id: str,
         scopes: list[str],
         *,
+        direction: RelationDirection = "out",
         relation_types: list[Any] | None = None,
         limit: int | None = None,
     ) -> list[MemoryRecord]:
         relations = self.list_relations(
-            record_id, relation_types=relation_types, limit=limit
+            record_id,
+            direction=direction,
+            relation_types=relation_types,
+            limit=limit,
         )
         records: list[MemoryRecord] = []
         scope_allow = set(scopes)
         for relation in relations:
-            record = self.get_record(relation.target_record_id)
+            related_id = (
+                relation.target_record_id
+                if relation.source_record_id == record_id
+                else relation.source_record_id
+            )
+            record = self.get_record(related_id)
             if record is None:
                 continue
             if record.scope not in scope_allow:
                 continue
             records.append(record)
         return records[: int(limit)] if limit is not None else records
+
+    def put_link(self, link: StructuralLink) -> str:
+        payload = link_to_dict(link)
+        namespace_values = link.namespace.as_dict()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO sophiagraph_links(
+                    link_id, source_record_id, target_record_id, raw_target,
+                    link_kind, resolution_status, relation_type, tenant_id,
+                    org_id, user_id, agent_id, session_id, conversation_id,
+                    project_id, graph_id, created_at, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    link.link_id,
+                    link.source_record_id,
+                    link.target_record_id,
+                    link.raw_target,
+                    link.link_kind,
+                    link.resolution_status,
+                    link.relation_type,
+                    namespace_values.get("tenant_id"),
+                    namespace_values.get("org_id"),
+                    namespace_values.get("user_id"),
+                    namespace_values.get("agent_id"),
+                    namespace_values.get("session_id"),
+                    namespace_values.get("conversation_id"),
+                    namespace_values.get("project_id"),
+                    namespace_values.get("graph_id"),
+                    link.created_at,
+                    json_dumps(payload),
+                ),
+            )
+        return link.link_id
+
+    def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]:
+        if options.direction not in {"out", "in", "both"}:
+            raise InvalidArgumentError(f"invalid link direction: {options.direction!r}")
+        clauses: list[str] = []
+        params: list[Any] = []
+        if options.direction == "out":
+            clauses.append("source_record_id = ?")
+            params.append(options.record_id)
+        elif options.direction == "in":
+            clauses.append("target_record_id = ?")
+            params.append(options.record_id)
+        else:
+            clauses.append("(source_record_id = ? OR target_record_id = ?)")
+            params.extend([options.record_id, options.record_id])
+        if options.relation_types:
+            allowed = [str(item) for item in options.relation_types]
+            clauses.append(
+                "relation_type IN ({})".format(",".join("?" for _ in allowed))
+            )
+            params.extend(allowed)
+        namespace_sql, namespace_params = _namespace_filter_sql(options.namespaces)
+        if namespace_sql:
+            clauses.append(namespace_sql)
+            params.extend(namespace_params)
+        query = (
+            "SELECT payload_json FROM sophiagraph_links WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY COALESCE(created_at, ''), link_id DESC"
+        )
+        if options.limit is not None:
+            query += " LIMIT ?"
+            params.append(int(options.limit))
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            self._link_from_row(row).with_context_bounds(
+                before=options.context_chars,
+                after=options.context_chars,
+            )
+            for row in rows
+        ]
+
+    def get_outgoing_links(
+        self, record_id: str, *, limit: int | None = None
+    ) -> list[StructuralLink]:
+        return self.list_links(
+            LinkQueryOptions(record_id=record_id, direction="out", limit=limit)
+        )
+
+    def get_backlinks(
+        self, record_id: str, *, limit: int | None = None
+    ) -> list[StructuralLink]:
+        return self.list_links(
+            LinkQueryOptions(record_id=record_id, direction="in", limit=limit)
+        )
+
+    def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot:
+        seen_nodes: set[str] = set()
+        frontier: list[tuple[str, int]] = [(options.record_id, 0)]
+        edges: list[Any] = []
+        edge_ids: set[str] = set()
+        degree_in: dict[str, int] = {}
+        degree_out: dict[str, int] = {}
+        while frontier and len(seen_nodes) < options.max_nodes:
+            record_id, depth = frontier.pop(0)
+            if record_id in seen_nodes:
+                continue
+            seen_nodes.add(record_id)
+            if depth >= options.depth:
+                continue
+            links = self.list_links(
+                LinkQueryOptions(
+                    record_id=record_id,
+                    direction=options.direction,
+                    relation_types=options.relation_types,
+                    namespaces=options.namespaces,
+                )
+            )
+            for link in links:
+                if link.link_id not in edge_ids and len(edges) < options.max_edges:
+                    edges.append(graph_edge_from_link(link))
+                    edge_ids.add(link.link_id)
+                if link.target_record_id:
+                    degree_out[link.source_record_id] = (
+                        degree_out.get(link.source_record_id, 0) + 1
+                    )
+                    degree_in[link.target_record_id] = (
+                        degree_in.get(link.target_record_id, 0) + 1
+                    )
+                next_id = (
+                    link.target_record_id
+                    if link.source_record_id == record_id
+                    else link.source_record_id
+                )
+                if next_id and next_id not in seen_nodes:
+                    frontier.append((next_id, depth + 1))
+        records: list[MemoryRecord] = []
+        for node_id in sorted(seen_nodes):
+            record = self.get_record(node_id)
+            if record is not None and namespace_matches_filters(
+                record.effective_namespace, options.namespaces
+            ):
+                records.append(record)
+        return GraphSnapshot(
+            nodes=[
+                graph_node_from_record(
+                    record,
+                    degree_in=degree_in.get(record.id, 0),
+                    degree_out=degree_out.get(record.id, 0),
+                )
+                for record in records[: options.max_nodes]
+            ],
+            edges=edges,
+            root_record_id=options.record_id,
+            depth=options.depth,
+            direction=options.direction,
+            provenance={"store": "sqlite"},
+        )
+
+    def get_graph_snapshot(self, options: GraphSnapshotOptions) -> GraphSnapshot:
+        records = self.list_records(
+            ListQueryOptions(
+                scopes=options.scopes,
+                namespaces=options.namespaces,
+                limit=options.max_nodes,
+                include_invalidated=False,
+            )
+        )
+        record_ids = {record.id for record in records}
+        namespace_sql, namespace_params = _namespace_filter_sql(options.namespaces)
+        clauses = ["1=1"]
+        params: list[Any] = []
+        if namespace_sql:
+            clauses.append(namespace_sql)
+            params.extend(namespace_params)
+        query = (
+            "SELECT payload_json FROM sophiagraph_links WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY COALESCE(created_at, ''), link_id DESC LIMIT ?"
+        )
+        params.append(options.max_edges)
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        links = [
+            self._link_from_row(row)
+            for row in rows
+            if self._link_from_row(row).source_record_id in record_ids
+            and (
+                self._link_from_row(row).target_record_id is None
+                or self._link_from_row(row).target_record_id in record_ids
+            )
+        ]
+        if options.relation_types:
+            allowed = {str(item) for item in options.relation_types}
+            links = [link for link in links if link.relation_type in allowed]
+        degree_in: dict[str, int] = {}
+        degree_out: dict[str, int] = {}
+        for link in links:
+            if link.target_record_id:
+                degree_out[link.source_record_id] = (
+                    degree_out.get(link.source_record_id, 0) + 1
+                )
+                degree_in[link.target_record_id] = (
+                    degree_in.get(link.target_record_id, 0) + 1
+                )
+        nodes = [
+            graph_node_from_record(
+                record,
+                degree_in=degree_in.get(record.id, 0),
+                degree_out=degree_out.get(record.id, 0),
+            )
+            for record in records
+            if options.include_orphans
+            or degree_in.get(record.id, 0)
+            or degree_out.get(record.id, 0)
+        ]
+        return GraphSnapshot(
+            nodes=nodes,
+            edges=[graph_edge_from_link(link) for link in links],
+            provenance={"store": "sqlite"},
+        )
+
+    def structural_search_records(
+        self,
+        query: StructuralSearchQuery,
+        *,
+        scopes: list[str],
+    ) -> list[MemoryRecord]:
+        records = self.list_records(
+            ListQueryOptions(scopes=scopes, namespaces=query.namespaces)
+        )
+        with self._connect() as conn:
+            rows = conn.execute("SELECT payload_json FROM sophiagraph_links").fetchall()
+        links = [self._link_from_row(row) for row in rows]
+        matches = [
+            record
+            for record in records
+            if record_matches_structural_query(
+                record,
+                query,
+                outgoing_targets=[
+                    link.raw_target
+                    for link in links
+                    if link.source_record_id == record.id
+                ],
+                incoming_sources=[
+                    link.source_record_id
+                    for link in links
+                    if link.target_record_id == record.id
+                ],
+            )
+        ]
+        if query.sort == "title":
+            matches.sort(key=lambda record: record.title or "")
+        if query.limit is not None:
+            matches = matches[: int(query.limit)]
+        return matches
 
     def put_candidate(self, candidate: MemoryCandidate) -> str:
         with self._connect() as conn:
@@ -483,7 +831,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                     candidate.status,
                     candidate.created_at,
                     candidate.updated_at,
-                    _json_dumps(asdict(candidate)),
+                    json_dumps(asdict(candidate)),
                 ),
             )
         return candidate.candidate_id
@@ -527,7 +875,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
         payload = asdict(candidate)
         payload.update(patch)
         payload["updated_at"] = utc_now_iso()
-        updated = _candidate_from_dict(payload)
+        updated = candidate_from_dict(payload)
         self.put_candidate(updated)
         return updated
 
@@ -555,6 +903,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
             confidence=candidate.confidence,
             evidence_refs=list(candidate.evidence_refs),
             meta=dict(candidate.meta),
+            namespace=candidate.namespace or MemoryNamespace.from_scope(target_scope),
             event_time=candidate.created_at or now,
         )
         self.put_record(record)
@@ -599,7 +948,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                     transition.scope,
                     transition.record_type,
                     transition.transition_at,
-                    _json_dumps(asdict(transition)),
+                    json_dumps(asdict(transition)),
                 ),
             )
         return transition.transition_id
@@ -736,6 +1085,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                     key=record.key,
                     title=record.title,
                     meta=dict(record.meta),
+                    namespace=record.effective_namespace,
                     created_at=record.created_at,
                     updated_at=record.updated_at,
                 )
