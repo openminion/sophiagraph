@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from sophiagraph.models import MemoryNamespace, MemoryRecord, StructuralLink
+from sophiagraph.models import (
+    KnowledgeDocumentBlock,
+    MemoryNamespace,
+    MemoryRecord,
+    StructuralLink,
+)
 from sophiagraph.query import (
     GraphSnapshotOptions,
     LinkQueryOptions,
@@ -143,3 +148,72 @@ def test_structural_search_matches_tags_properties_path_and_links(store) -> None
     )
 
     assert [record.id for record in matches] == ["rec-roadmap"]
+
+
+def test_document_blocks_round_trip_search_and_emit_changes(store) -> None:
+    namespace = _namespace()
+    record = _record("rec-roadmap", "Roadmap", namespace)
+    store.put_record(record)
+    blocks = [
+        KnowledgeDocumentBlock(
+            block_id="block-roadmap",
+            document_id="doc-roadmap",
+            record_id="rec-roadmap",
+            block_type="heading",
+            anchor="roadmap",
+            line_start=1,
+            line_end=1,
+            excerpt="# Roadmap",
+        ),
+        KnowledgeDocumentBlock(
+            block_id="todo-1",
+            document_id="doc-roadmap",
+            record_id="rec-roadmap",
+            block_type="block",
+            anchor="todo-1",
+            line_start=3,
+            line_end=3,
+            excerpt="- [ ] ship indexed search ^todo-1",
+        ),
+    ]
+
+    store.put_document_blocks("rec-roadmap", blocks)
+    matches = store.structural_search_records(
+        StructuralSearchQuery(
+            block="todo-1",
+            section="roadmap",
+            task="ship indexed",
+            namespaces=[MemoryNamespace(agent_id="agent")],
+        ),
+        scopes=["agent:agent"],
+    )
+
+    assert [
+        block.block_id for block in store.list_document_blocks(record_id="rec-roadmap")
+    ] == [
+        "block-roadmap",
+        "todo-1",
+    ]
+    assert [record.id for record in matches] == ["rec-roadmap"]
+    assert any(event.object_type == "block" for event in store.list_changes())
+
+
+def test_sqlite_structural_search_uses_fts_index_when_available(tmp_path) -> None:
+    store = SophiaGraphSqliteStore(tmp_path / "fts.sqlite3")
+    namespace = _namespace()
+    store.put_record(_record("rec-roadmap", "Roadmap", namespace))
+    store.put_record(_record("rec-notes", "Notes", namespace))
+
+    matches = store.structural_search_records(
+        StructuralSearchQuery(text_terms=["Roadmap"]),
+        scopes=["agent:agent"],
+    )
+
+    with store._connect() as conn:  # noqa: SLF001 - package-level regression proof
+        fts_rows = conn.execute(
+            "SELECT record_id FROM sophiagraph_record_fts WHERE sophiagraph_record_fts MATCH ?",
+            ('"Roadmap"',),
+        ).fetchall()
+
+    assert [record.id for record in matches] == ["rec-roadmap"]
+    assert [row["record_id"] for row in fts_rows] == ["rec-roadmap"]

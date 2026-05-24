@@ -7,14 +7,19 @@ from typing import Any, Protocol
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
     MemoryCandidate,
+    KnowledgeDocumentBlock,
     MemoryRecord,
     MemoryRelation,
     RelationDirection,
+    MemoryNamespace,
     MemoryTierTransition,
     MemoryType,
+    SophiaGraphChangeEvent,
     StructuralLink,
 )
 from sophiagraph.portability.models import (
+    MemoryDeltaImportResult,
+    MemoryDeltaSnapshot,
     MemoryBundleExportOptions,
     MemoryBundleImportOptions,
     MemoryBundleImportResult,
@@ -112,6 +117,20 @@ class SophiaGraphStore(Protocol):
         scopes: list[str],
     ) -> list[MemoryRecord]: ...
 
+    def put_document_blocks(
+        self,
+        record_id: str,
+        blocks: list[KnowledgeDocumentBlock],
+    ) -> None: ...
+
+    def list_document_blocks(
+        self,
+        *,
+        record_id: str | None = None,
+        document_id: str | None = None,
+        block_id: str | None = None,
+    ) -> list[KnowledgeDocumentBlock]: ...
+
     def put_candidate(self, candidate: MemoryCandidate) -> str: ...
 
     def get_candidate(self, candidate_id: str) -> MemoryCandidate | None: ...
@@ -159,3 +178,21 @@ class SophiaGraphStore(Protocol):
         snapshot: MemoryBundleSnapshot,
         options: MemoryBundleImportOptions,
     ) -> MemoryBundleImportResult: ...
+
+    def list_changes(
+        self,
+        *,
+        since_cursor: int | None = None,
+        limit: int | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+    ) -> list[SophiaGraphChangeEvent]: ...
+
+    def export_delta(
+        self,
+        *,
+        since_cursor: int | None = None,
+        limit: int | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+    ) -> MemoryDeltaSnapshot: ...
+
+    def import_delta(self, delta: MemoryDeltaSnapshot) -> MemoryDeltaImportResult: ...

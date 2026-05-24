@@ -5,8 +5,12 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from sophiagraph.contracts.errors import InvalidArgumentError
-from sophiagraph.models import MemoryNamespace, MemoryRecord, StructuralLink
+from sophiagraph.models import (
+    KnowledgeDocumentBlock,
+    MemoryNamespace,
+    MemoryRecord,
+    StructuralLink,
+)
 from sophiagraph.query import GraphEdge, GraphNode, StructuralSearchQuery
 
 
@@ -29,6 +33,14 @@ def link_from_dict(data: dict[str, Any]) -> StructuralLink:
     if isinstance(raw_namespace, dict):
         payload["namespace"] = MemoryNamespace.from_dict(raw_namespace)
     return StructuralLink(**payload)
+
+
+def block_to_dict(block: KnowledgeDocumentBlock) -> dict[str, Any]:
+    return asdict(block)
+
+
+def block_from_dict(data: dict[str, Any]) -> KnowledgeDocumentBlock:
+    return KnowledgeDocumentBlock(**dict(data))
 
 
 def graph_node_from_record(
@@ -78,6 +90,7 @@ def record_matches_structural_query(
     *,
     outgoing_targets: list[str] | None = None,
     incoming_sources: list[str] | None = None,
+    blocks: list[KnowledgeDocumentBlock] | None = None,
 ) -> bool:
     if query.namespaces and not namespace_matches_filters(
         record.effective_namespace, query.namespaces
@@ -124,16 +137,24 @@ def record_matches_structural_query(
         return False
     if query.linked_from and query.linked_from not in set(incoming_sources or []):
         return False
-    if query.block or query.section or query.task:
-        raise InvalidArgumentError(
-            "block, section, and task structural search require indexed block data"
-        )
+    if query.block and query.block not in {block.block_id for block in blocks or []}:
+        return False
+    if query.section and query.section not in {block.anchor for block in blocks or []}:
+        return False
+    if query.task:
+        task = query.task.lower()
+        if not any(
+            block.excerpt and task in block.excerpt.lower() for block in blocks or []
+        ):
+            return False
     return True
 
 
 __all__ = [
     "graph_edge_from_link",
     "graph_node_from_record",
+    "block_from_dict",
+    "block_to_dict",
     "link_from_dict",
     "link_to_dict",
     "namespace_matches_filters",

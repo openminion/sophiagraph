@@ -108,6 +108,7 @@ Inline #project/core tag is structural.
         "embed",
         "external",
     }
+    assert {block.anchor for block in imported.blocks} >= {"roadmap", "block-1"}
     assert imported.links[0].resolution_status == "resolved"
     assert imported.links[1].target_block_id == "block-1"
     assert "Inline #project/core" in export_markdown(imported)

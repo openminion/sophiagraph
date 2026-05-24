@@ -155,6 +155,14 @@ class LinkResolution:
             )
 
 
+@dataclass(frozen=True)
+class LinkResolutionDiagnostic:
+    raw_target: str
+    status: LinkResolutionStatus
+    normalized_target: str
+    candidate_record_ids: list[str] = field(default_factory=list)
+
+
 class ExplicitLinkResolver:
     """Resolve explicit paths, titles, and aliases without semantic guessing."""
 
@@ -205,6 +213,54 @@ class ExplicitLinkResolver:
             target_path=match.path,
         )
 
+    def diagnose(
+        self,
+        target: str,
+        *,
+        namespace: MemoryNamespace | None = None,
+    ) -> LinkResolutionDiagnostic:
+        result = self.resolve(target, namespace=namespace)
+        normalized = normalize_link_target(target).split("#", 1)[0]
+        candidates = (
+            list(result.ambiguous_record_ids)
+            if result.status == "ambiguous"
+            else ([result.target_record_id] if result.target_record_id else [])
+        )
+        return LinkResolutionDiagnostic(
+            raw_target=target,
+            status=result.status,
+            normalized_target=normalized,
+            candidate_record_ids=[item for item in candidates if item is not None],
+        )
+
+    def repair_targets(
+        self,
+        links: list[StructuralLink],
+        *,
+        namespace: MemoryNamespace | None = None,
+    ) -> list[StructuralLink]:
+        repaired: list[StructuralLink] = []
+        for link in links:
+            if link.resolution_status == "resolved":
+                repaired.append(link)
+                continue
+            resolution = self.resolve(
+                link.raw_target, namespace=namespace or link.namespace
+            )
+            repaired.append(
+                replace(
+                    link,
+                    resolution_status=resolution.status,
+                    target_record_id=resolution.target_record_id,
+                    target_path=resolution.target_path,
+                    meta={
+                        **dict(link.meta),
+                        "ambiguous_record_ids": list(resolution.ambiguous_record_ids),
+                    },
+                )
+            )
+        return repaired
+
 
 def split_target_parts(raw_target: str) -> tuple[str, str | None, str | None]:
     """Split ``Note#Heading`` or ``Note#^block`` into addressable components."""
@@ -223,6 +279,7 @@ __all__ = [
     "LinkKind",
     "LinkResolution",
     "LinkResolutionCandidate",
+    "LinkResolutionDiagnostic",
     "LinkResolutionStatus",
     "StructuralLink",
     "normalize_link_target",

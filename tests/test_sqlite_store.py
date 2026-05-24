@@ -84,6 +84,52 @@ def test_sqlite_schema_uses_sophiagraph_table_names(tmp_path) -> None:
     assert not any(name.startswith("knowledge_") for name in table_names)
 
 
+def test_sqlite_store_configures_write_safety_pragmas(tmp_path) -> None:
+    store = SophiaGraphSqliteStore(tmp_path / "sophiagraph.sqlite3")
+
+    with store._connect() as conn:
+        journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        busy_timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+        synchronous = conn.execute("PRAGMA synchronous").fetchone()[0]
+
+    assert str(journal_mode).lower() == "wal"
+    assert busy_timeout == 5000
+    assert synchronous == 1
+
+
+def test_sqlite_store_writes_while_reader_transaction_is_open(tmp_path) -> None:
+    db_path = tmp_path / "sophiagraph.sqlite3"
+    store = SophiaGraphSqliteStore(db_path)
+    store.put_record(_record("rec-initial"))
+
+    reader = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        reader.execute("BEGIN")
+        assert (
+            reader.execute("SELECT COUNT(*) FROM sophiagraph_records").fetchone()[0]
+            == 1
+        )
+        store.put_record(_record("rec-while-reader"))
+        reader.execute("COMMIT")
+    finally:
+        reader.close()
+
+    assert store.get_record("rec-while-reader") is not None
+
+
+def test_sqlite_store_backup_copies_live_database(tmp_path) -> None:
+    db_path = tmp_path / "sophiagraph.sqlite3"
+    backup_path = tmp_path / "backups" / "sophiagraph-backup.sqlite3"
+    store = SophiaGraphSqliteStore(db_path)
+    store.put_record(_record("rec-backup"))
+
+    returned_path = store.backup(backup_path)
+
+    assert returned_path == backup_path
+    backup_store = SophiaGraphSqliteStore(backup_path)
+    assert backup_store.get_record("rec-backup") is not None
+
+
 def test_sqlite_store_persists_namespace_columns_and_payload(tmp_path) -> None:
     store = SophiaGraphSqliteStore(tmp_path / "sophiagraph.sqlite3")
     namespace = MemoryNamespace(
@@ -224,8 +270,8 @@ def test_sqlite_store_namespace_migration_is_version_gated(tmp_path) -> None:
             "SELECT payload_json FROM sophiagraph_records WHERE id = 'rec-legacy'"
         ).fetchone()[0]
 
-    assert first_version == 3
-    assert second_version == 3
+    assert first_version == 5
+    assert second_version == 5
     assert second_payload == first_payload
 
 

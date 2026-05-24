@@ -8,7 +8,11 @@ from typing import Any
 from uuid import uuid5, NAMESPACE_URL
 
 from sophiagraph.models import MemoryNamespace
-from sophiagraph.models.document import KnowledgeDocument, content_hash
+from sophiagraph.models.document import (
+    KnowledgeDocument,
+    KnowledgeDocumentBlock,
+    content_hash,
+)
 from sophiagraph.models.link import (
     ExplicitLinkResolver,
     LinkResolutionCandidate,
@@ -30,6 +34,7 @@ class MarkdownImport:
     properties: list[MarkdownProperty] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
     links: list[StructuralLink] = field(default_factory=list)
+    blocks: list[KnowledgeDocumentBlock] = field(default_factory=list)
 
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
@@ -37,6 +42,8 @@ _WIKILINK_RE = re.compile(r"(!)?\[\[([^\]]+)\]\]")
 _MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)")
 _TAG_RE = re.compile(r"(?<![\w/])#([A-Za-z0-9_/-]+)")
 _URL_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*://")
+_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+_BLOCK_ID_RE = re.compile(r"\^([A-Za-z0-9_-]+)")
 
 
 def _stable_id(prefix: str, value: str) -> str:
@@ -175,6 +182,51 @@ def parse_markdown_links(
     return sorted(links, key=lambda link: link.start or 0)
 
 
+def parse_markdown_blocks(
+    body: str,
+    *,
+    document_id: str,
+    record_id: str,
+) -> list[KnowledgeDocumentBlock]:
+    """Parse explicit headings and block IDs into addressable block rows."""
+    blocks: list[KnowledgeDocumentBlock] = []
+    for line_number, line in enumerate(body.splitlines(), start=1):
+        heading = _HEADING_RE.match(line)
+        if heading:
+            text = heading.group(2).strip()
+            anchor = re.sub(r"[^a-z0-9 -]", "", text.lower())
+            anchor = re.sub(r"\s+", "-", anchor.strip())
+            blocks.append(
+                KnowledgeDocumentBlock(
+                    block_id=_stable_id("block", f"{document_id}:heading:{anchor}"),
+                    document_id=document_id,
+                    record_id=record_id,
+                    block_type="heading",
+                    anchor=anchor,
+                    content_hash=content_hash(line),
+                    line_start=line_number,
+                    line_end=line_number,
+                    excerpt=line,
+                )
+            )
+        for block_match in _BLOCK_ID_RE.finditer(line):
+            block_id = block_match.group(1)
+            blocks.append(
+                KnowledgeDocumentBlock(
+                    block_id=block_id,
+                    document_id=document_id,
+                    record_id=record_id,
+                    block_type="block",
+                    anchor=block_id,
+                    content_hash=content_hash(line),
+                    line_start=line_number,
+                    line_end=line_number,
+                    excerpt=line,
+                )
+            )
+    return blocks
+
+
 def extract_markdown(
     text: str,
     *,
@@ -220,12 +272,18 @@ def extract_markdown(
         source_path=path,
         resolver=resolver,
     )
+    blocks = parse_markdown_blocks(
+        body,
+        document_id=document.document_id,
+        record_id=record_id,
+    )
     return MarkdownImport(
         document=document,
         body=body,
         properties=properties,
         tags=tags,
         links=links,
+        blocks=blocks,
     )
 
 
@@ -258,5 +316,6 @@ __all__ = [
     "MarkdownProperty",
     "extract_markdown",
     "export_markdown",
+    "parse_markdown_blocks",
     "parse_markdown_links",
 ]
