@@ -22,8 +22,9 @@ and portable snapshots.
 - typed namespace DTOs for explicit tenant/user/agent/session isolation
 - directed relation APIs with explicit incoming/outgoing/bidirectional lookup
 - Obsidian-style structural document/link DTOs, Markdown/frontmatter adapter,
-  backlinks, outgoing links, local graph traversal, graph snapshots, structural
-  search DTOs, saved view DTOs, JSON Canvas DTOs, and extension hooks
+  addressable blocks, backlinks, outgoing links, local graph traversal, graph
+  snapshots, structural search DTOs, saved view evaluation, JSON Canvas DTOs,
+  schema discovery, async facade helpers, and extension hooks
 - a package-local SQLite durable engine
 - a package-local in-memory backend for tests and ephemeral consumers
 - a standalone smoke entrypoint for publish/install validation
@@ -134,6 +135,45 @@ PYTHONPATH=src python3.11 examples/basic_usage.py
 PYTHONPATH=src python3.11 examples/obsidian_substrate.py
 ```
 
+## SQLite Write Safety
+
+The SQLite backend configures each package-owned connection with:
+
+- `PRAGMA journal_mode = wal`
+- `PRAGMA busy_timeout = 5000`
+- `PRAGMA synchronous = normal`
+
+Writes use explicit transaction boundaries. This keeps a sibling reader, such
+as a local service process or a second host process, from blocking ordinary
+package writes under the common read-while-write SQLite case.
+
+SQLite backups are available through the store:
+
+```python
+store = create_sqlite_store("/tmp/sophiagraph-demo")
+store.backup("/tmp/sophiagraph-demo-backup.sqlite3")
+```
+
+New durable tables should follow the cross-table migration convention in the
+docs workspace:
+`docs/discussions/sophiagraph-cross-table-migration-convention-2026-05-23.md`.
+
+## Changefeed and Delta Sync
+
+Package stores expose append-only structural change events for durable mutation
+surfaces. Current events cover records, relations, links, candidates, tier
+transitions, and document blocks.
+
+```python
+changes = store.list_changes(since_cursor=0, namespaces=[namespace_filter])
+delta = store.export_delta(namespaces=[namespace_filter])
+target_store.import_delta(delta)
+```
+
+Change events carry caller-supplied structural payloads, namespace dimensions,
+cursor order, and schema identifier strings such as `node_label` or
+`relation_type`. `sophiagraph` does not infer event meaning from prose.
+
 ## Typed Namespaces
 
 Records still accept the legacy `scope` string for compatibility. New
@@ -202,11 +242,18 @@ workflows:
   property links, external URLs, unresolved targets, headings, and block refs.
 - `extract_markdown(...)` parses frontmatter, aliases, tags, and explicit link
   syntax without modifying note prose.
+- `KnowledgeDocumentBlock` rows represent explicit headings and `^block-id`
+  anchors; stores expose `put_document_blocks(...)` and
+  `list_document_blocks(...)`.
 - Store backends expose `put_link(...)`, `list_links(...)`,
   `get_backlinks(...)`, `get_outgoing_links(...)`, `get_local_graph(...)`, and
   `get_graph_snapshot(...)`.
-- Structural search, saved views, JSON Canvas, and extension hooks are durable
-  DTO/helper surfaces. They do not require a UI renderer or OpenMinion import.
+- SQLite structural search uses an FTS5 record index when available and keeps a
+  deterministic Python fallback for unsupported SQLite builds.
+- Saved views evaluate deterministic filters, boolean groups, link predicates,
+  grouping, sorting, projections, and summaries.
+- JSON Canvas and extension hooks are package-local DTO/helper surfaces. They
+  do not require a UI renderer or OpenMinion import.
 
 Example:
 
@@ -214,6 +261,23 @@ Example:
 from sophiagraph.adapters.markdown import extract_markdown
 from sophiagraph.models import LinkResolutionCandidate, MemoryNamespace
 from sophiagraph.query import LinkQueryOptions, LocalGraphOptions
+```
+
+## Schema and Async Helpers
+
+Use `sophiagraph.schema.describe_schema(...)` to inspect current property-graph
+labels, relation types, property keys, namespace dimensions, and property-type
+conflicts from explicit records/relations/links/blocks.
+
+The optional async facade wraps a sync store without adding provider or async
+database dependencies:
+
+```python
+from sophiagraph.storage import async_store
+
+async_facade = async_store(store)
+record = await async_facade.get_record("rec-1")
+```
 
 namespace = MemoryNamespace(agent_id="demo", graph_id="main")
 imported = extract_markdown(

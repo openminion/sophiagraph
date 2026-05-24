@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from typing import Any
 from uuid import uuid4
 
@@ -10,19 +10,24 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
     MemoryCandidate,
+    KnowledgeDocumentBlock,
     MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
     MemoryTierTransition,
     MemoryType,
     RelationDirection,
+    SophiaGraphChangeEvent,
     StructuralLink,
+    default_change_namespace,
 )
 from sophiagraph.portability.models import (
     MemoryBundleExportOptions,
     MemoryBundleImportOptions,
     MemoryBundleImportResult,
     MemoryBundleSnapshot,
+    MemoryDeltaImportResult,
+    MemoryDeltaSnapshot,
 )
 from sophiagraph.query import (
     CandidateListOptions,
@@ -35,7 +40,13 @@ from sophiagraph.query import (
     SearchQueryOptions,
     StructuralSearchQuery,
 )
-from sophiagraph.portability.codec import build_manifest, record_from_dict
+from sophiagraph.portability.codec import (
+    build_manifest,
+    candidate_from_dict,
+    record_from_dict,
+    relation_from_dict,
+    tier_transition_from_dict,
+)
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.helpers import (
     record_matches_namespaces,
@@ -45,6 +56,9 @@ from sophiagraph.storage.helpers import (
 from sophiagraph.storage.graph_helpers import (
     graph_edge_from_link,
     graph_node_from_record,
+    block_from_dict,
+    block_to_dict,
+    link_from_dict,
     namespace_matches_filters,
     record_matches_structural_query,
 )
@@ -59,11 +73,59 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
         self._records: dict[str, MemoryRecord] = {}
         self._relations: dict[str, MemoryRelation] = {}
         self._links: dict[str, StructuralLink] = {}
+        self._blocks: dict[str, KnowledgeDocumentBlock] = {}
         self._candidates: dict[str, MemoryCandidate] = {}
         self._transitions: dict[str, MemoryTierTransition] = {}
+        self._changes: list[SophiaGraphChangeEvent] = []
+        self._next_cursor = 1
+
+    def _has_change(self, event: SophiaGraphChangeEvent) -> bool:
+        return any(
+            existing.event_id == event.event_id
+            or (
+                bool(event.idempotency_key)
+                and existing.idempotency_key == event.idempotency_key
+            )
+            for existing in self._changes
+        )
+
+    def _append_change(self, event: SophiaGraphChangeEvent) -> None:
+        if self._has_change(event):
+            return
+        self._changes.append(replace(event, cursor=self._next_cursor))
+        self._next_cursor += 1
+
+    def _emit_change(
+        self,
+        *,
+        object_type: str,
+        object_id: str,
+        payload: dict[str, Any],
+        namespace: MemoryNamespace,
+        schema_identifiers: dict[str, str],
+    ) -> None:
+        self._append_change(
+            SophiaGraphChangeEvent(
+                event_id=f"chg-{uuid4()}",
+                object_type=object_type,  # type: ignore[arg-type]
+                object_id=object_id,
+                operation="put",
+                changed_at=utc_now_iso(),
+                payload=payload,
+                namespace=namespace,
+                schema_identifiers=schema_identifiers,
+            )
+        )
 
     def put_record(self, record: MemoryRecord) -> str:
         self._records[record.id] = record
+        self._emit_change(
+            object_type="record",
+            object_id=record.id,
+            payload=asdict(record),
+            namespace=record.effective_namespace,
+            schema_identifiers={"node_label": str(record.type)},
+        )
         return record.id
 
     def upsert_record(
@@ -180,6 +242,16 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
 
     def put_relation(self, relation: MemoryRelation) -> str:
         self._relations[relation.relation_id] = relation
+        namespace = self._records.get(relation.source_record_id)
+        self._emit_change(
+            object_type="relation",
+            object_id=relation.relation_id,
+            payload=asdict(relation),
+            namespace=namespace.effective_namespace
+            if namespace is not None
+            else default_change_namespace(),
+            schema_identifiers={"relation_type": str(relation.relation_type)},
+        )
         return relation.relation_id
 
     def list_relations(
@@ -238,6 +310,16 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
 
     def put_link(self, link: StructuralLink) -> str:
         self._links[link.link_id] = link
+        schema_identifiers = {}
+        if link.relation_type:
+            schema_identifiers["relation_type"] = link.relation_type
+        self._emit_change(
+            object_type="link",
+            object_id=link.link_id,
+            payload=asdict(link),
+            namespace=link.namespace,
+            schema_identifiers=schema_identifiers,
+        )
         return link.link_id
 
     def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]:
@@ -425,6 +507,11 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
                     for link in self._links.values()
                     if link.target_record_id == record.id
                 ],
+                blocks=[
+                    block
+                    for block in self._blocks.values()
+                    if block.record_id == record.id
+                ],
             )
         ]
         if query.sort == "title":
@@ -433,8 +520,65 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
             matches = matches[: int(query.limit)]
         return matches
 
+    def put_document_blocks(
+        self,
+        record_id: str,
+        blocks: list[KnowledgeDocumentBlock],
+    ) -> None:
+        stale_ids = [
+            block_id
+            for block_id, block in self._blocks.items()
+            if block.record_id == record_id
+        ]
+        for block_id in stale_ids:
+            del self._blocks[block_id]
+        record = self.get_record(record_id)
+        namespace = (
+            record.effective_namespace
+            if record is not None
+            else default_change_namespace()
+        )
+        for block in blocks:
+            if block.record_id != record_id:
+                raise InvalidArgumentError("block record_id must match record_id")
+            self._blocks[block.block_id] = block
+            self._emit_change(
+                object_type="block",
+                object_id=block.block_id,
+                payload=block_to_dict(block),
+                namespace=namespace,
+                schema_identifiers={"node_label": "block"},
+            )
+
+    def list_document_blocks(
+        self,
+        *,
+        record_id: str | None = None,
+        document_id: str | None = None,
+        block_id: str | None = None,
+    ) -> list[KnowledgeDocumentBlock]:
+        blocks = list(self._blocks.values())
+        if record_id is not None:
+            blocks = [block for block in blocks if block.record_id == record_id]
+        if document_id is not None:
+            blocks = [block for block in blocks if block.document_id == document_id]
+        if block_id is not None:
+            blocks = [block for block in blocks if block.block_id == block_id]
+        blocks.sort(
+            key=lambda block: (block.record_id, block.line_start or 0, block.block_id)
+        )
+        return blocks
+
     def put_candidate(self, candidate: MemoryCandidate) -> str:
         self._candidates[candidate.candidate_id] = candidate
+        self._emit_change(
+            object_type="candidate",
+            object_id=candidate.candidate_id,
+            payload=asdict(candidate),
+            namespace=candidate.namespace
+            or MemoryNamespace.from_scope(candidate.proposed_scope),
+            schema_identifiers={"node_label": str(candidate.type)},
+        )
         return candidate.candidate_id
 
     def get_candidate(self, candidate_id: str) -> MemoryCandidate | None:
@@ -536,6 +680,13 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
 
     def put_tier_transition(self, transition: MemoryTierTransition) -> str:
         self._transitions[transition.transition_id] = transition
+        self._emit_change(
+            object_type="tier_transition",
+            object_id=transition.transition_id,
+            payload=asdict(transition),
+            namespace=MemoryNamespace.from_scope(transition.scope),
+            schema_identifiers={"node_label": str(transition.record_type)},
+        )
         return transition.transition_id
 
     def history(self, scope: str, type: MemoryType, key: str) -> list[MemoryRecord]:
@@ -700,6 +851,79 @@ class SophiaGraphMemoryStore(SophiaGraphStore):
             skipped_records=skipped_records,
             skipped_sections=skipped_sections,
             rewrites=rewrites,
+        )
+
+    def list_changes(
+        self,
+        *,
+        since_cursor: int | None = None,
+        limit: int | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+    ) -> list[SophiaGraphChangeEvent]:
+        changes = [
+            event
+            for event in self._changes
+            if (since_cursor is None or (event.cursor or 0) > since_cursor)
+            and namespace_matches_filters(event.namespace, namespaces)
+        ]
+        changes.sort(key=lambda event: event.cursor or 0)
+        return changes[: int(limit)] if limit is not None else changes
+
+    def export_delta(
+        self,
+        *,
+        since_cursor: int | None = None,
+        limit: int | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+    ) -> MemoryDeltaSnapshot:
+        changes = self.list_changes(
+            since_cursor=since_cursor,
+            limit=limit,
+            namespaces=namespaces,
+        )
+        return MemoryDeltaSnapshot(
+            manifest={
+                "delta_version": "sophiagraph_delta.v1",
+                "change_count": len(changes),
+            },
+            changes=changes,
+        )
+
+    def import_delta(self, delta: MemoryDeltaSnapshot) -> MemoryDeltaImportResult:
+        imported = 0
+        skipped: list[str] = []
+        for event in delta.changes:
+            if self._has_change(event):
+                skipped.append(event.event_id)
+                continue
+            if event.object_type == "record":
+                record = record_from_dict(event.payload)
+                self._records[record.id] = record
+            elif event.object_type == "relation":
+                relation = relation_from_dict(event.payload)
+                self._relations[relation.relation_id] = relation
+            elif event.object_type == "link":
+                link = link_from_dict(event.payload)
+                self._links[link.link_id] = link
+            elif event.object_type == "candidate":
+                candidate = candidate_from_dict(event.payload)
+                self._candidates[candidate.candidate_id] = candidate
+            elif event.object_type == "tier_transition":
+                transition = tier_transition_from_dict(event.payload)
+                self._transitions[transition.transition_id] = transition
+            elif event.object_type == "block":
+                block = block_from_dict(event.payload)
+                self._blocks[block.block_id] = block
+            else:
+                skipped.append(event.event_id)
+                continue
+            self._append_change(event)
+            imported += 1
+        return MemoryDeltaImportResult(
+            applied=True,
+            imported_changes=imported,
+            skipped_changes=len(skipped),
+            skipped_event_ids=skipped,
         )
 
     def record_count(self) -> int:

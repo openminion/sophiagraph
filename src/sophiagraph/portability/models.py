@@ -12,6 +12,7 @@ from sophiagraph.models import (
     MemoryRecord,
     MemoryRelation,
     MemoryTierTransition,
+    SophiaGraphChangeEvent,
 )
 
 
@@ -65,3 +66,17 @@ class MemoryBundleImportResult:
     skipped_sections: list[str] = field(default_factory=list)
     conflicts: list[dict[str, Any]] = field(default_factory=list)
     rewrites: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class MemoryDeltaSnapshot:
+    manifest: dict[str, Any]
+    changes: list[SophiaGraphChangeEvent]
+
+
+@dataclass(frozen=True)
+class MemoryDeltaImportResult:
+    applied: bool
+    imported_changes: int = 0
+    skipped_changes: int = 0
+    skipped_event_ids: list[str] = field(default_factory=list)

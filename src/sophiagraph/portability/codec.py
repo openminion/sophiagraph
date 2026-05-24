@@ -19,6 +19,7 @@ from sophiagraph.models import (
     MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
+    SophiaGraphChangeEvent,
     MemoryTierTransition,
     coerce_candidate_status,
     coerce_memory_relation_type,
@@ -26,6 +27,7 @@ from sophiagraph.models import (
     coerce_memory_tier,
     coerce_memory_tier_transition_reason,
     coerce_memory_type,
+    default_change_namespace,
 )
 
 from sophiagraph.portability.models import MemoryBundleSnapshot
@@ -227,6 +229,40 @@ def tier_transition_from_dict(data: dict[str, Any]) -> MemoryTierTransition:
     )
 
 
+def change_event_from_dict(data: dict[str, Any]) -> SophiaGraphChangeEvent:
+    raw_namespace = data.get("namespace")
+    if isinstance(raw_namespace, MemoryNamespace):
+        namespace = raw_namespace
+    elif isinstance(raw_namespace, dict) and raw_namespace:
+        namespace = MemoryNamespace.from_dict(raw_namespace)
+    else:
+        namespace = default_change_namespace()
+    return SophiaGraphChangeEvent(
+        event_id=str(_required(data, "event_id")),
+        object_type=str(_required(data, "object_type")),  # type: ignore[arg-type]
+        object_id=str(_required(data, "object_id")),
+        operation=str(_required(data, "operation")),  # type: ignore[arg-type]
+        changed_at=str(_required(data, "changed_at")),
+        payload=dict(data.get("payload", {}))
+        if isinstance(data.get("payload"), dict)
+        else {},
+        namespace=namespace,
+        cursor=int(data["cursor"]) if data.get("cursor") is not None else None,
+        idempotency_key=str(data.get("idempotency_key"))
+        if data.get("idempotency_key") is not None
+        else None,
+        source_operation_id=str(data.get("source_operation_id"))
+        if data.get("source_operation_id") is not None
+        else None,
+        schema_identifiers={
+            str(key): str(value)
+            for key, value in dict(data.get("schema_identifiers", {})).items()
+        }
+        if isinstance(data.get("schema_identifiers"), dict)
+        else {},
+    )
+
+
 _record_from_dict = record_from_dict
 _candidate_from_dict = candidate_from_dict
 _relation_from_dict = relation_from_dict
@@ -397,6 +433,7 @@ __all__ = [
     "MEMORY_BUNDLE_VERSION",
     "build_manifest",
     "candidate_from_dict",
+    "change_event_from_dict",
     "json_dumps",
     "read_bundle_snapshot",
     "record_from_dict",

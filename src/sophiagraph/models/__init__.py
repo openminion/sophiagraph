@@ -1,6 +1,12 @@
 """Canonical durable-knowledge models and helpers."""
 
 from .candidate import CandidateReview, MemoryCandidate
+from .change import (
+    ChangeObjectType,
+    ChangeOperation,
+    SophiaGraphChangeEvent,
+    default_change_namespace,
+)
 from .document import (
     DocumentBlockType,
     DocumentSourceFormat,
@@ -14,6 +20,7 @@ from .link import (
     LinkKind,
     LinkResolution,
     LinkResolutionCandidate,
+    LinkResolutionDiagnostic,
     LinkResolutionStatus,
     StructuralLink,
     normalize_link_target,
@@ -71,6 +78,8 @@ __all__ = [
     "ArtifactRef",
     "CandidateReview",
     "CandidateStatus",
+    "ChangeObjectType",
+    "ChangeOperation",
     "ContextUnit",
     "DocumentBlockType",
     "DocumentSourceFormat",
@@ -80,6 +89,7 @@ __all__ = [
     "LinkKind",
     "LinkResolution",
     "LinkResolutionCandidate",
+    "LinkResolutionDiagnostic",
     "LinkResolutionStatus",
     "MemoryCandidate",
     "MemoryNamespace",
@@ -105,6 +115,8 @@ __all__ = [
     "SessionSummaryOutcome",
     "SessionSummaryThreadStatus",
     "StructuralLink",
+    "SophiaGraphChangeEvent",
+    "default_change_namespace",
     "coerce_candidate_status",
     "coerce_memory_relation_type",
     "coerce_memory_source",

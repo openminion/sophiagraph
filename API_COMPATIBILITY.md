@@ -22,6 +22,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.canvas`
 - `sophiagraph.extensions`
 - `sophiagraph.views`
+- `sophiagraph.schema`
 - `sophiagraph.audit`
 - `sophiagraph.trust`
 - `sophiagraph.temporal`
@@ -48,6 +49,7 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.ExplicitLinkResolver`
 - `sophiagraph.LinkResolution`
 - `sophiagraph.LinkResolutionCandidate`
+- `sophiagraph.AsyncSophiaGraphStore`
 - `sophiagraph.ListQueryOptions`
 - `sophiagraph.SearchQueryOptions`
 - `sophiagraph.LinkQueryOptions`
@@ -58,6 +60,7 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.create_sqlite_store(...)`
 - `sophiagraph.create_memory_store()`
 - `sophiagraph.default_db_path(...)`
+- `sophiagraph.async_store(...)`
 - `sophiagraph.audit`
 - `sophiagraph.contracts`
 - `sophiagraph.portability`
@@ -99,6 +102,10 @@ Public-contract confidence should be enforced by tests that cover:
 6. explicit link/backlink/local-graph behavior across memory and SQLite stores,
 7. Markdown/frontmatter structural import behavior with no prose rewrites,
 8. release/install smoke for built artifacts.
+9. changefeed/delta replay behavior for current durable mutation surfaces,
+10. deterministic saved-view evaluation,
+11. document-block storage/search behavior,
+12. schema discovery and async facade import/use.
 
 ## Internal compatibility shims
 
