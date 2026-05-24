@@ -36,9 +36,11 @@ from sophiagraph.query import (
     StructuralSearchQuery,
 )
 from sophiagraph.storage import (
+    AsyncSophiaGraphStore,
     DEFAULT_DB_FILENAME,
     SophiaGraphMemoryStore,
     SophiaGraphSqliteStore,
+    async_store,
     create_memory_store,
     create_sqlite_store,
     default_db_path,
@@ -49,6 +51,7 @@ from sophiagraph.trust import types as trust
 __all__ = [
     "__version__",
     "DEFAULT_DB_FILENAME",
+    "AsyncSophiaGraphStore",
     "ArtifactRef",
     "CandidateListOptions",
     "CandidateReview",
@@ -78,6 +81,7 @@ __all__ = [
     "StructuralLink",
     "StructuralSearchQuery",
     "audit",
+    "async_store",
     "contracts",
     "coerce_temporal_dt",
     "create_memory_store",
