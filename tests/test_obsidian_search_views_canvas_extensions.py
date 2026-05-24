@@ -12,7 +12,15 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.extensions import SophiaGraphExtensionRegistry
 from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.query import parse_structural_query
-from sophiagraph.views import SavedViewDefinition, evaluate_saved_view
+from dataclasses import asdict
+
+from sophiagraph.views import (
+    SavedViewDefinition,
+    SavedViewFilter,
+    SavedViewFilterGroup,
+    SavedViewSummary,
+    evaluate_saved_view,
+)
 
 
 def _namespace() -> MemoryNamespace:
@@ -59,6 +67,156 @@ def test_saved_view_evaluation_returns_deterministic_projected_rows() -> None:
 
     assert result.rows[0].record_id == "rec-1"
     assert result.rows[0].properties == {"status": "active"}
+
+
+def test_saved_view_evaluator_filters_groups_sorts_summarizes_and_preserves_records() -> (
+    None
+):
+    records = [
+        MemoryRecord(
+            id="rec-1",
+            scope="agent:agent",
+            type="artifact_digest",
+            title="Roadmap",
+            content={"text": "body"},
+            tags=["project"],
+            created_at="2026-05-23T00:00:00+00:00",
+            updated_at="2026-05-23T00:00:00+00:00",
+            namespace=_namespace(),
+            meta={"properties": {"status": "active", "owner": "memory", "score": 7}},
+        ),
+        MemoryRecord(
+            id="rec-2",
+            scope="agent:agent",
+            type="artifact_digest",
+            title="Inbox",
+            content={"text": "body"},
+            tags=["project"],
+            created_at="2026-05-23T00:00:00+00:00",
+            updated_at="2026-05-23T00:00:00+00:00",
+            namespace=_namespace(),
+            meta={"properties": {"status": "active", "owner": "runtime", "score": 3}},
+        ),
+        MemoryRecord(
+            id="rec-3",
+            scope="agent:agent",
+            type="artifact_digest",
+            title="Archive",
+            content={"text": "body"},
+            tags=["done"],
+            created_at="2026-05-23T00:00:00+00:00",
+            updated_at="2026-05-23T00:00:00+00:00",
+            namespace=_namespace(),
+            meta={"properties": {"status": "archived", "owner": "memory", "score": 1}},
+        ),
+    ]
+    before = [asdict(record) for record in records]
+
+    result = evaluate_saved_view(
+        records,
+        SavedViewDefinition(
+            view_id="view-active",
+            name="Active projects",
+            filters=SavedViewFilterGroup(
+                operator="and",
+                filters=[
+                    SavedViewFilter("status", "eq", "active"),
+                    SavedViewFilter("tags", "contains", "project"),
+                    SavedViewFilter("score", "gte", 3),
+                ],
+            ),
+            projected_properties=["owner", "score"],
+            sort="-score",
+            group_by="owner",
+            summaries=[
+                SavedViewSummary("count"),
+                SavedViewSummary("sum", field="score", label="score_total"),
+            ],
+        ),
+    )
+
+    assert [row.record_id for row in result.rows] == ["rec-1", "rec-2"]
+    assert result.groups == {"memory": ["rec-1"], "runtime": ["rec-2"]}
+    assert result.summaries == {"count": 2, "score_total": 10.0}
+    assert [asdict(record) for record in records] == before
+
+
+def test_saved_view_evaluator_supports_or_and_link_predicates() -> None:
+    records = [
+        MemoryRecord(
+            id="rec-1",
+            scope="agent:agent",
+            type="artifact_digest",
+            title="Roadmap",
+            content={"text": "body"},
+            created_at="2026-05-23T00:00:00+00:00",
+            updated_at="2026-05-23T00:00:00+00:00",
+            namespace=_namespace(),
+            meta={"properties": {"status": "blocked"}},
+        ),
+        MemoryRecord(
+            id="rec-2",
+            scope="agent:agent",
+            type="artifact_digest",
+            title="Spec",
+            content={"text": "body"},
+            created_at="2026-05-23T00:00:00+00:00",
+            updated_at="2026-05-23T00:00:00+00:00",
+            namespace=_namespace(),
+            meta={"properties": {"status": "active"}},
+        ),
+    ]
+
+    result = evaluate_saved_view(
+        records,
+        SavedViewDefinition(
+            view_id="view-links",
+            name="Linked",
+            filters=SavedViewFilterGroup(
+                operator="or",
+                filters=[
+                    SavedViewFilter("status", "eq", "done"),
+                    SavedViewFilter("links", "link_to", "rec-target"),
+                ],
+            ),
+        ),
+        link_context={"rec-1": {"link_to": ["rec-target"]}},
+    )
+
+    assert [row.record_id for row in result.rows] == ["rec-1"]
+
+
+def test_saved_view_evaluator_rejects_type_errors_and_formulas() -> None:
+    record = MemoryRecord(
+        id="rec-1",
+        scope="agent:agent",
+        type="artifact_digest",
+        title="Roadmap",
+        content={"text": "body"},
+        created_at="2026-05-23T00:00:00+00:00",
+        updated_at="2026-05-23T00:00:00+00:00",
+        namespace=_namespace(),
+        meta={"properties": {"status": "active"}},
+    )
+
+    with pytest.raises(InvalidArgumentError, match="in filters require"):
+        evaluate_saved_view(
+            [record],
+            SavedViewDefinition(
+                view_id="bad-in",
+                name="Bad",
+                filters=SavedViewFilter("status", "in", "active"),
+            ),
+        )
+    with pytest.raises(InvalidArgumentError, match="formula"):
+        evaluate_saved_view(
+            [record],
+            SavedViewDefinition(
+                view_id="formula",
+                name="Formula",
+                formula="status = active",
+            ),
+        )
 
 
 def test_canvas_round_trips_and_requires_explicit_relation_type() -> None:
