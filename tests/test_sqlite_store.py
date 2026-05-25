@@ -315,6 +315,86 @@ def test_sqlite_store_namespace_migration_is_version_gated(tmp_path) -> None:
     assert second_payload == first_payload
 
 
+def test_sqlite_store_migrates_mixed_legacy_and_explicit_namespace_rows(
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "mixed-legacy.sqlite3"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE sophiagraph_records (
+                id TEXT PRIMARY KEY,
+                scope TEXT NOT NULL,
+                record_type TEXT NOT NULL,
+                record_key TEXT,
+                title TEXT,
+                tier TEXT NOT NULL,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                valid_to TEXT,
+                updated_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL
+            )
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO sophiagraph_records(
+                id, scope, record_type, record_key, title, tier, updated_at, payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    "rec-explicit",
+                    "agent:legacy",
+                    "fact",
+                    "project:explicit",
+                    "Explicit",
+                    "working",
+                    "2026-05-22T00:00:00+00:00",
+                    '{"id":"rec-explicit","scope":"agent:legacy","type":"fact","key":"project:explicit","title":"Explicit","content":{"text":"explicit namespace survives"},"created_at":"2026-05-22T00:00:00+00:00","updated_at":"2026-05-22T00:00:00+00:00","namespace":{"tenant_id":"tenant-explicit","user_id":"user-explicit","agent_id":"agent-explicit","graph_id":"graph-explicit"}}',
+                ),
+                (
+                    "rec-fallback",
+                    "project:fallback",
+                    "fact",
+                    "project:fallback",
+                    "Fallback",
+                    "working",
+                    "2026-05-22T00:00:00+00:00",
+                    '{"id":"rec-fallback","scope":"project:fallback","type":"fact","key":"project:fallback","title":"Fallback","content":{"text":"scope namespace fills"},"created_at":"2026-05-22T00:00:00+00:00","updated_at":"2026-05-22T00:00:00+00:00"}',
+                ),
+            ],
+        )
+
+    store = SophiaGraphSqliteStore(db_path)
+    explicit = store.get_record("rec-explicit")
+    fallback = store.get_record("rec-fallback")
+    assert explicit.namespace == MemoryNamespace(
+        tenant_id="tenant-explicit",
+        user_id="user-explicit",
+        agent_id="agent-explicit",
+        graph_id="graph-explicit",
+    )
+    assert fallback.namespace == MemoryNamespace(project_id="fallback")
+
+    SophiaGraphSqliteStore(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = {
+            row["id"]: dict(row)
+            for row in conn.execute(
+                """
+                SELECT id, tenant_id, user_id, agent_id, project_id, graph_id
+                  FROM sophiagraph_records
+                 ORDER BY id
+                """
+            ).fetchall()
+        }
+    assert rows["rec-explicit"]["tenant_id"] == "tenant-explicit"
+    assert rows["rec-explicit"]["agent_id"] == "agent-explicit"
+    assert rows["rec-fallback"]["project_id"] == "fallback"
+
+
 def test_sqlite_store_candidate_promotion_and_relations(tmp_path) -> None:
     store = SophiaGraphSqliteStore(tmp_path / "sophiagraph.sqlite3")
     anchor = _record("rec-anchor")
