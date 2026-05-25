@@ -4,6 +4,9 @@ Status: `publish-ready alpha`
 Shape: standalone Python package
 License: `Apache-2.0`
 
+Repository: [github.com/openminion/sophiagraph](https://github.com/openminion/sophiagraph)  
+Package index: [pypi.org/project/sophiagraph](https://pypi.org/project/sophiagraph/)
+
 `sophiagraph` is a standalone wisdom graph substrate for durable agent memory.
 The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this package it
 frames durable knowledge as a graph of records, relations, provenance, trust,
