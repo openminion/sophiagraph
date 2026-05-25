@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import asdict
+
 import pytest
 
 from sophiagraph.canvas import (
@@ -12,7 +14,6 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.extensions import SophiaGraphExtensionRegistry
 from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.query import parse_structural_query
-from dataclasses import asdict
 
 from sophiagraph.views import (
     SavedViewDefinition,
@@ -279,3 +280,10 @@ def test_extension_registry_is_package_local() -> None:
 
     assert "markdown" in registry.importers
     assert registry.exporters["markdown"]("ok") == "ok"
+
+
+def test_extension_registry_rejects_blank_names_with_package_error() -> None:
+    registry = SophiaGraphExtensionRegistry()
+
+    with pytest.raises(InvalidArgumentError, match="extension name is required"):
+        registry.register_importer(" ", lambda payload, **_: payload)

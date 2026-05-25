@@ -26,21 +26,12 @@ from sophiagraph.models import (
     default_change_namespace,
 )
 from sophiagraph.portability.codec import (
-    build_manifest,
     candidate_from_dict,
     change_event_from_dict,
     json_dumps,
     record_from_dict,
     relation_from_dict,
     tier_transition_from_dict,
-)
-from sophiagraph.portability.models import (
-    MemoryBundleExportOptions,
-    MemoryBundleImportOptions,
-    MemoryBundleImportResult,
-    MemoryBundleSnapshot,
-    MemoryDeltaImportResult,
-    MemoryDeltaSnapshot,
 )
 from sophiagraph.query import (
     CandidateListOptions,
@@ -55,7 +46,6 @@ from sophiagraph.query import (
 )
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.helpers import (
-    record_matches_namespaces,
     record_matches_query,
     utc_now_iso,
 )
@@ -69,58 +59,22 @@ from sophiagraph.storage.graph_helpers import (
     namespace_matches_filters,
     record_matches_structural_query,
 )
-
-_SCHEMA_VERSION = 5
-_SQLITE_BUSY_TIMEOUT_MS = 5000
-_SQLITE_CONNECT_TIMEOUT_SECONDS = _SQLITE_BUSY_TIMEOUT_MS / 1000
-_SQLITE_JOURNAL_MODE = "wal"
-_SQLITE_SYNCHRONOUS = "normal"
-
-
-def _row_json(row: sqlite3.Row, key: str = "payload_json") -> dict[str, Any]:
-    raw = row[key]
-    return json.loads(str(raw)) if raw else {}
-
-
-_NAMESPACE_COLUMNS = (
-    "tenant_id",
-    "org_id",
-    "user_id",
-    "agent_id",
-    "session_id",
-    "conversation_id",
-    "project_id",
-    "graph_id",
+from sophiagraph.storage.sqlite_support import (
+    SQLITE_BUSY_TIMEOUT_MS,
+    SQLITE_CONNECT_TIMEOUT_SECONDS,
+    SQLITE_JOURNAL_MODE,
+    SQLITE_SYNCHRONOUS,
+    ensure_schema,
+    fts_candidate_record_ids,
+    namespace_filter_sql,
+    namespace_values as record_namespace_values,
+    replace_record_fts,
+    row_json,
 )
+from sophiagraph.storage.sqlite_portability import SqlitePortabilityMixin
 
 
-def _namespace_values(record: MemoryRecord) -> dict[str, str]:
-    return record.effective_namespace.as_dict()
-
-
-def _namespace_from_payload(payload: dict[str, Any], scope: str) -> MemoryNamespace:
-    raw_namespace = payload.get("namespace")
-    if isinstance(raw_namespace, dict) and raw_namespace:
-        return MemoryNamespace.from_dict(raw_namespace)
-    return MemoryNamespace.from_scope(scope)
-
-
-def _namespace_filter_sql(
-    namespaces: list[MemoryNamespace] | None,
-) -> tuple[str, list[Any]]:
-    if not namespaces:
-        return "", []
-    groups: list[str] = []
-    params: list[Any] = []
-    for namespace in namespaces:
-        values = namespace.as_dict()
-        clauses = [f"{column} = ?" for column in values]
-        groups.append("(" + " AND ".join(clauses) + ")")
-        params.extend(values.values())
-    return "(" + " OR ".join(groups) + ")", params
-
-
-class SophiaGraphSqliteStore(SophiaGraphStore):
+class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
     """Small standalone SQLite-backed durable engine for ``sophiagraph``."""
 
     contract_version = MEMORY_CONTRACT_VERSION
@@ -133,12 +87,12 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(
             self.db_path,
-            timeout=_SQLITE_CONNECT_TIMEOUT_SECONDS,
+            timeout=SQLITE_CONNECT_TIMEOUT_SECONDS,
         )
         conn.row_factory = sqlite3.Row
-        conn.execute(f"PRAGMA busy_timeout = {_SQLITE_BUSY_TIMEOUT_MS}")
-        conn.execute(f"PRAGMA journal_mode = {_SQLITE_JOURNAL_MODE}")
-        conn.execute(f"PRAGMA synchronous = {_SQLITE_SYNCHRONOUS}")
+        conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+        conn.execute(f"PRAGMA journal_mode = {SQLITE_JOURNAL_MODE}")
+        conn.execute(f"PRAGMA synchronous = {SQLITE_SYNCHRONOUS}")
         return conn
 
     @contextmanager
@@ -158,298 +112,31 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
         destination = Path(destination_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as source, sqlite3.connect(destination) as target:
-            target.execute(f"PRAGMA busy_timeout = {_SQLITE_BUSY_TIMEOUT_MS}")
+            target.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
             source.backup(target)
         return destination
 
     def _ensure_schema(self) -> None:
         with self._write_connection() as conn:
-            schema_version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-            conn.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS sophiagraph_records (
-                    id TEXT PRIMARY KEY,
-                    scope TEXT NOT NULL,
-                    record_type TEXT NOT NULL,
-                    record_key TEXT,
-                    title TEXT,
-                    tenant_id TEXT,
-                    org_id TEXT,
-                    user_id TEXT,
-                    agent_id TEXT,
-                    session_id TEXT,
-                    conversation_id TEXT,
-                    project_id TEXT,
-                    graph_id TEXT,
-                    tier TEXT NOT NULL,
-                    is_deleted INTEGER NOT NULL DEFAULT 0,
-                    valid_to TEXT,
-                    updated_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_records_scope_type
-                    ON sophiagraph_records(scope, record_type, updated_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_records_key
-                    ON sophiagraph_records(scope, record_type, record_key);
-                CREATE TABLE IF NOT EXISTS sophiagraph_relations (
-                    relation_id TEXT PRIMARY KEY,
-                    source_record_id TEXT NOT NULL,
-                    target_record_id TEXT NOT NULL,
-                    relation_type TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_relations_source
-                    ON sophiagraph_relations(source_record_id, created_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_relations_target
-                    ON sophiagraph_relations(target_record_id, created_at DESC);
-
-                CREATE TABLE IF NOT EXISTS sophiagraph_candidates (
-                    candidate_id TEXT PRIMARY KEY,
-                    session_id TEXT NOT NULL,
-                    proposed_scope TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    created_at TEXT,
-                    updated_at TEXT,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_candidates_session
-                    ON sophiagraph_candidates(session_id, updated_at DESC);
-
-                CREATE TABLE IF NOT EXISTS sophiagraph_tier_transitions (
-                    transition_id TEXT PRIMARY KEY,
-                    record_id TEXT NOT NULL,
-                    scope TEXT NOT NULL,
-                    record_type TEXT NOT NULL,
-                    transition_at TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_tier_transitions_record
-                    ON sophiagraph_tier_transitions(record_id, transition_at DESC);
-
-                CREATE TABLE IF NOT EXISTS sophiagraph_links (
-                    link_id TEXT PRIMARY KEY,
-                    source_record_id TEXT NOT NULL,
-                    target_record_id TEXT,
-                    raw_target TEXT NOT NULL,
-                    link_kind TEXT NOT NULL,
-                    resolution_status TEXT NOT NULL,
-                    relation_type TEXT,
-                    tenant_id TEXT,
-                    org_id TEXT,
-                    user_id TEXT,
-                    agent_id TEXT,
-                    session_id TEXT,
-                    conversation_id TEXT,
-                    project_id TEXT,
-                    graph_id TEXT,
-                    created_at TEXT,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_links_source
-                    ON sophiagraph_links(source_record_id, created_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_links_target
-                    ON sophiagraph_links(target_record_id, created_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_links_namespace
-                    ON sophiagraph_links(
-                        tenant_id, org_id, user_id, agent_id, session_id,
-                        conversation_id, project_id, graph_id
-                    );
-
-                CREATE TABLE IF NOT EXISTS sophiagraph_blocks (
-                    block_id TEXT PRIMARY KEY,
-                    document_id TEXT NOT NULL,
-                    record_id TEXT NOT NULL,
-                    block_type TEXT NOT NULL,
-                    anchor TEXT NOT NULL,
-                    line_start INTEGER,
-                    line_end INTEGER,
-                    excerpt TEXT,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_blocks_record
-                    ON sophiagraph_blocks(record_id, line_start, block_id);
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_blocks_document
-                    ON sophiagraph_blocks(document_id, line_start, block_id);
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_blocks_anchor
-                    ON sophiagraph_blocks(anchor);
-
-                CREATE TABLE IF NOT EXISTS sophiagraph_change_events (
-                    cursor INTEGER PRIMARY KEY AUTOINCREMENT,
-                    event_id TEXT NOT NULL UNIQUE,
-                    object_type TEXT NOT NULL,
-                    object_id TEXT NOT NULL,
-                    operation TEXT NOT NULL,
-                    changed_at TEXT NOT NULL,
-                    tenant_id TEXT,
-                    org_id TEXT,
-                    user_id TEXT,
-                    agent_id TEXT,
-                    session_id TEXT,
-                    conversation_id TEXT,
-                    project_id TEXT,
-                    graph_id TEXT,
-                    idempotency_key TEXT UNIQUE,
-                    source_operation_id TEXT,
-                    schema_identifiers_json TEXT NOT NULL,
-                    payload_json TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_change_events_cursor
-                    ON sophiagraph_change_events(cursor);
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_change_events_namespace
-                    ON sophiagraph_change_events(
-                        tenant_id, org_id, user_id, agent_id, session_id,
-                        conversation_id, project_id, graph_id
-                    );
-                """
-            )
-            self._ensure_fts_schema(conn)
-            if schema_version < 2:
-                self._migrate_namespace_columns(conn)
-            if schema_version < _SCHEMA_VERSION:
-                conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_sophiagraph_records_namespace
-                    ON sophiagraph_records(
-                        tenant_id, org_id, user_id, agent_id, session_id,
-                        conversation_id, project_id, graph_id
-                    )
-                """
-            )
-
-    def _ensure_fts_schema(self, conn: sqlite3.Connection) -> None:
-        try:
-            conn.execute(
-                """
-                CREATE VIRTUAL TABLE IF NOT EXISTS sophiagraph_record_fts
-                USING fts5(record_id UNINDEXED, searchable)
-                """
-            )
-        except sqlite3.OperationalError:
-            return
-
-    def _record_searchable_text(self, record: MemoryRecord) -> str:
-        return " ".join(
-            str(part)
-            for part in (
-                record.title,
-                record.key,
-                record.scope,
-                record.type,
-                record.tags,
-                record.content,
-                record.meta,
-            )
-            if part is not None
-        )
-
-    def _replace_record_fts(
-        self,
-        conn: sqlite3.Connection,
-        record: MemoryRecord,
-    ) -> None:
-        try:
-            conn.execute(
-                "DELETE FROM sophiagraph_record_fts WHERE record_id = ?",
-                (record.id,),
-            )
-            conn.execute(
-                """
-                INSERT INTO sophiagraph_record_fts(record_id, searchable)
-                VALUES (?, ?)
-                """,
-                (record.id, self._record_searchable_text(record)),
-            )
-        except sqlite3.OperationalError:
-            return
-
-    def _fts_candidate_record_ids(
-        self,
-        conn: sqlite3.Connection,
-        query: StructuralSearchQuery,
-    ) -> set[str] | None:
-        terms = list(query.text_terms)
-        terms.extend(query.exact_phrases)
-        if query.content:
-            terms.append(query.content)
-        if not terms:
-            return None
-        escaped = [
-            '"' + str(term).replace('"', '""') + '"' for term in terms if str(term)
-        ]
-        if not escaped:
-            return None
-        try:
-            rows = conn.execute(
-                """
-                SELECT record_id FROM sophiagraph_record_fts
-                 WHERE sophiagraph_record_fts MATCH ?
-                """,
-                (" AND ".join(escaped),),
-            ).fetchall()
-        except sqlite3.OperationalError:
-            return None
-        return {str(row["record_id"]) for row in rows}
-
-    def _migrate_namespace_columns(self, conn: sqlite3.Connection) -> None:
-        columns = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(sophiagraph_records)")
-        }
-        for column in _NAMESPACE_COLUMNS:
-            if column not in columns:
-                conn.execute(
-                    f"ALTER TABLE sophiagraph_records ADD COLUMN {column} TEXT"
-                )
-        rows = conn.execute(
-            "SELECT id, scope, payload_json FROM sophiagraph_records"
-        ).fetchall()
-        for row in rows:
-            payload = _row_json(row)
-            namespace = _namespace_from_payload(payload, str(row["scope"]))
-            namespace_values = namespace.as_dict()
-            if not isinstance(payload.get("namespace"), dict):
-                payload["namespace"] = namespace_values
-            conn.execute(
-                """
-                UPDATE sophiagraph_records
-                   SET tenant_id = ?, org_id = ?, user_id = ?, agent_id = ?,
-                       session_id = ?, conversation_id = ?, project_id = ?,
-                       graph_id = ?, payload_json = ?
-                 WHERE id = ?
-                """,
-                (
-                    namespace_values.get("tenant_id"),
-                    namespace_values.get("org_id"),
-                    namespace_values.get("user_id"),
-                    namespace_values.get("agent_id"),
-                    namespace_values.get("session_id"),
-                    namespace_values.get("conversation_id"),
-                    namespace_values.get("project_id"),
-                    namespace_values.get("graph_id"),
-                    json_dumps(payload),
-                    row["id"],
-                ),
-            )
+            ensure_schema(conn)
 
     def _record_from_row(self, row: sqlite3.Row) -> MemoryRecord:
-        return record_from_dict(_row_json(row))
+        return record_from_dict(row_json(row))
 
     def _candidate_from_row(self, row: sqlite3.Row) -> MemoryCandidate:
-        return candidate_from_dict(_row_json(row))
+        return candidate_from_dict(row_json(row))
 
     def _relation_from_row(self, row: sqlite3.Row) -> MemoryRelation:
-        return relation_from_dict(_row_json(row))
+        return relation_from_dict(row_json(row))
 
     def _link_from_row(self, row: sqlite3.Row) -> StructuralLink:
-        return link_from_dict(_row_json(row))
+        return link_from_dict(row_json(row))
 
     def _block_from_row(self, row: sqlite3.Row) -> KnowledgeDocumentBlock:
-        return block_from_dict(_row_json(row))
+        return block_from_dict(row_json(row))
 
     def _transition_from_row(self, row: sqlite3.Row) -> MemoryTierTransition:
-        return tier_transition_from_dict(_row_json(row))
+        return tier_transition_from_dict(row_json(row))
 
     def _change_from_row(self, row: sqlite3.Row) -> SophiaGraphChangeEvent:
         namespace = MemoryNamespace(
@@ -544,7 +231,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
         record: MemoryRecord,
     ) -> None:
         payload = asdict(record)
-        namespace_values = _namespace_values(record)
+        namespace_values = record_namespace_values(record)
         conn.execute(
             """
             INSERT OR REPLACE INTO sophiagraph_records(
@@ -574,7 +261,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                 json_dumps(payload),
             ),
         )
-        self._replace_record_fts(conn, record)
+        replace_record_fts(conn, record)
 
     def _change_exists(
         self,
@@ -659,7 +346,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
         if not options.include_invalidated:
             clauses.append("(valid_to IS NULL OR valid_to > ?)")
             params.append(utc_now_iso())
-        namespace_sql, namespace_params = _namespace_filter_sql(options.namespaces)
+        namespace_sql, namespace_params = namespace_filter_sql(options.namespaces)
         if namespace_sql:
             clauses.append(namespace_sql)
             params.extend(namespace_params)
@@ -927,7 +614,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                 "relation_type IN ({})".format(",".join("?" for _ in allowed))
             )
             params.extend(allowed)
-        namespace_sql, namespace_params = _namespace_filter_sql(options.namespaces)
+        namespace_sql, namespace_params = namespace_filter_sql(options.namespaces)
         if namespace_sql:
             clauses.append(namespace_sql)
             params.extend(namespace_params)
@@ -1036,7 +723,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
             )
         )
         record_ids = {record.id for record in records}
-        namespace_sql, namespace_params = _namespace_filter_sql(options.namespaces)
+        namespace_sql, namespace_params = namespace_filter_sql(options.namespaces)
         clauses = ["1=1"]
         params: list[Any] = []
         if namespace_sql:
@@ -1103,7 +790,7 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
             block_rows = conn.execute(
                 "SELECT payload_json FROM sophiagraph_blocks"
             ).fetchall()
-            fts_record_ids = self._fts_candidate_record_ids(conn, query)
+            fts_record_ids = fts_candidate_record_ids(conn, query)
         links = [self._link_from_row(row) for row in rows]
         blocks = [self._block_from_row(row) for row in block_rows]
         matches = [
@@ -1382,326 +1069,6 @@ class SophiaGraphSqliteStore(SophiaGraphStore):
                 (scope, type, key),
             ).fetchall()
         return [self._record_from_row(row) for row in rows]
-
-    def export_snapshot(
-        self,
-        options: MemoryBundleExportOptions,
-    ) -> MemoryBundleSnapshot:
-        records = self.list_records(
-            ListQueryOptions(
-                scopes=options.scopes,
-                types=options.types,
-                include_invalidated=True,
-                limit=options.limit,
-                offset=None,
-                order_by=RecordOrder.UPDATED_AT_DESC,
-                namespaces=options.namespaces,
-            )
-        )
-        relations: list[MemoryRelation] = []
-        if options.include_relations:
-            record_ids = {record.id for record in records}
-            with self._connect() as conn:
-                rows = conn.execute(
-                    "SELECT payload_json FROM sophiagraph_relations ORDER BY created_at ASC"
-                ).fetchall()
-            relations = [
-                relation
-                for relation in (self._relation_from_row(row) for row in rows)
-                if relation.source_record_id in record_ids
-                and relation.target_record_id in record_ids
-            ]
-        candidates: list[MemoryCandidate] = []
-        if options.include_candidates:
-            candidates = self.list_candidates(CandidateListOptions(limit=options.limit))
-        tier_transitions: list[MemoryTierTransition] = []
-        if options.include_tier_history:
-            tier_transitions = self.list_tier_transitions(
-                scopes=options.scopes, limit=options.limit
-            )
-        snapshot = MemoryBundleSnapshot(
-            manifest={},
-            records=records,
-            candidates=candidates,
-            relations=relations,
-            tier_transitions=tier_transitions,
-            provenance_traces=[],
-        )
-        return replace(snapshot, manifest=build_manifest(snapshot=snapshot))
-
-    def import_snapshot(
-        self,
-        snapshot: MemoryBundleSnapshot,
-        options: MemoryBundleImportOptions,
-    ) -> MemoryBundleImportResult:
-        imported_records = 0
-        staged_candidates = 0
-        imported_candidates = 0
-        imported_relations = 0
-        imported_tier_transitions = 0
-        skipped_records = 0
-        skipped_sections: list[str] = []
-        rewrites: dict[str, str] = dict(options.scope_rewrites)
-        if options.dry_run:
-            records = [
-                record
-                for record in snapshot.records
-                if record_matches_namespaces(record, options.namespace_allowlist)
-            ]
-            skipped_records = len(snapshot.records) - len(records)
-            return MemoryBundleImportResult(
-                applied=False,
-                trust_mode=options.trust_mode,
-                conflict_mode=options.conflict_mode,
-                id_mode=options.id_mode,
-                imported_records=len(records),
-                staged_candidates=len(records)
-                if options.trust_mode == "candidate"
-                else 0,
-                imported_candidates=len(snapshot.candidates)
-                if options.trust_mode == "direct"
-                else 0,
-                imported_relations=len(snapshot.relations)
-                if options.trust_mode == "direct"
-                else 0,
-                imported_tier_transitions=len(snapshot.tier_transitions)
-                if options.trust_mode == "direct"
-                else 0,
-                skipped_records=skipped_records,
-                skipped_sections=[],
-                rewrites=rewrites,
-            )
-        for record in snapshot.records:
-            resolved_scope = options.scope_rewrites.get(record.scope, record.scope)
-            record = replace(record, scope=resolved_scope)
-            if not record_matches_namespaces(record, options.namespace_allowlist):
-                skipped_records += 1
-                continue
-            if self.get_record(record.id) is not None:
-                if options.conflict_mode == "skip":
-                    skipped_records += 1
-                    continue
-                if options.conflict_mode == "error":
-                    raise InvalidArgumentError(f"record already exists: {record.id}")
-            if options.trust_mode == "candidate":
-                candidate = MemoryCandidate(
-                    candidate_id=str(uuid4()),
-                    session_id="bundle-import",
-                    proposed_scope=resolved_scope,
-                    type=record.type,
-                    content=record.content,
-                    tags=list(record.tags),
-                    entities=list(record.entities),
-                    source="imported",
-                    confidence=record.confidence,
-                    evidence_refs=list(record.evidence_refs),
-                    key=record.key,
-                    title=record.title,
-                    meta=dict(record.meta),
-                    namespace=record.effective_namespace,
-                    created_at=record.created_at,
-                    updated_at=record.updated_at,
-                )
-                self.put_candidate(candidate)
-                staged_candidates += 1
-                continue
-            self.put_record(record)
-            imported_records += 1
-        if options.trust_mode == "candidate":
-            skipped_sections.extend(["relations", "tier_transitions", "candidates"])
-            return MemoryBundleImportResult(
-                applied=True,
-                trust_mode=options.trust_mode,
-                conflict_mode=options.conflict_mode,
-                id_mode=options.id_mode,
-                imported_records=0,
-                staged_candidates=staged_candidates,
-                skipped_records=skipped_records,
-                skipped_sections=skipped_sections,
-                rewrites=rewrites,
-            )
-        for candidate in snapshot.candidates:
-            self.put_candidate(candidate)
-            imported_candidates += 1
-        for relation in snapshot.relations:
-            self.put_relation(relation)
-            imported_relations += 1
-        for transition in snapshot.tier_transitions:
-            self.put_tier_transition(transition)
-            imported_tier_transitions += 1
-        return MemoryBundleImportResult(
-            applied=True,
-            trust_mode=options.trust_mode,
-            conflict_mode=options.conflict_mode,
-            id_mode=options.id_mode,
-            imported_records=imported_records,
-            staged_candidates=staged_candidates,
-            imported_candidates=imported_candidates,
-            imported_relations=imported_relations,
-            imported_tier_transitions=imported_tier_transitions,
-            skipped_records=skipped_records,
-            skipped_sections=skipped_sections,
-            rewrites=rewrites,
-        )
-
-    def list_changes(
-        self,
-        *,
-        since_cursor: int | None = None,
-        limit: int | None = None,
-        namespaces: list[MemoryNamespace] | None = None,
-    ) -> list[SophiaGraphChangeEvent]:
-        clauses = ["1=1"]
-        params: list[Any] = []
-        if since_cursor is not None:
-            clauses.append("cursor > ?")
-            params.append(int(since_cursor))
-        namespace_sql, namespace_params = _namespace_filter_sql(namespaces)
-        if namespace_sql:
-            clauses.append(namespace_sql)
-            params.extend(namespace_params)
-        query = (
-            "SELECT * FROM sophiagraph_change_events WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY cursor ASC"
-        )
-        if limit is not None:
-            query += " LIMIT ?"
-            params.append(int(limit))
-        with self._connect() as conn:
-            rows = conn.execute(query, params).fetchall()
-        return [self._change_from_row(row) for row in rows]
-
-    def export_delta(
-        self,
-        *,
-        since_cursor: int | None = None,
-        limit: int | None = None,
-        namespaces: list[MemoryNamespace] | None = None,
-    ) -> MemoryDeltaSnapshot:
-        changes = self.list_changes(
-            since_cursor=since_cursor,
-            limit=limit,
-            namespaces=namespaces,
-        )
-        return MemoryDeltaSnapshot(
-            manifest={
-                "delta_version": "sophiagraph_delta.v1",
-                "change_count": len(changes),
-            },
-            changes=changes,
-        )
-
-    def import_delta(self, delta: MemoryDeltaSnapshot) -> MemoryDeltaImportResult:
-        imported = 0
-        skipped: list[str] = []
-        with self._write_connection() as conn:
-            for event in delta.changes:
-                if self._change_exists(conn, event):
-                    skipped.append(event.event_id)
-                    continue
-                if event.object_type == "record":
-                    record = record_from_dict(event.payload)
-                    self._put_record_payload(conn, record)
-                elif event.object_type == "relation":
-                    relation = relation_from_dict(event.payload)
-                    conn.execute(
-                        """
-                        INSERT OR REPLACE INTO sophiagraph_relations(
-                            relation_id, source_record_id, target_record_id,
-                            relation_type, created_at, payload_json
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            relation.relation_id,
-                            relation.source_record_id,
-                            relation.target_record_id,
-                            relation.relation_type,
-                            relation.created_at,
-                            json_dumps(asdict(relation)),
-                        ),
-                    )
-                elif event.object_type == "link":
-                    link = link_from_dict(event.payload)
-                    payload = link_to_dict(link)
-                    namespace_values = link.namespace.as_dict()
-                    conn.execute(
-                        """
-                        INSERT OR REPLACE INTO sophiagraph_links(
-                            link_id, source_record_id, target_record_id, raw_target,
-                            link_kind, resolution_status, relation_type, tenant_id,
-                            org_id, user_id, agent_id, session_id, conversation_id,
-                            project_id, graph_id, created_at, payload_json
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            link.link_id,
-                            link.source_record_id,
-                            link.target_record_id,
-                            link.raw_target,
-                            link.link_kind,
-                            link.resolution_status,
-                            link.relation_type,
-                            namespace_values.get("tenant_id"),
-                            namespace_values.get("org_id"),
-                            namespace_values.get("user_id"),
-                            namespace_values.get("agent_id"),
-                            namespace_values.get("session_id"),
-                            namespace_values.get("conversation_id"),
-                            namespace_values.get("project_id"),
-                            namespace_values.get("graph_id"),
-                            link.created_at,
-                            json_dumps(payload),
-                        ),
-                    )
-                elif event.object_type == "candidate":
-                    candidate = candidate_from_dict(event.payload)
-                    conn.execute(
-                        """
-                        INSERT OR REPLACE INTO sophiagraph_candidates(
-                            candidate_id, session_id, proposed_scope, status,
-                            created_at, updated_at, payload_json
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            candidate.candidate_id,
-                            candidate.session_id,
-                            candidate.proposed_scope,
-                            candidate.status,
-                            candidate.created_at,
-                            candidate.updated_at,
-                            json_dumps(asdict(candidate)),
-                        ),
-                    )
-                elif event.object_type == "tier_transition":
-                    transition = tier_transition_from_dict(event.payload)
-                    conn.execute(
-                        """
-                        INSERT OR REPLACE INTO sophiagraph_tier_transitions(
-                            transition_id, record_id, scope, record_type,
-                            transition_at, payload_json
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            transition.transition_id,
-                            transition.record_id,
-                            transition.scope,
-                            transition.record_type,
-                            transition.transition_at,
-                            json_dumps(asdict(transition)),
-                        ),
-                    )
-                else:
-                    skipped.append(event.event_id)
-                    continue
-                self._insert_change_event(conn, event)
-                imported += 1
-        return MemoryDeltaImportResult(
-            applied=True,
-            imported_changes=imported,
-            skipped_changes=len(skipped),
-            skipped_event_ids=skipped,
-        )
 
     def record_count(self) -> int:
         with self._connect() as conn:

@@ -18,6 +18,8 @@ from sophiagraph.portability.models import (
 )
 from sophiagraph.query import CandidateListOptions, ListQueryOptions, SearchQueryOptions
 from sophiagraph.storage import SophiaGraphSqliteStore
+from sophiagraph.storage.sqlite_portability import SqlitePortabilityMixin
+from sophiagraph.storage.sqlite_support import SCHEMA_VERSION, namespace_filter_sql
 
 
 def _record(
@@ -45,6 +47,7 @@ def _record(
 
 def test_sqlite_store_record_round_trip(tmp_path) -> None:
     store = SophiaGraphSqliteStore(tmp_path / "sophiagraph.sqlite3")
+    assert isinstance(store, SqlitePortabilityMixin)
     record = _record()
     store.put_record(record)
 
@@ -82,6 +85,23 @@ def test_sqlite_schema_uses_sophiagraph_table_names(tmp_path) -> None:
         "sophiagraph_tier_transitions",
     } <= table_names
     assert not any(name.startswith("knowledge_") for name in table_names)
+
+
+def test_sqlite_support_owns_schema_version_and_namespace_filters(tmp_path) -> None:
+    db_path = tmp_path / "sophiagraph.sqlite3"
+    SophiaGraphSqliteStore(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        schema_version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+    sql, params = namespace_filter_sql(
+        [MemoryNamespace(agent_id="agent-a", graph_id="main")]
+    )
+
+    assert schema_version == SCHEMA_VERSION
+    assert "agent_id = ?" in sql
+    assert "graph_id = ?" in sql
+    assert params == ["agent-a", "main"]
 
 
 def test_sqlite_store_configures_write_safety_pragmas(tmp_path) -> None:

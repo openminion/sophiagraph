@@ -10,6 +10,7 @@ from sophiagraph.portability.models import (
 )
 from sophiagraph.query import ListQueryOptions, SearchQueryOptions
 from sophiagraph.storage import SophiaGraphMemoryStore
+from sophiagraph.storage.memory_portability import MemoryPortabilityMixin
 
 
 def _record(
@@ -53,6 +54,7 @@ def test_memory_store_round_trip_and_search() -> None:
 def test_memory_store_portability_round_trip() -> None:
     source = SophiaGraphMemoryStore()
     source.put_record(_record())
+    assert isinstance(source, MemoryPortabilityMixin)
     snapshot = source.export_snapshot(
         MemoryBundleExportOptions(scopes=["agent:memory"])
     )
@@ -60,6 +62,18 @@ def test_memory_store_portability_round_trip() -> None:
     result = dest.import_snapshot(snapshot, MemoryBundleImportOptions())
     assert result.applied is True
     assert len(dest.list_records(ListQueryOptions(scopes=["agent:memory"]))) == 1
+
+
+def test_memory_store_delta_round_trip_uses_portability_mixin() -> None:
+    source = SophiaGraphMemoryStore()
+    source.put_record(_record("mem-delta"))
+    delta = source.export_delta()
+
+    dest = SophiaGraphMemoryStore()
+    result = dest.import_delta(delta)
+
+    assert result.imported_changes == 1
+    assert dest.get_record("mem-delta") is not None
 
 
 def test_memory_store_namespace_filters_and_export_boundaries() -> None:
