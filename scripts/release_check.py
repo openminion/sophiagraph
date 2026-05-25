@@ -76,7 +76,10 @@ def main(argv: list[str] | None = None) -> int:
                 [
                     str(wheel_python),
                     "-c",
-                    "from sophiagraph import VaultFilePayload, import_vault_files",
+                    (
+                        "from sophiagraph import VaultFilePayload, all_simple_paths, "
+                        "import_vault_files, retrieval_path_evidence"
+                    ),
                 ],
                 cwd=root,
             )

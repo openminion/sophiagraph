@@ -27,6 +27,11 @@ VaultDiagnosticSeverity = Literal["info", "warning", "error"]
 
 
 class VaultStore(Protocol):
+    """Store subset used by vault adapters.
+
+    Methods overlapping ``SophiaGraphStore`` must keep matching signatures.
+    """
+
     def put_record(self, record: MemoryRecord) -> str: ...
 
     def list_records(self, options: ListQueryOptions) -> list[MemoryRecord]: ...

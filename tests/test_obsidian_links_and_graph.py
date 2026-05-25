@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
     KnowledgeDocumentBlock,
     MemoryNamespace,
@@ -13,9 +14,14 @@ from sophiagraph.query import (
     LinkQueryOptions,
     LocalGraphOptions,
     StructuralSearchQuery,
+    all_simple_paths,
+    common_neighbors,
     connected_components,
     degree_centrality,
+    degree_metrics,
+    orphan_clusters,
     path_evidence,
+    retrieval_path_evidence,
     shortest_path,
 )
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
@@ -164,6 +170,71 @@ def test_graph_algorithms_return_paths_components_and_centrality(store) -> None:
     ]
     assert centrality["rec-b"] == 2.0
     assert [edge.edge_id for edge in evidence] == ["link-a-b", "link-b-c"]
+
+
+def test_graph_algorithms_cover_bounded_paths_neighbors_orphans_and_evidence(
+    store,
+) -> None:
+    namespace = _namespace()
+    other_namespace = _namespace("other")
+    for record_id, title in [
+        ("rec-a", "A"),
+        ("rec-b", "B"),
+        ("rec-c", "C"),
+        ("rec-d", "D"),
+        ("rec-e", "E"),
+    ]:
+        store.put_record(_record(record_id, title, namespace))
+    store.put_record(_record("rec-other", "Other", other_namespace))
+    store.put_link(_link("link-a-b", "rec-a", "rec-b", namespace))
+    store.put_link(_link("link-b-c", "rec-b", "rec-c", namespace))
+    store.put_link(_link("link-a-d", "rec-a", "rec-d", namespace))
+    store.put_link(_link("link-d-c", "rec-d", "rec-c", namespace))
+    store.put_link(_link("link-other-c", "rec-other", "rec-c", other_namespace))
+
+    snapshot = store.get_graph_snapshot(
+        GraphSnapshotOptions(
+            scopes=["agent:agent", "agent:other"],
+            namespaces=[MemoryNamespace(agent_id="agent")],
+            include_orphans=True,
+        )
+    )
+    paths = all_simple_paths(snapshot, "rec-a", "rec-c", max_depth=3, max_paths=5)
+    neighbors = common_neighbors(snapshot, "rec-a", "rec-c")
+    metrics = {metric.record_id: metric for metric in degree_metrics(snapshot)}
+    evidence = retrieval_path_evidence(
+        snapshot, "rec-a", "rec-c", max_depth=3, max_paths=2
+    )
+
+    assert [path.record_ids for path in paths] == [
+        ["rec-a", "rec-b", "rec-c"],
+        ["rec-a", "rec-d", "rec-c"],
+    ]
+    assert neighbors.neighbor_record_ids == ["rec-b", "rec-d"]
+    assert neighbors.edge_ids == ["link-a-b", "link-a-d", "link-b-c", "link-d-c"]
+    assert metrics["rec-a"].degree_out == 2
+    assert metrics["rec-c"].degree_in == 2
+    assert [cluster.record_ids for cluster in orphan_clusters(snapshot)] == [["rec-e"]]
+    assert evidence.record_ids == ["rec-a", "rec-b", "rec-c", "rec-d"]
+    assert evidence.edge_ids == ["link-a-b", "link-b-c", "link-a-d", "link-d-c"]
+    assert "rec-other" not in {node.record_id for node in snapshot.nodes}
+
+
+def test_graph_algorithms_validate_limits_and_direction(store) -> None:
+    namespace = _namespace()
+    for record_id, title in [("rec-a", "A"), ("rec-b", "B")]:
+        store.put_record(_record(record_id, title, namespace))
+    store.put_link(_link("link-a-b", "rec-a", "rec-b", namespace))
+    snapshot = store.get_graph_snapshot(GraphSnapshotOptions(scopes=["agent:agent"]))
+
+    assert shortest_path(snapshot, "rec-b", "rec-a", direction="out") is None
+    assert shortest_path(snapshot, "rec-b", "rec-a", direction="both") is not None
+    with pytest.raises(InvalidArgumentError, match="invalid direction"):
+        shortest_path(snapshot, "rec-a", "rec-b", direction="sideways")
+    with pytest.raises(InvalidArgumentError, match="max_depth must be positive"):
+        all_simple_paths(snapshot, "rec-a", "rec-b", max_depth=0)
+    with pytest.raises(InvalidArgumentError, match="limit must be positive"):
+        common_neighbors(snapshot, "rec-a", "rec-b", limit=0)
 
 
 def test_structural_search_matches_tags_properties_path_and_links(store) -> None:

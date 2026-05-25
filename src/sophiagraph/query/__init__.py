@@ -1,11 +1,20 @@
 """Canonical durable-knowledge query DTOs."""
 
 from .algorithms import (
+    GraphCommonNeighbors,
     GraphComponent,
+    GraphDegreeMetric,
+    GraphOrphanCluster,
     GraphPath,
+    RetrievalPathEvidence,
+    all_simple_paths,
+    common_neighbors,
     connected_components,
     degree_centrality,
+    degree_metrics,
+    orphan_clusters,
     path_evidence,
+    retrieval_path_evidence,
     shortest_path,
 )
 from .graph import (
@@ -30,9 +39,12 @@ from .structural import (
 
 __all__ = [
     "CandidateListOptions",
+    "GraphCommonNeighbors",
     "GraphComponent",
+    "GraphDegreeMetric",
     "GraphEdge",
     "GraphNode",
+    "GraphOrphanCluster",
     "GraphPath",
     "GraphSnapshot",
     "GraphSnapshotOptions",
@@ -40,12 +52,18 @@ __all__ = [
     "ListQueryOptions",
     "LocalGraphOptions",
     "RecordOrder",
+    "RetrievalPathEvidence",
     "SearchQueryOptions",
     "StructuralSearchQuery",
     "StructuralSort",
+    "all_simple_paths",
+    "common_neighbors",
     "connected_components",
     "degree_centrality",
+    "degree_metrics",
+    "orphan_clusters",
     "path_evidence",
     "parse_structural_query",
+    "retrieval_path_evidence",
     "shortest_path",
 ]
