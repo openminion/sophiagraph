@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from sophiagraph.contracts.errors import InvalidArgumentError
+
 
 class Importer(Protocol):
     def __call__(self, payload: str, **kwargs: Any) -> Any: ...
@@ -45,7 +47,7 @@ class SophiaGraphExtensionRegistry:
 def _name(value: str) -> str:
     normalized = str(value or "").strip()
     if not normalized:
-        raise ValueError("extension name is required")
+        raise InvalidArgumentError("extension name is required")
     return normalized
 
 

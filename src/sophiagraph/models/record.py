@@ -179,11 +179,7 @@ class SessionSummaryContent(TypedDict):
 
 @dataclass(frozen=True)
 class MemoryPatchResult:
-    """Compatibility result for host-runtime record-turn adapters.
-
-    OpenMinion still consumes this shape through its memory compatibility shim.
-    Package-local stores do not create it directly.
-    """
+    """Compatibility result for host-runtime record-turn adapters."""
 
     facts_added: int
     todos_added: int
