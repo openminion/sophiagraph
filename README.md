@@ -4,6 +4,9 @@ Status: `publish-ready alpha`
 Shape: standalone Python package
 License: `Apache-2.0`
 
+Repository: [github.com/openminion/sophiagraph](https://github.com/openminion/sophiagraph)  
+Package index: [pypi.org/project/sophiagraph](https://pypi.org/project/sophiagraph/)
+
 `sophiagraph` is a standalone wisdom graph substrate for durable agent memory.
 The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this package it
 frames durable knowledge as a graph of records, relations, provenance, trust,
@@ -23,8 +26,9 @@ and portable snapshots.
 - directed relation APIs with explicit incoming/outgoing/bidirectional lookup
 - Obsidian-style structural document/link DTOs, Markdown/frontmatter adapter,
   addressable blocks, backlinks, outgoing links, local graph traversal, graph
-  snapshots, structural search DTOs, saved view evaluation, JSON Canvas DTOs,
-  schema discovery, async facade helpers, and extension hooks
+  snapshots, deterministic graph algorithms, structural search DTOs, saved view
+  evaluation, JSON Canvas DTOs, schema discovery, async facade helpers, and
+  extension hooks
 - a package-local SQLite durable engine
 - a package-local in-memory backend for tests and ephemeral consumers
 - a standalone smoke entrypoint for publish/install validation
@@ -147,6 +151,13 @@ Writes use explicit transaction boundaries. This keeps a sibling reader, such
 as a local service process or a second host process, from blocking ordinary
 package writes under the common read-while-write SQLite case.
 
+For production-like local use:
+
+- create one store instance per process or worker, not one shared connection;
+- expect SQLite's normal single-writer behavior even with WAL enabled;
+- keep write transactions short and caller-owned payloads already structured;
+- use `backup(...)` for online copies instead of copying live `*.sqlite3` files.
+
 SQLite backups are available through the store:
 
 ```python
@@ -248,8 +259,11 @@ workflows:
 - Store backends expose `put_link(...)`, `list_links(...)`,
   `get_backlinks(...)`, `get_outgoing_links(...)`, `get_local_graph(...)`, and
   `get_graph_snapshot(...)`.
-- SQLite structural search uses an FTS5 record index when available and keeps a
-  deterministic Python fallback for unsupported SQLite builds.
+- SQLite structural search uses FTS5 record and block indexes when available
+  and keeps a deterministic Python fallback for unsupported SQLite builds.
+- `sophiagraph.query` exposes deterministic graph helpers for shortest paths,
+  path evidence, connected components, and degree centrality over explicit
+  graph snapshots.
 - Saved views evaluate deterministic filters, boolean groups, link predicates,
   grouping, sorting, projections, and summaries.
 - JSON Canvas and extension hooks are package-local DTO/helper surfaces. They
@@ -260,7 +274,7 @@ Example:
 ```python
 from sophiagraph.adapters.markdown import extract_markdown
 from sophiagraph.models import LinkResolutionCandidate, MemoryNamespace
-from sophiagraph.query import LinkQueryOptions, LocalGraphOptions
+from sophiagraph.query import LinkQueryOptions, LocalGraphOptions, shortest_path
 ```
 
 ## Schema and Async Helpers
@@ -299,6 +313,7 @@ for link in imported.links:
 
 backlinks = store.list_links(LinkQueryOptions(record_id="rec-roadmap", direction="in"))
 local_graph = store.get_local_graph(LocalGraphOptions(record_id="rec-index", depth=1))
+path = shortest_path(local_graph, "rec-index", "rec-roadmap")
 ```
 
 The resolver contract is deliberately structural: explicit path first, then
@@ -306,12 +321,12 @@ case-insensitive title/alias matching inside the namespace. Unresolved and
 ambiguous targets are preserved as first-class outcomes. Unlinked mentions are
 not persisted as graph edges.
 
-## Alpha-Scale Search and SQLite Connections
+## Search and SQLite Connections
 
-Current search is deterministic substring search over hydrated record payloads.
-It is suitable for alpha-scale package use and tests, but it is not yet an
-FTS5-backed or vector-backed retrieval engine. The hybrid retrieval roadmap owns
-the future FTS/vector/rerank design.
+Current structural search uses deterministic matching with SQLite FTS5
+candidate narrowing for record and block text when FTS5 is available. It is not
+yet a vector-backed or reranked retrieval engine. The hybrid retrieval roadmap
+owns the future vector/rerank design.
 
 `SophiaGraphSqliteStore` opens a short-lived SQLite connection per method call.
 That keeps alpha behavior simple and avoids hidden shared connection state. A

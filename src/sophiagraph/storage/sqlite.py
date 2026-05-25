@@ -50,24 +50,24 @@ from sophiagraph.storage.helpers import (
     utc_now_iso,
 )
 from sophiagraph.storage.graph_helpers import (
-    graph_edge_from_link,
-    graph_node_from_record,
     block_from_dict,
     block_to_dict,
     link_from_dict,
     link_to_dict,
-    namespace_matches_filters,
     record_matches_structural_query,
 )
+from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from sophiagraph.storage.sqlite_support import (
     SQLITE_BUSY_TIMEOUT_MS,
     SQLITE_CONNECT_TIMEOUT_SECONDS,
     SQLITE_JOURNAL_MODE,
     SQLITE_SYNCHRONOUS,
+    block_fts_candidate_record_ids,
     ensure_schema,
     fts_candidate_record_ids,
     namespace_filter_sql,
     namespace_values as record_namespace_values,
+    replace_record_blocks_fts,
     replace_record_fts,
     row_json,
 )
@@ -594,6 +594,64 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
             )
         return link.link_id
 
+    def replace_record_links(
+        self,
+        record_id: str,
+        links: list[StructuralLink],
+    ) -> None:
+        with self._write_connection() as conn:
+            conn.execute(
+                "DELETE FROM sophiagraph_links WHERE source_record_id = ?",
+                (record_id,),
+            )
+            for link in links:
+                if link.source_record_id != record_id:
+                    raise InvalidArgumentError(
+                        "link source_record_id must match record_id"
+                    )
+                payload = link_to_dict(link)
+                namespace_values = link.namespace.as_dict()
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO sophiagraph_links(
+                        link_id, source_record_id, target_record_id, raw_target,
+                        link_kind, resolution_status, relation_type, tenant_id,
+                        org_id, user_id, agent_id, session_id, conversation_id,
+                        project_id, graph_id, created_at, payload_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        link.link_id,
+                        link.source_record_id,
+                        link.target_record_id,
+                        link.raw_target,
+                        link.link_kind,
+                        link.resolution_status,
+                        link.relation_type,
+                        namespace_values.get("tenant_id"),
+                        namespace_values.get("org_id"),
+                        namespace_values.get("user_id"),
+                        namespace_values.get("agent_id"),
+                        namespace_values.get("session_id"),
+                        namespace_values.get("conversation_id"),
+                        namespace_values.get("project_id"),
+                        namespace_values.get("graph_id"),
+                        link.created_at,
+                        json_dumps(payload),
+                    ),
+                )
+                schema_identifiers = {}
+                if link.relation_type:
+                    schema_identifiers["relation_type"] = link.relation_type
+                self._emit_change(
+                    conn,
+                    object_type="link",
+                    object_id=link.link_id,
+                    payload=payload,
+                    namespace=link.namespace,
+                    schema_identifiers=schema_identifiers,
+                )
+
     def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]:
         if options.direction not in {"out", "in", "both"}:
             raise InvalidArgumentError(f"invalid link direction: {options.direction!r}")
@@ -651,65 +709,10 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
         )
 
     def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot:
-        seen_nodes: set[str] = set()
-        frontier: list[tuple[str, int]] = [(options.record_id, 0)]
-        edges: list[Any] = []
-        edge_ids: set[str] = set()
-        degree_in: dict[str, int] = {}
-        degree_out: dict[str, int] = {}
-        while frontier and len(seen_nodes) < options.max_nodes:
-            record_id, depth = frontier.pop(0)
-            if record_id in seen_nodes:
-                continue
-            seen_nodes.add(record_id)
-            if depth >= options.depth:
-                continue
-            links = self.list_links(
-                LinkQueryOptions(
-                    record_id=record_id,
-                    direction=options.direction,
-                    relation_types=options.relation_types,
-                    namespaces=options.namespaces,
-                )
-            )
-            for link in links:
-                if link.link_id not in edge_ids and len(edges) < options.max_edges:
-                    edges.append(graph_edge_from_link(link))
-                    edge_ids.add(link.link_id)
-                if link.target_record_id:
-                    degree_out[link.source_record_id] = (
-                        degree_out.get(link.source_record_id, 0) + 1
-                    )
-                    degree_in[link.target_record_id] = (
-                        degree_in.get(link.target_record_id, 0) + 1
-                    )
-                next_id = (
-                    link.target_record_id
-                    if link.source_record_id == record_id
-                    else link.source_record_id
-                )
-                if next_id and next_id not in seen_nodes:
-                    frontier.append((next_id, depth + 1))
-        records: list[MemoryRecord] = []
-        for node_id in sorted(seen_nodes):
-            record = self.get_record(node_id)
-            if record is not None and namespace_matches_filters(
-                record.effective_namespace, options.namespaces
-            ):
-                records.append(record)
-        return GraphSnapshot(
-            nodes=[
-                graph_node_from_record(
-                    record,
-                    degree_in=degree_in.get(record.id, 0),
-                    degree_out=degree_out.get(record.id, 0),
-                )
-                for record in records[: options.max_nodes]
-            ],
-            edges=edges,
-            root_record_id=options.record_id,
-            depth=options.depth,
-            direction=options.direction,
+        return build_local_graph(
+            options,
+            load_links=self.list_links,
+            load_record=self.get_record,
             provenance={"store": "sqlite"},
         )
 
@@ -722,7 +725,6 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
                 include_invalidated=False,
             )
         )
-        record_ids = {record.id for record in records}
         namespace_sql, namespace_params = namespace_filter_sql(options.namespaces)
         clauses = ["1=1"]
         params: list[Any] = []
@@ -737,42 +739,10 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
         params.append(options.max_edges)
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
-        links = [
-            self._link_from_row(row)
-            for row in rows
-            if self._link_from_row(row).source_record_id in record_ids
-            and (
-                self._link_from_row(row).target_record_id is None
-                or self._link_from_row(row).target_record_id in record_ids
-            )
-        ]
-        if options.relation_types:
-            allowed = {str(item) for item in options.relation_types}
-            links = [link for link in links if link.relation_type in allowed]
-        degree_in: dict[str, int] = {}
-        degree_out: dict[str, int] = {}
-        for link in links:
-            if link.target_record_id:
-                degree_out[link.source_record_id] = (
-                    degree_out.get(link.source_record_id, 0) + 1
-                )
-                degree_in[link.target_record_id] = (
-                    degree_in.get(link.target_record_id, 0) + 1
-                )
-        nodes = [
-            graph_node_from_record(
-                record,
-                degree_in=degree_in.get(record.id, 0),
-                degree_out=degree_out.get(record.id, 0),
-            )
-            for record in records
-            if options.include_orphans
-            or degree_in.get(record.id, 0)
-            or degree_out.get(record.id, 0)
-        ]
-        return GraphSnapshot(
-            nodes=nodes,
-            edges=[graph_edge_from_link(link) for link in links],
+        return build_graph_snapshot(
+            records,
+            [self._link_from_row(row) for row in rows],
+            options,
             provenance={"store": "sqlite"},
         )
 
@@ -791,12 +761,14 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
                 "SELECT payload_json FROM sophiagraph_blocks"
             ).fetchall()
             fts_record_ids = fts_candidate_record_ids(conn, query)
+            block_fts_record_ids = block_fts_candidate_record_ids(conn, query)
         links = [self._link_from_row(row) for row in rows]
         blocks = [self._block_from_row(row) for row in block_rows]
         matches = [
             record
             for record in records
             if fts_record_ids is None or record.id in fts_record_ids
+            if block_fts_record_ids is None or record.id in block_fts_record_ids
             if record_matches_structural_query(
                 record,
                 query,
@@ -870,6 +842,7 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
                     namespace=namespace,
                     schema_identifiers={"node_label": "block"},
                 )
+            replace_record_blocks_fts(conn, record_id, blocks)
 
     def list_document_blocks(
         self,

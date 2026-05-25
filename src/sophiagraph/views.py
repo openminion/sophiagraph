@@ -25,7 +25,7 @@ ViewFilterOperator = Literal[
     "relation_type",
 ]
 ViewBooleanOperator = Literal["and", "or", "not"]
-ViewSummaryMetric = Literal["count", "count_distinct", "sum", "min", "max"]
+ViewSummaryMetric = Literal["count", "count_distinct", "sum", "avg", "min", "max"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +77,7 @@ class SavedViewSummary:
     label: str | None = None
 
     def __post_init__(self) -> None:
-        if self.metric not in {"count", "count_distinct", "sum", "min", "max"}:
+        if self.metric not in {"count", "count_distinct", "sum", "avg", "min", "max"}:
             raise InvalidArgumentError(f"invalid summary metric: {self.metric!r}")
         if self.metric != "count" and not self.field:
             raise InvalidArgumentError(f"{self.metric} summaries require a field")
@@ -242,15 +242,19 @@ def _summary_value(rows: list[SavedViewRow], summary: SavedViewSummary) -> Any:
     ]
     if summary.metric == "count_distinct":
         return len({str(value) for value in values})
-    if summary.metric == "sum":
+    if summary.metric in {"sum", "avg"}:
         total = 0.0
+        count = 0
         for value in values:
             number = _to_number(value)
             if number is None:
                 raise InvalidArgumentError(
-                    f"sum summary requires numeric values for {summary.field!r}"
+                    f"{summary.metric} summary requires numeric values for {summary.field!r}"
                 )
             total += number
+            count += 1
+        if summary.metric == "avg":
+            return None if count == 0 else total / count
         return total
     if summary.metric == "min":
         return min(values) if values else None

@@ -40,12 +40,11 @@ from sophiagraph.storage.helpers import (
     utc_now_iso,
 )
 from sophiagraph.storage.graph_helpers import (
-    graph_edge_from_link,
-    graph_node_from_record,
     block_to_dict,
     namespace_matches_filters,
     record_matches_structural_query,
 )
+from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from sophiagraph.storage.memory_portability import MemoryPortabilityMixin
 
 
@@ -307,6 +306,23 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         )
         return link.link_id
 
+    def replace_record_links(
+        self,
+        record_id: str,
+        links: list[StructuralLink],
+    ) -> None:
+        stale_ids = [
+            link_id
+            for link_id, link in self._links.items()
+            if link.source_record_id == record_id
+        ]
+        for link_id in stale_ids:
+            del self._links[link_id]
+        for link in links:
+            if link.source_record_id != record_id:
+                raise InvalidArgumentError("link source_record_id must match record_id")
+            self.put_link(link)
+
     def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]:
         links = [
             link
@@ -355,67 +371,10 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         )
 
     def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot:
-        seen_nodes: set[str] = set()
-        frontier: list[tuple[str, int]] = [(options.record_id, 0)]
-        edges: list[Any] = []
-        edge_ids: set[str] = set()
-        degree_in: dict[str, int] = {}
-        degree_out: dict[str, int] = {}
-        while frontier and len(seen_nodes) < options.max_nodes:
-            record_id, depth = frontier.pop(0)
-            if record_id in seen_nodes:
-                continue
-            seen_nodes.add(record_id)
-            if depth >= options.depth:
-                continue
-            for link in self.list_links(
-                LinkQueryOptions(
-                    record_id=record_id,
-                    direction=options.direction,
-                    relation_types=options.relation_types,
-                    namespaces=options.namespaces,
-                    limit=None,
-                )
-            ):
-                if link.link_id not in edge_ids and len(edges) < options.max_edges:
-                    edges.append(graph_edge_from_link(link))
-                    edge_ids.add(link.link_id)
-                if link.target_record_id:
-                    degree_out[link.source_record_id] = (
-                        degree_out.get(link.source_record_id, 0) + 1
-                    )
-                    degree_in[link.target_record_id] = (
-                        degree_in.get(link.target_record_id, 0) + 1
-                    )
-                next_id = (
-                    link.target_record_id
-                    if link.source_record_id == record_id
-                    else link.source_record_id
-                )
-                if next_id and next_id not in seen_nodes:
-                    frontier.append((next_id, depth + 1))
-        records = [
-            self._records[record_id]
-            for record_id in sorted(seen_nodes)
-            if record_id in self._records
-            and namespace_matches_filters(
-                self._records[record_id].effective_namespace, options.namespaces
-            )
-        ]
-        nodes = [
-            graph_node_from_record(
-                record,
-                degree_in=degree_in.get(record.id, 0),
-                degree_out=degree_out.get(record.id, 0),
-            )
-            for record in records[: options.max_nodes]
-        ]
-        return GraphSnapshot(
-            nodes=nodes,
-            edges=edges,
-            root_record_id=options.record_id,
-            depth=options.depth,
-            direction=options.direction,
+        return build_local_graph(
+            options,
+            load_links=self.list_links,
+            load_record=self.get_record,
             provenance={"store": "memory"},
         )
 
@@ -428,42 +387,10 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
                 include_invalidated=False,
             )
         )
-        record_ids = {record.id for record in records}
-        links = [
-            link
-            for link in self._links.values()
-            if link.source_record_id in record_ids
-            and (link.target_record_id is None or link.target_record_id in record_ids)
-            and namespace_matches_filters(link.namespace, options.namespaces)
-        ]
-        if options.relation_types:
-            allowed = {str(item) for item in options.relation_types}
-            links = [link for link in links if link.relation_type in allowed]
-        links = links[: options.max_edges]
-        degree_in: dict[str, int] = {}
-        degree_out: dict[str, int] = {}
-        for link in links:
-            if link.target_record_id:
-                degree_out[link.source_record_id] = (
-                    degree_out.get(link.source_record_id, 0) + 1
-                )
-                degree_in[link.target_record_id] = (
-                    degree_in.get(link.target_record_id, 0) + 1
-                )
-        nodes = [
-            graph_node_from_record(
-                record,
-                degree_in=degree_in.get(record.id, 0),
-                degree_out=degree_out.get(record.id, 0),
-            )
-            for record in records
-            if options.include_orphans
-            or degree_in.get(record.id, 0)
-            or degree_out.get(record.id, 0)
-        ]
-        return GraphSnapshot(
-            nodes=nodes,
-            edges=[graph_edge_from_link(link) for link in links],
+        return build_graph_snapshot(
+            records,
+            list(self._links.values()),
+            options,
             provenance={"store": "memory"},
         )
 

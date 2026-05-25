@@ -27,3 +27,13 @@ def test_package_readme_mentions_policy_and_quickstart() -> None:
     assert "API_COMPATIBILITY.md" in readme
     assert "External Consumer Quickstart" in readme
     assert "create_memory_store()" in readme
+
+
+def test_package_metadata_exposes_canonical_public_urls() -> None:
+    pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
+    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text()
+
+    assert "https://github.com/openminion/sophiagraph" in pyproject
+    assert "https://pypi.org/project/sophiagraph/" in pyproject
+    assert "https://github.com/openminion/sophiagraph" in readme
+    assert "https://pypi.org/project/sophiagraph" in readme

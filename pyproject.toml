@@ -24,6 +24,10 @@ classifiers = [
 ]
 dependencies = []
 
+[project.urls]
+Repository = "https://github.com/openminion/sophiagraph"
+Download = "https://pypi.org/project/sophiagraph/"
+
 [project.optional-dependencies]
 dev = [
   "build>=1,<2",

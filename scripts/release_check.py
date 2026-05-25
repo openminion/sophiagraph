@@ -68,9 +68,21 @@ def main(argv: list[str] | None = None) -> int:
             smoke_root = tmp / "smoke-root"
             _run([python, "-m", "venv", str(venv_dir)], cwd=root)
             pip = venv_dir / "bin" / "pip"
+            wheel_python = venv_dir / "bin" / "python"
             smoke = venv_dir / "bin" / "sophiagraph-smoke"
             wheel = sorted((root / "dist").glob("sophiagraph-*.whl"))[-1]
             _run([str(pip), "install", str(wheel)], cwd=root)
+            _run(
+                [
+                    str(wheel_python),
+                    "-c",
+                    (
+                        "from sophiagraph import VaultFilePayload, all_simple_paths, "
+                        "import_vault_files, retrieval_path_evidence"
+                    ),
+                ],
+                cwd=root,
+            )
             _run([str(smoke), "--root", str(smoke_root), "--seed", "--json"], cwd=root)
     return 0
 

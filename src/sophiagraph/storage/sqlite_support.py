@@ -6,11 +6,11 @@ import json
 import sqlite3
 from typing import Any
 
-from sophiagraph.models import MemoryNamespace, MemoryRecord
+from sophiagraph.models import KnowledgeDocumentBlock, MemoryNamespace, MemoryRecord
 from sophiagraph.portability.codec import json_dumps
 from sophiagraph.query import StructuralSearchQuery
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_CONNECT_TIMEOUT_SECONDS = SQLITE_BUSY_TIMEOUT_MS / 1000
 SQLITE_JOURNAL_MODE = "wal"
@@ -223,6 +223,12 @@ def ensure_fts_schema(conn: sqlite3.Connection) -> None:
             USING fts5(record_id UNINDEXED, searchable)
             """
         )
+        conn.execute(
+            """
+            CREATE VIRTUAL TABLE IF NOT EXISTS sophiagraph_block_fts
+            USING fts5(block_id UNINDEXED, record_id UNINDEXED, searchable)
+            """
+        )
     except sqlite3.OperationalError:
         return
 
@@ -261,6 +267,70 @@ def replace_record_fts(
         )
     except sqlite3.OperationalError:
         return
+
+
+def block_searchable_text(block: KnowledgeDocumentBlock) -> str:
+    return " ".join(
+        str(part)
+        for part in (
+            block.block_id,
+            block.document_id,
+            block.record_id,
+            block.block_type,
+            block.anchor,
+            block.excerpt,
+        )
+        if part is not None
+    )
+
+
+def replace_record_blocks_fts(
+    conn: sqlite3.Connection,
+    record_id: str,
+    blocks: list[KnowledgeDocumentBlock],
+) -> None:
+    try:
+        conn.execute(
+            "DELETE FROM sophiagraph_block_fts WHERE record_id = ?",
+            (record_id,),
+        )
+        conn.executemany(
+            """
+            INSERT INTO sophiagraph_block_fts(block_id, record_id, searchable)
+            VALUES (?, ?, ?)
+            """,
+            [
+                (block.block_id, block.record_id, block_searchable_text(block))
+                for block in blocks
+            ],
+        )
+    except sqlite3.OperationalError:
+        return
+
+
+def block_fts_candidate_record_ids(
+    conn: sqlite3.Connection,
+    query: StructuralSearchQuery,
+) -> set[str] | None:
+    terms = [query.block, query.section, query.task]
+    escaped = [
+        '"' + str(term).replace('"', '""') + '"'
+        for term in terms
+        if term is not None and str(term)
+    ]
+    if not escaped:
+        return None
+    try:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT record_id FROM sophiagraph_block_fts
+             WHERE sophiagraph_block_fts MATCH ?
+            """,
+            (" AND ".join(escaped),),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return None
+    return {str(row["record_id"]) for row in rows}
 
 
 def fts_candidate_record_ids(
@@ -335,6 +405,8 @@ __all__ = [
     "SQLITE_JOURNAL_MODE",
     "SQLITE_SYNCHRONOUS",
     "NAMESPACE_COLUMNS",
+    "block_fts_candidate_record_ids",
+    "block_searchable_text",
     "ensure_schema",
     "fts_candidate_record_ids",
     "namespace_filter_sql",
@@ -342,5 +414,6 @@ __all__ = [
     "namespace_values",
     "record_searchable_text",
     "replace_record_fts",
+    "replace_record_blocks_fts",
     "row_json",
 ]

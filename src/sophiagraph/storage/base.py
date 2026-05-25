@@ -96,6 +96,12 @@ class SophiaGraphStore(Protocol):
 
     def put_link(self, link: StructuralLink) -> str: ...
 
+    def replace_record_links(
+        self,
+        record_id: str,
+        links: list[StructuralLink],
+    ) -> None: ...
+
     def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]: ...
 
     def get_outgoing_links(

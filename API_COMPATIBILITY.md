@@ -56,7 +56,13 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.LocalGraphOptions`
 - `sophiagraph.GraphSnapshotOptions`
 - `sophiagraph.GraphSnapshot`
+- `sophiagraph.GraphPath`
+- `sophiagraph.GraphComponent`
 - `sophiagraph.StructuralSearchQuery`
+- `sophiagraph.shortest_path(...)`
+- `sophiagraph.path_evidence(...)`
+- `sophiagraph.connected_components(...)`
+- `sophiagraph.degree_centrality(...)`
 - `sophiagraph.create_sqlite_store(...)`
 - `sophiagraph.create_memory_store()`
 - `sophiagraph.default_db_path(...)`
@@ -113,6 +119,11 @@ Underscore-prefixed model cast helpers and codec hydrator aliases may remain
 available during `0.x` for OpenMinion compatibility, but they are not part of
 `__all__` and should not be used by new external consumers. New code should use
 public model imports and public codec helpers such as `record_from_dict`.
+
+The package currently uses small internal mixins for storage portability
+behavior and composition-style helper modules for shared query/build logic.
+This is an internal layout choice for `0.x`: public consumers should depend on
+the store classes and stable import roots, not private storage helper modules.
 
 ## Non-goals
 
