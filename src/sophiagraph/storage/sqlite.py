@@ -594,6 +594,64 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
             )
         return link.link_id
 
+    def replace_record_links(
+        self,
+        record_id: str,
+        links: list[StructuralLink],
+    ) -> None:
+        with self._write_connection() as conn:
+            conn.execute(
+                "DELETE FROM sophiagraph_links WHERE source_record_id = ?",
+                (record_id,),
+            )
+            for link in links:
+                if link.source_record_id != record_id:
+                    raise InvalidArgumentError(
+                        "link source_record_id must match record_id"
+                    )
+                payload = link_to_dict(link)
+                namespace_values = link.namespace.as_dict()
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO sophiagraph_links(
+                        link_id, source_record_id, target_record_id, raw_target,
+                        link_kind, resolution_status, relation_type, tenant_id,
+                        org_id, user_id, agent_id, session_id, conversation_id,
+                        project_id, graph_id, created_at, payload_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        link.link_id,
+                        link.source_record_id,
+                        link.target_record_id,
+                        link.raw_target,
+                        link.link_kind,
+                        link.resolution_status,
+                        link.relation_type,
+                        namespace_values.get("tenant_id"),
+                        namespace_values.get("org_id"),
+                        namespace_values.get("user_id"),
+                        namespace_values.get("agent_id"),
+                        namespace_values.get("session_id"),
+                        namespace_values.get("conversation_id"),
+                        namespace_values.get("project_id"),
+                        namespace_values.get("graph_id"),
+                        link.created_at,
+                        json_dumps(payload),
+                    ),
+                )
+                schema_identifiers = {}
+                if link.relation_type:
+                    schema_identifiers["relation_type"] = link.relation_type
+                self._emit_change(
+                    conn,
+                    object_type="link",
+                    object_id=link.link_id,
+                    payload=payload,
+                    namespace=link.namespace,
+                    schema_identifiers=schema_identifiers,
+                )
+
     def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]:
         if options.direction not in {"out", "in", "both"}:
             raise InvalidArgumentError(f"invalid link direction: {options.direction!r}")

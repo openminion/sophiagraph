@@ -306,6 +306,23 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         )
         return link.link_id
 
+    def replace_record_links(
+        self,
+        record_id: str,
+        links: list[StructuralLink],
+    ) -> None:
+        stale_ids = [
+            link_id
+            for link_id, link in self._links.items()
+            if link.source_record_id == record_id
+        ]
+        for link_id in stale_ids:
+            del self._links[link_id]
+        for link in links:
+            if link.source_record_id != record_id:
+                raise InvalidArgumentError("link source_record_id must match record_id")
+            self.put_link(link)
+
     def list_links(self, options: LinkQueryOptions) -> list[StructuralLink]:
         links = [
             link
