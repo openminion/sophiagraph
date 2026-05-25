@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import sqlite3
 
 import pytest
@@ -135,6 +136,25 @@ def test_sqlite_store_writes_while_reader_transaction_is_open(tmp_path) -> None:
         reader.close()
 
     assert store.get_record("rec-while-reader") is not None
+
+
+def test_sqlite_store_accepts_multiple_writer_instances(tmp_path) -> None:
+    db_path = tmp_path / "sophiagraph.sqlite3"
+    SophiaGraphSqliteStore(db_path)
+
+    def write_record(index: int) -> str:
+        writer = SophiaGraphSqliteStore(db_path)
+        record_id = f"rec-concurrent-{index}"
+        writer.put_record(_record(record_id))
+        return record_id
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        record_ids = list(executor.map(write_record, range(12)))
+
+    store = SophiaGraphSqliteStore(db_path)
+    listed = store.list_records(ListQueryOptions(scopes=["agent:test"], limit=20))
+
+    assert {record.id for record in listed} == set(record_ids)
 
 
 def test_sqlite_store_backup_copies_live_database(tmp_path) -> None:
@@ -290,8 +310,8 @@ def test_sqlite_store_namespace_migration_is_version_gated(tmp_path) -> None:
             "SELECT payload_json FROM sophiagraph_records WHERE id = 'rec-legacy'"
         ).fetchone()[0]
 
-    assert first_version == 5
-    assert second_version == 5
+    assert first_version == 6
+    assert second_version == 6
     assert second_payload == first_payload
 
 

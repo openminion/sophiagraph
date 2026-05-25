@@ -76,7 +76,33 @@ python3.11 -m twine check dist/*
 python3.11 -m twine upload dist/*
 ```
 
-If you use TestPyPI first, replace the upload target accordingly.
+TestPyPI dry run:
+
+```bash
+rm -rf build dist src/*.egg-info
+python3.11 scripts/release_check.py
+python3.11 -m twine upload --repository testpypi dist/*
+python3.11 -m venv /tmp/sophiagraph-testpypi-venv
+/tmp/sophiagraph-testpypi-venv/bin/pip install \
+  --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  sophiagraph==<version>
+/tmp/sophiagraph-testpypi-venv/bin/sophiagraph-smoke \
+  --root /tmp/sophiagraph-testpypi-smoke --seed --json
+```
+
+Production PyPI upload:
+
+```bash
+rm -rf build dist src/*.egg-info
+python3.11 scripts/release_check.py
+python3.11 -m twine upload dist/*
+```
+
+Use PyPI API tokens through `TWINE_USERNAME=__token__` and
+`TWINE_PASSWORD=...` or a local `.pypirc`; do not commit credentials. After a
+production upload, the project name `sophiagraph` is owned by the publishing
+PyPI account/organization for future releases.
 
 ## Notes
 

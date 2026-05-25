@@ -26,6 +26,8 @@ from sophiagraph.models import (
 from sophiagraph.portability import codec as portability
 from sophiagraph.query import (
     CandidateListOptions,
+    GraphComponent,
+    GraphPath,
     GraphSnapshot,
     GraphSnapshotOptions,
     LinkQueryOptions,
@@ -34,6 +36,10 @@ from sophiagraph.query import (
     RecordOrder,
     SearchQueryOptions,
     StructuralSearchQuery,
+    connected_components,
+    degree_centrality,
+    path_evidence,
+    shortest_path,
 )
 from sophiagraph.storage import (
     AsyncSophiaGraphStore,
@@ -56,6 +62,8 @@ __all__ = [
     "CandidateListOptions",
     "CandidateReview",
     "ExplicitLinkResolver",
+    "GraphComponent",
+    "GraphPath",
     "GraphSnapshot",
     "GraphSnapshotOptions",
     "KnowledgeDocument",
@@ -87,6 +95,10 @@ __all__ = [
     "create_memory_store",
     "create_sqlite_store",
     "default_db_path",
+    "connected_components",
+    "degree_centrality",
+    "path_evidence",
     "portability",
+    "shortest_path",
     "trust",
 ]

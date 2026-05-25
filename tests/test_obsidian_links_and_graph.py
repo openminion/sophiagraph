@@ -13,6 +13,10 @@ from sophiagraph.query import (
     LinkQueryOptions,
     LocalGraphOptions,
     StructuralSearchQuery,
+    connected_components,
+    degree_centrality,
+    path_evidence,
+    shortest_path,
 )
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
 
@@ -130,6 +134,38 @@ def test_local_graph_handles_depth_cycles_and_snapshot(store) -> None:
     assert len(snapshot.edges) == 3
 
 
+def test_graph_algorithms_return_paths_components_and_centrality(store) -> None:
+    namespace = _namespace()
+    for record_id, title in [
+        ("rec-a", "A"),
+        ("rec-b", "B"),
+        ("rec-c", "C"),
+        ("rec-d", "D"),
+    ]:
+        store.put_record(_record(record_id, title, namespace))
+    store.put_link(_link("link-a-b", "rec-a", "rec-b", namespace))
+    store.put_link(_link("link-b-c", "rec-b", "rec-c", namespace))
+
+    snapshot = store.get_graph_snapshot(
+        GraphSnapshotOptions(scopes=["agent:agent"], include_orphans=True)
+    )
+    path = shortest_path(snapshot, "rec-a", "rec-c")
+    components = connected_components(snapshot)
+    centrality = degree_centrality(snapshot, normalized=False)
+    evidence = path_evidence(snapshot, "rec-a", "rec-c")
+
+    assert path is not None
+    assert path.record_ids == ["rec-a", "rec-b", "rec-c"]
+    assert path.edge_ids == ["link-a-b", "link-b-c"]
+    assert path.hop_count == 2
+    assert [component.record_ids for component in components] == [
+        ["rec-a", "rec-b", "rec-c"],
+        ["rec-d"],
+    ]
+    assert centrality["rec-b"] == 2.0
+    assert [edge.edge_id for edge in evidence] == ["link-a-b", "link-b-c"]
+
+
 def test_structural_search_matches_tags_properties_path_and_links(store) -> None:
     namespace = _namespace()
     store.put_record(_record("rec-roadmap", "Roadmap", namespace))
@@ -196,6 +232,41 @@ def test_document_blocks_round_trip_search_and_emit_changes(store) -> None:
     ]
     assert [record.id for record in matches] == ["rec-roadmap"]
     assert any(event.object_type == "block" for event in store.list_changes())
+
+
+def test_sqlite_document_block_search_uses_block_fts_index(tmp_path) -> None:
+    store = SophiaGraphSqliteStore(tmp_path / "block-fts.sqlite3")
+    namespace = _namespace()
+    store.put_record(_record("rec-roadmap", "Roadmap", namespace))
+    store.put_document_blocks(
+        "rec-roadmap",
+        [
+            KnowledgeDocumentBlock(
+                block_id="block-plan",
+                document_id="doc-roadmap",
+                record_id="rec-roadmap",
+                block_type="block",
+                anchor="plan",
+                excerpt="- [ ] wire block fts",
+            )
+        ],
+    )
+
+    matches = store.structural_search_records(
+        StructuralSearchQuery(
+            task="wire block", namespaces=[MemoryNamespace(agent_id="agent")]
+        ),
+        scopes=["agent:agent"],
+    )
+
+    with store._connect() as conn:  # noqa: SLF001 - package-level regression proof
+        fts_rows = conn.execute(
+            "SELECT record_id FROM sophiagraph_block_fts WHERE sophiagraph_block_fts MATCH ?",
+            ('"wire block"',),
+        ).fetchall()
+
+    assert [record.id for record in matches] == ["rec-roadmap"]
+    assert [row["record_id"] for row in fts_rows] == ["rec-roadmap"]
 
 
 def test_sqlite_structural_search_uses_fts_index_when_available(tmp_path) -> None:

@@ -1,5 +1,13 @@
 """Canonical durable-knowledge query DTOs."""
 
+from .algorithms import (
+    GraphComponent,
+    GraphPath,
+    connected_components,
+    degree_centrality,
+    path_evidence,
+    shortest_path,
+)
 from .graph import (
     GraphEdge,
     GraphNode,
@@ -22,8 +30,10 @@ from .structural import (
 
 __all__ = [
     "CandidateListOptions",
+    "GraphComponent",
     "GraphEdge",
     "GraphNode",
+    "GraphPath",
     "GraphSnapshot",
     "GraphSnapshotOptions",
     "LinkQueryOptions",
@@ -33,5 +43,9 @@ __all__ = [
     "SearchQueryOptions",
     "StructuralSearchQuery",
     "StructuralSort",
+    "connected_components",
+    "degree_centrality",
+    "path_evidence",
     "parse_structural_query",
+    "shortest_path",
 ]

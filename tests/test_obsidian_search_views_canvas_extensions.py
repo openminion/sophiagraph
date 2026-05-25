@@ -132,13 +132,14 @@ def test_saved_view_evaluator_filters_groups_sorts_summarizes_and_preserves_reco
             summaries=[
                 SavedViewSummary("count"),
                 SavedViewSummary("sum", field="score", label="score_total"),
+                SavedViewSummary("avg", field="score", label="score_avg"),
             ],
         ),
     )
 
     assert [row.record_id for row in result.rows] == ["rec-1", "rec-2"]
     assert result.groups == {"memory": ["rec-1"], "runtime": ["rec-2"]}
-    assert result.summaries == {"count": 2, "score_total": 10.0}
+    assert result.summaries == {"count": 2, "score_total": 10.0, "score_avg": 5.0}
     assert [asdict(record) for record in records] == before
 
 
