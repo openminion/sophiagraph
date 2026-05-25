@@ -14,6 +14,7 @@ from .document import (
     KnowledgeDocumentBlock,
     content_hash,
 )
+from .embedding import MemoryEmbedding, memory_embedding_from_dict
 from .link import (
     ContextUnit,
     ExplicitLinkResolver,
@@ -92,6 +93,7 @@ __all__ = [
     "LinkResolutionDiagnostic",
     "LinkResolutionStatus",
     "MemoryCandidate",
+    "MemoryEmbedding",
     "MemoryNamespace",
     "MemoryNamespaceComponent",
     "MemoryPatchResult",
@@ -117,6 +119,7 @@ __all__ = [
     "StructuralLink",
     "SophiaGraphChangeEvent",
     "default_change_namespace",
+    "memory_embedding_from_dict",
     "coerce_candidate_status",
     "coerce_memory_relation_type",
     "coerce_memory_source",

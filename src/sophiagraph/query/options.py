@@ -54,8 +54,18 @@ class CandidateListOptions:
     limit: int | None = None
 
 
+@dataclass(slots=True)
+class EmbeddingListOptions:
+    record_id: str | None = None
+    vector_space: str | None = None
+    namespaces: list["MemoryNamespace"] | None = None
+    include_vectors: bool = True
+    limit: int | None = None
+
+
 __all__ = [
     "CandidateListOptions",
+    "EmbeddingListOptions",
     "ListQueryOptions",
     "RecordOrder",
     "SearchQueryOptions",

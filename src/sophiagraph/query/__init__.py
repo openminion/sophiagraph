@@ -27,6 +27,7 @@ from .graph import (
 )
 from .options import (
     CandidateListOptions,
+    EmbeddingListOptions,
     ListQueryOptions,
     RecordOrder,
     SearchQueryOptions,
@@ -39,6 +40,7 @@ from .structural import (
 
 __all__ = [
     "CandidateListOptions",
+    "EmbeddingListOptions",
     "GraphCommonNeighbors",
     "GraphComponent",
     "GraphDegreeMetric",

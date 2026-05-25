@@ -13,6 +13,7 @@ from sophiagraph.models import (
     LinkResolution,
     LinkResolutionCandidate,
     MemoryCandidate,
+    MemoryEmbedding,
     MemoryNamespace,
     MemoryNamespaceComponent,
     MemoryPatchResult,
@@ -26,6 +27,7 @@ from sophiagraph.models import (
 from sophiagraph.portability import codec as portability
 from sophiagraph.query import (
     CandidateListOptions,
+    EmbeddingListOptions,
     GraphCommonNeighbors,
     GraphComponent,
     GraphDegreeMetric,
@@ -88,6 +90,7 @@ __all__ = [
     "ArtifactRef",
     "CandidateListOptions",
     "CandidateReview",
+    "EmbeddingListOptions",
     "ExplicitLinkResolver",
     "GraphCommonNeighbors",
     "GraphComponent",
@@ -104,6 +107,7 @@ __all__ = [
     "ListQueryOptions",
     "LocalGraphOptions",
     "MemoryCandidate",
+    "MemoryEmbedding",
     "MemoryNamespace",
     "MemoryNamespaceComponent",
     "MemoryPatchResult",

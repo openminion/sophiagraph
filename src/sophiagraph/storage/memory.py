@@ -10,6 +10,7 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
     MemoryCandidate,
+    MemoryEmbedding,
     KnowledgeDocumentBlock,
     MemoryNamespace,
     MemoryRecord,
@@ -24,6 +25,7 @@ from sophiagraph.models import (
 from sophiagraph.portability.codec import record_from_dict
 from sophiagraph.query import (
     CandidateListOptions,
+    EmbeddingListOptions,
     GraphSnapshot,
     GraphSnapshotOptions,
     LinkQueryOptions,
@@ -60,6 +62,7 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         self._blocks: dict[str, KnowledgeDocumentBlock] = {}
         self._candidates: dict[str, MemoryCandidate] = {}
         self._transitions: dict[str, MemoryTierTransition] = {}
+        self._embeddings: dict[tuple[str, str], MemoryEmbedding] = {}
         self._changes: list[SophiaGraphChangeEvent] = []
         self._next_cursor = 1
 
@@ -600,6 +603,62 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
             schema_identifiers={"node_label": str(transition.record_type)},
         )
         return transition.transition_id
+
+    def put_embedding(self, embedding: MemoryEmbedding) -> str:
+        key = (embedding.record_id, embedding.vector_space)
+        existing = self._embeddings.get(key)
+        if existing is not None and existing.dimension != embedding.dimension:
+            raise InvalidArgumentError("embedding dimension cannot change for key")
+        self._embeddings[key] = embedding
+        return embedding.key
+
+    def get_embedding(
+        self,
+        record_id: str,
+        vector_space: str,
+        *,
+        include_vector: bool = True,
+    ) -> MemoryEmbedding | None:
+        embedding = self._embeddings.get((record_id, vector_space))
+        if embedding is None:
+            return None
+        return embedding if include_vector else embedding.without_vector()
+
+    def list_embeddings(
+        self,
+        options: EmbeddingListOptions,
+    ) -> list[MemoryEmbedding]:
+        embeddings = list(self._embeddings.values())
+        if options.record_id is not None:
+            embeddings = [
+                embedding
+                for embedding in embeddings
+                if embedding.record_id == options.record_id
+            ]
+        if options.vector_space is not None:
+            embeddings = [
+                embedding
+                for embedding in embeddings
+                if embedding.vector_space == options.vector_space
+            ]
+        if options.namespaces:
+            embeddings = [
+                embedding
+                for embedding in embeddings
+                if any(
+                    embedding.namespace.matches(namespace)
+                    for namespace in options.namespaces
+                )
+            ]
+        embeddings.sort(key=lambda embedding: embedding.updated_at, reverse=True)
+        if options.limit is not None:
+            embeddings = embeddings[: int(options.limit)]
+        if not options.include_vectors:
+            embeddings = [embedding.without_vector() for embedding in embeddings]
+        return embeddings
+
+    def delete_embedding(self, record_id: str, vector_space: str) -> bool:
+        return self._embeddings.pop((record_id, vector_space), None) is not None
 
     def history(self, scope: str, type: MemoryType, key: str) -> list[MemoryRecord]:
         records = [

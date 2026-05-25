@@ -310,8 +310,8 @@ def test_sqlite_store_namespace_migration_is_version_gated(tmp_path) -> None:
             "SELECT payload_json FROM sophiagraph_records WHERE id = 'rec-legacy'"
         ).fetchone()[0]
 
-    assert first_version == 6
-    assert second_version == 6
+    assert first_version == SCHEMA_VERSION
+    assert second_version == SCHEMA_VERSION
     assert second_payload == first_payload
 
 

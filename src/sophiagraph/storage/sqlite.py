@@ -14,6 +14,7 @@ from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
     MemoryCandidate,
+    MemoryEmbedding,
     KnowledgeDocumentBlock,
     MemoryNamespace,
     MemoryRecord,
@@ -24,6 +25,7 @@ from sophiagraph.models import (
     SophiaGraphChangeEvent,
     StructuralLink,
     default_change_namespace,
+    memory_embedding_from_dict,
 )
 from sophiagraph.portability.codec import (
     candidate_from_dict,
@@ -35,6 +37,7 @@ from sophiagraph.portability.codec import (
 )
 from sophiagraph.query import (
     CandidateListOptions,
+    EmbeddingListOptions,
     GraphSnapshot,
     GraphSnapshotOptions,
     LinkQueryOptions,
@@ -137,6 +140,9 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
 
     def _transition_from_row(self, row: sqlite3.Row) -> MemoryTierTransition:
         return tier_transition_from_dict(row_json(row))
+
+    def _embedding_from_row(self, row: sqlite3.Row) -> MemoryEmbedding:
+        return memory_embedding_from_dict(row_json(row))
 
     def _change_from_row(self, row: sqlite3.Row) -> SophiaGraphChangeEvent:
         namespace = MemoryNamespace(
@@ -1025,6 +1031,109 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
                 schema_identifiers={"node_label": str(transition.record_type)},
             )
         return transition.transition_id
+
+    def put_embedding(self, embedding: MemoryEmbedding) -> str:
+        existing = self.get_embedding(
+            embedding.record_id,
+            embedding.vector_space,
+            include_vector=True,
+        )
+        if existing is not None and existing.dimension != embedding.dimension:
+            raise InvalidArgumentError("embedding dimension cannot change for key")
+        payload = asdict(embedding)
+        namespace_values = embedding.namespace.as_dict()
+        with self._write_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO sophiagraph_embeddings(
+                    record_id, vector_space, dimension, provider, model,
+                    tenant_id, org_id, user_id, agent_id, session_id,
+                    conversation_id, project_id, graph_id, external_vector_id,
+                    updated_at, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    embedding.record_id,
+                    embedding.vector_space,
+                    embedding.dimension,
+                    embedding.provider,
+                    embedding.model,
+                    namespace_values.get("tenant_id"),
+                    namespace_values.get("org_id"),
+                    namespace_values.get("user_id"),
+                    namespace_values.get("agent_id"),
+                    namespace_values.get("session_id"),
+                    namespace_values.get("conversation_id"),
+                    namespace_values.get("project_id"),
+                    namespace_values.get("graph_id"),
+                    embedding.external_vector_id,
+                    embedding.updated_at,
+                    json_dumps(payload),
+                ),
+            )
+        return embedding.key
+
+    def get_embedding(
+        self,
+        record_id: str,
+        vector_space: str,
+        *,
+        include_vector: bool = True,
+    ) -> MemoryEmbedding | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json FROM sophiagraph_embeddings
+                 WHERE record_id = ? AND vector_space = ?
+                """,
+                (record_id, vector_space),
+            ).fetchone()
+        if row is None:
+            return None
+        embedding = self._embedding_from_row(row)
+        return embedding if include_vector else embedding.without_vector()
+
+    def list_embeddings(
+        self,
+        options: EmbeddingListOptions,
+    ) -> list[MemoryEmbedding]:
+        clauses = ["1=1"]
+        params: list[Any] = []
+        if options.record_id is not None:
+            clauses.append("record_id = ?")
+            params.append(options.record_id)
+        if options.vector_space is not None:
+            clauses.append("vector_space = ?")
+            params.append(options.vector_space)
+        namespace_sql, namespace_params = namespace_filter_sql(options.namespaces)
+        if namespace_sql:
+            clauses.append(namespace_sql)
+            params.extend(namespace_params)
+        query = (
+            "SELECT payload_json FROM sophiagraph_embeddings WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY updated_at DESC"
+        )
+        if options.limit is not None:
+            query += " LIMIT ?"
+            params.append(int(options.limit))
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        embeddings = [self._embedding_from_row(row) for row in rows]
+        if not options.include_vectors:
+            embeddings = [embedding.without_vector() for embedding in embeddings]
+        return embeddings
+
+    def delete_embedding(self, record_id: str, vector_space: str) -> bool:
+        with self._write_connection() as conn:
+            cursor = conn.execute(
+                """
+                DELETE FROM sophiagraph_embeddings
+                 WHERE record_id = ? AND vector_space = ?
+                """,
+                (record_id, vector_space),
+            )
+            return cursor.rowcount > 0
 
     def history(
         self,

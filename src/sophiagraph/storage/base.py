@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
     MemoryCandidate,
+    MemoryEmbedding,
     KnowledgeDocumentBlock,
     MemoryRecord,
     MemoryRelation,
@@ -27,6 +28,7 @@ from sophiagraph.portability.models import (
 )
 from sophiagraph.query import (
     CandidateListOptions,
+    EmbeddingListOptions,
     GraphSnapshot,
     GraphSnapshotOptions,
     LinkQueryOptions,
@@ -166,6 +168,23 @@ class SophiaGraphStore(Protocol):
     ) -> list[MemoryTierTransition]: ...
 
     def put_tier_transition(self, transition: MemoryTierTransition) -> str: ...
+
+    def put_embedding(self, embedding: MemoryEmbedding) -> str: ...
+
+    def get_embedding(
+        self,
+        record_id: str,
+        vector_space: str,
+        *,
+        include_vector: bool = True,
+    ) -> MemoryEmbedding | None: ...
+
+    def list_embeddings(
+        self,
+        options: EmbeddingListOptions,
+    ) -> list[MemoryEmbedding]: ...
+
+    def delete_embedding(self, record_id: str, vector_space: str) -> bool: ...
 
     def history(
         self,
