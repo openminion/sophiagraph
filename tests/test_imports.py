@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tomllib
 
 
 def test_sophiagraph_package_imports() -> None:
@@ -20,6 +21,30 @@ def test_sophiagraph_package_imports() -> None:
     assert sophiagraph.MemoryNamespace(agent_id="codex").agent_id == "codex"
     assert sophiagraph.MemoryRecord.__name__ == "MemoryRecord"
     assert sophiagraph.ListQueryOptions.__name__ == "ListQueryOptions"
+
+
+def test_top_level_public_api_and_version_metadata_are_stable() -> None:
+    import sophiagraph
+
+    root = Path(__file__).resolve().parents[1]
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+    expected_exports = {
+        "MemoryRecord",
+        "MemoryNamespace",
+        "SophiaGraphMemoryStore",
+        "SophiaGraphSqliteStore",
+        "VaultFilePayload",
+        "all_simple_paths",
+        "retrieval_path_evidence",
+        "create_sqlite_store",
+    }
+
+    assert sophiagraph.__version__ == pyproject["project"]["version"]
+    assert expected_exports <= set(sophiagraph.__all__)
+    assert all(
+        not (name.startswith("_") and not name.endswith("__"))
+        for name in sophiagraph.__all__
+    )
 
 
 def test_models_public_all_excludes_private_cast_helpers() -> None:
