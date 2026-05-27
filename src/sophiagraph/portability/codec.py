@@ -15,6 +15,7 @@ from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
     ArtifactRef,
     CandidateReview,
+    MemoryBlock,
     MemoryCandidate,
     MemoryNamespace,
     MemoryRecord,
@@ -304,6 +305,7 @@ def build_manifest(
         "relations": len(snapshot.relations),
         "tier_transitions": len(snapshot.tier_transitions),
         "provenance_traces": len(snapshot.provenance_traces),
+        "memory_blocks": len(snapshot.memory_blocks),
     }
     manifest["sections"] = {
         "records": True,
@@ -311,6 +313,7 @@ def build_manifest(
         "relations": bool(snapshot.relations),
         "tier_transitions": bool(snapshot.tier_transitions),
         "provenance_traces": bool(snapshot.provenance_traces),
+        "memory_blocks": bool(snapshot.memory_blocks),
     }
     manifest["artifacts_included"] = False
     manifest.setdefault("files", {})
@@ -323,6 +326,45 @@ def build_manifest(
             for name, payload in files.items()
         }
     return manifest
+
+
+def _memory_block_to_payload(block: MemoryBlock) -> dict[str, Any]:
+    payload = asdict(block)
+    namespace = block.owner_namespace
+    if isinstance(namespace, MemoryNamespace):
+        payload["owner_namespace"] = namespace.as_dict()
+    payload["provenance"] = dict(block.provenance)
+    return payload
+
+
+def memory_block_from_dict(data: dict[str, Any]) -> MemoryBlock:
+    """Hydrate a portable ``MemoryBlock`` row from a dict."""
+
+    payload = dict(data)
+    raw_namespace = payload.get("owner_namespace")
+    if isinstance(raw_namespace, dict):
+        payload["owner_namespace"] = MemoryNamespace.from_dict(raw_namespace)
+    return MemoryBlock(**payload)
+
+
+def _serialize_memory_blocks(blocks: list[MemoryBlock]) -> bytes:
+    payload = "\n".join(json_dumps(_memory_block_to_payload(block)) for block in blocks)
+    if payload:
+        payload += "\n"
+    return payload.encode("utf-8")
+
+
+def _hydrate_memory_blocks(data: bytes) -> list[MemoryBlock]:
+    lines = [line.strip() for line in data.decode("utf-8").splitlines() if line.strip()]
+    result: list[MemoryBlock] = []
+    for line in lines:
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise InvalidArgumentError(
+                "bundle memory_block row must decode to an object"
+            )
+        result.append(memory_block_from_dict(payload))
+    return result
 
 
 def _serialize_provenance_traces(traces: list[TurnProvenanceTrace]) -> bytes:
@@ -363,6 +405,8 @@ def write_bundle_snapshot(snapshot: MemoryBundleSnapshot, out_path: str | Path) 
         files["provenance.jsonl"] = _serialize_provenance_traces(
             snapshot.provenance_traces
         )
+    if snapshot.memory_blocks:
+        files["memory_blocks.jsonl"] = _serialize_memory_blocks(snapshot.memory_blocks)
 
     manifest = build_manifest(snapshot=snapshot, files=files)
     manifest_bytes = json_dumps(manifest, indent=2).encode("utf-8")
@@ -419,6 +463,7 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
         tier_transition_from_dict,
     )
     provenance_traces = _hydrate_provenance_traces(members.get("provenance.jsonl", b""))
+    memory_blocks = _hydrate_memory_blocks(members.get("memory_blocks.jsonl", b""))
     return MemoryBundleSnapshot(
         manifest=manifest,
         records=records,
@@ -426,6 +471,7 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
         relations=relations,
         tier_transitions=tier_transitions,
         provenance_traces=provenance_traces,
+        memory_blocks=memory_blocks,
     )
 
 
@@ -435,6 +481,7 @@ __all__ = [
     "candidate_from_dict",
     "change_event_from_dict",
     "json_dumps",
+    "memory_block_from_dict",
     "read_bundle_snapshot",
     "record_from_dict",
     "relation_from_dict",

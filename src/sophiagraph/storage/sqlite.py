@@ -11,9 +11,11 @@ from typing import Any, Iterator
 from uuid import uuid4
 
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
-from sophiagraph.contracts.errors import InvalidArgumentError
+from sophiagraph.contracts.errors import InvalidArgumentError, NotFoundError
 from sophiagraph.models import (
+    MemoryBlock,
     MemoryCandidate,
+    MemoryEmbedding,
     KnowledgeDocumentBlock,
     MemoryNamespace,
     MemoryRecord,
@@ -24,6 +26,7 @@ from sophiagraph.models import (
     SophiaGraphChangeEvent,
     StructuralLink,
     default_change_namespace,
+    memory_embedding_from_dict,
 )
 from sophiagraph.portability.codec import (
     candidate_from_dict,
@@ -35,6 +38,7 @@ from sophiagraph.portability.codec import (
 )
 from sophiagraph.query import (
     CandidateListOptions,
+    EmbeddingListOptions,
     GraphSnapshot,
     GraphSnapshotOptions,
     LinkQueryOptions,
@@ -46,6 +50,7 @@ from sophiagraph.query import (
 )
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.helpers import (
+    RecordLifecycleMixin,
     record_matches_query,
     utc_now_iso,
 )
@@ -54,7 +59,12 @@ from sophiagraph.storage.graph_helpers import (
     block_to_dict,
     link_from_dict,
     link_to_dict,
+    memory_block_from_dict,
+    memory_block_to_dict,
     record_matches_structural_query,
+)
+from sophiagraph.storage.memory_block_helpers import (
+    enforce_block_edit_gate as _enforce_block_edit_gate,
 )
 from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from sophiagraph.storage.sqlite_support import (
@@ -74,7 +84,11 @@ from sophiagraph.storage.sqlite_support import (
 from sophiagraph.storage.sqlite_portability import SqlitePortabilityMixin
 
 
-class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
+class SophiaGraphSqliteStore(
+    SqlitePortabilityMixin,
+    RecordLifecycleMixin,
+    SophiaGraphStore,
+):
     """Small standalone SQLite-backed durable engine for ``sophiagraph``."""
 
     contract_version = MEMORY_CONTRACT_VERSION
@@ -135,8 +149,14 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
     def _block_from_row(self, row: sqlite3.Row) -> KnowledgeDocumentBlock:
         return block_from_dict(row_json(row))
 
+    def _memory_block_from_row(self, row: sqlite3.Row) -> MemoryBlock:
+        return memory_block_from_dict(row_json(row))
+
     def _transition_from_row(self, row: sqlite3.Row) -> MemoryTierTransition:
         return tier_transition_from_dict(row_json(row))
+
+    def _embedding_from_row(self, row: sqlite3.Row) -> MemoryEmbedding:
+        return memory_embedding_from_dict(row_json(row))
 
     def _change_from_row(self, row: sqlite3.Row) -> SophiaGraphChangeEvent:
         namespace = MemoryNamespace(
@@ -399,46 +419,6 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
         if options.limit is not None:
             matches = matches[: int(options.limit)]
         return matches
-
-    def invalidate_record(
-        self,
-        record_id: str,
-        *,
-        valid_to: str,
-        reason: str,
-    ) -> MemoryRecord:
-        record = self.get_record(record_id)
-        if record is None:
-            raise InvalidArgumentError(f"unknown record_id: {record_id}")
-        updated = replace(
-            record,
-            valid_to=str(valid_to),
-            supersession_reason=str(reason or record.supersession_reason or ""),
-            updated_at=utc_now_iso(),
-        )
-        self.put_record(updated)
-        return updated
-
-    def supersede_record(
-        self,
-        old_record_id: str,
-        new_record_id: str,
-        reason: str = "",
-    ) -> MemoryRecord:
-        record = self.get_record(old_record_id)
-        if record is None:
-            raise InvalidArgumentError(f"unknown record_id: {old_record_id}")
-        new_record = self.get_record(new_record_id)
-        valid_to = new_record.created_at if new_record is not None else utc_now_iso()
-        updated = replace(
-            record,
-            valid_to=valid_to,
-            superseded_by_id=new_record_id,
-            supersession_reason=str(reason or "superseded"),
-            updated_at=utc_now_iso(),
-        )
-        self.put_record(updated)
-        return updated
 
     def put_relation(self, relation: MemoryRelation) -> str:
         with self._write_connection() as conn:
@@ -871,6 +851,194 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
             rows = conn.execute(query, params).fetchall()
         return [self._block_from_row(row) for row in rows]
 
+    def _memory_block_namespace_values(self, block: MemoryBlock) -> dict[str, str]:
+        return block.owner_namespace.as_dict()
+
+    def _persist_memory_block(
+        self,
+        conn: sqlite3.Connection,
+        block: MemoryBlock,
+        *,
+        operation: str,
+    ) -> None:
+        payload = memory_block_to_dict(block)
+        namespace_values = self._memory_block_namespace_values(block)
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO sophiagraph_memory_blocks(
+                block_id, class_name, mode, token_estimate, source,
+                tenant_id, org_id, user_id, agent_id, session_id,
+                conversation_id, project_id, graph_id,
+                created_at, last_updated_at, last_updated_by, stale_after,
+                payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                block.block_id,
+                block.class_name,
+                block.mode,
+                int(block.token_estimate),
+                block.source,
+                namespace_values.get("tenant_id"),
+                namespace_values.get("org_id"),
+                namespace_values.get("user_id"),
+                namespace_values.get("agent_id"),
+                namespace_values.get("session_id"),
+                namespace_values.get("conversation_id"),
+                namespace_values.get("project_id"),
+                namespace_values.get("graph_id"),
+                block.created_at,
+                block.last_updated_at,
+                block.last_updated_by,
+                block.stale_after,
+                json_dumps(payload),
+            ),
+        )
+        self._emit_change(
+            conn,
+            object_type="memory_block",
+            object_id=block.block_id,
+            payload=payload,
+            namespace=block.owner_namespace,
+            schema_identifiers={
+                "node_label": "memory_block",
+                "class_name": block.class_name,
+                "mode": block.mode,
+                "operation": operation,
+            },
+        )
+
+    def put_memory_block(self, block: MemoryBlock) -> str:
+        with self._write_connection() as conn:
+            self._persist_memory_block(conn, block, operation="put")
+        return block.block_id
+
+    def get_memory_block(self, block_id: str) -> MemoryBlock | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM sophiagraph_memory_blocks WHERE block_id = ?",
+                (block_id,),
+            ).fetchone()
+        return None if row is None else self._memory_block_from_row(row)
+
+    def list_memory_blocks(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        class_names: list[str] | None = None,
+        include_stale: bool = True,
+        limit: int | None = None,
+    ) -> list[MemoryBlock]:
+        clauses = ["1=1"]
+        params: list[Any] = []
+        if class_names:
+            placeholders = ",".join("?" for _ in class_names)
+            clauses.append(f"class_name IN ({placeholders})")
+            params.extend(class_names)
+        ns_sql, ns_params = namespace_filter_sql(namespaces)
+        if ns_sql:
+            clauses.append(ns_sql)
+            params.extend(ns_params)
+        if not include_stale:
+            clauses.append("(stale_after IS NULL OR stale_after > ?)")
+            params.append(utc_now_iso())
+        sql = (
+            "SELECT payload_json FROM sophiagraph_memory_blocks WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY class_name ASC, created_at ASC, block_id ASC"
+        )
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        with self._connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [self._memory_block_from_row(row) for row in rows]
+
+    def update_memory_block_content(
+        self,
+        block_id: str,
+        *,
+        new_content: str,
+        actor: str,
+        operator_action: bool = False,
+    ) -> MemoryBlock:
+        block = self.get_memory_block(block_id)
+        if block is None:
+            raise NotFoundError(
+                f"memory block {block_id!r} not found",
+                details={"block_id": block_id},
+            )
+        _enforce_block_edit_gate(
+            block,
+            operator_action=operator_action,
+            actor=actor,
+            operation="update_content",
+        )
+        if not isinstance(new_content, str):
+            raise InvalidArgumentError("new_content must be a string")
+        updated = replace(
+            block,
+            content=new_content,
+            last_updated_at=utc_now_iso(),
+            last_updated_by=actor,
+        )
+        with self._write_connection() as conn:
+            self._persist_memory_block(conn, updated, operation="update_content")
+        return updated
+
+    def delete_memory_block(
+        self,
+        block_id: str,
+        *,
+        actor: str,
+        operator_action: bool = False,
+    ) -> bool:
+        block = self.get_memory_block(block_id)
+        if block is None:
+            return False
+        _enforce_block_edit_gate(
+            block,
+            operator_action=operator_action,
+            actor=actor,
+            operation="delete",
+        )
+        with self._write_connection() as conn:
+            conn.execute(
+                "DELETE FROM sophiagraph_memory_blocks WHERE block_id = ?",
+                (block_id,),
+            )
+            self._emit_change(
+                conn,
+                object_type="memory_block",
+                object_id=block_id,
+                payload=memory_block_to_dict(block),
+                namespace=block.owner_namespace,
+                schema_identifiers={
+                    "node_label": "memory_block",
+                    "class_name": block.class_name,
+                    "mode": block.mode,
+                    "operation": "delete",
+                },
+            )
+        return True
+
+    def mark_memory_block_stale_after(
+        self,
+        block_id: str,
+        *,
+        stale_after: str | None,
+    ) -> MemoryBlock:
+        block = self.get_memory_block(block_id)
+        if block is None:
+            raise NotFoundError(
+                f"memory block {block_id!r} not found",
+                details={"block_id": block_id},
+            )
+        updated = replace(block, stale_after=stale_after)
+        with self._write_connection() as conn:
+            self._persist_memory_block(conn, updated, operation="mark_stale_after")
+        return updated
+
     def put_candidate(self, candidate: MemoryCandidate) -> str:
         with self._write_connection() as conn:
             conn.execute(
@@ -1025,6 +1193,109 @@ class SophiaGraphSqliteStore(SqlitePortabilityMixin, SophiaGraphStore):
                 schema_identifiers={"node_label": str(transition.record_type)},
             )
         return transition.transition_id
+
+    def put_embedding(self, embedding: MemoryEmbedding) -> str:
+        existing = self.get_embedding(
+            embedding.record_id,
+            embedding.vector_space,
+            include_vector=True,
+        )
+        if existing is not None and existing.dimension != embedding.dimension:
+            raise InvalidArgumentError("embedding dimension cannot change for key")
+        payload = asdict(embedding)
+        namespace_values = embedding.namespace.as_dict()
+        with self._write_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO sophiagraph_embeddings(
+                    record_id, vector_space, dimension, provider, model,
+                    tenant_id, org_id, user_id, agent_id, session_id,
+                    conversation_id, project_id, graph_id, external_vector_id,
+                    updated_at, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    embedding.record_id,
+                    embedding.vector_space,
+                    embedding.dimension,
+                    embedding.provider,
+                    embedding.model,
+                    namespace_values.get("tenant_id"),
+                    namespace_values.get("org_id"),
+                    namespace_values.get("user_id"),
+                    namespace_values.get("agent_id"),
+                    namespace_values.get("session_id"),
+                    namespace_values.get("conversation_id"),
+                    namespace_values.get("project_id"),
+                    namespace_values.get("graph_id"),
+                    embedding.external_vector_id,
+                    embedding.updated_at,
+                    json_dumps(payload),
+                ),
+            )
+        return embedding.key
+
+    def get_embedding(
+        self,
+        record_id: str,
+        vector_space: str,
+        *,
+        include_vector: bool = True,
+    ) -> MemoryEmbedding | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json FROM sophiagraph_embeddings
+                 WHERE record_id = ? AND vector_space = ?
+                """,
+                (record_id, vector_space),
+            ).fetchone()
+        if row is None:
+            return None
+        embedding = self._embedding_from_row(row)
+        return embedding if include_vector else embedding.without_vector()
+
+    def list_embeddings(
+        self,
+        options: EmbeddingListOptions,
+    ) -> list[MemoryEmbedding]:
+        clauses = ["1=1"]
+        params: list[Any] = []
+        if options.record_id is not None:
+            clauses.append("record_id = ?")
+            params.append(options.record_id)
+        if options.vector_space is not None:
+            clauses.append("vector_space = ?")
+            params.append(options.vector_space)
+        namespace_sql, namespace_params = namespace_filter_sql(options.namespaces)
+        if namespace_sql:
+            clauses.append(namespace_sql)
+            params.extend(namespace_params)
+        query = (
+            "SELECT payload_json FROM sophiagraph_embeddings WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY updated_at DESC"
+        )
+        if options.limit is not None:
+            query += " LIMIT ?"
+            params.append(int(options.limit))
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        embeddings = [self._embedding_from_row(row) for row in rows]
+        if not options.include_vectors:
+            embeddings = [embedding.without_vector() for embedding in embeddings]
+        return embeddings
+
+    def delete_embedding(self, record_id: str, vector_space: str) -> bool:
+        with self._write_connection() as conn:
+            cursor = conn.execute(
+                """
+                DELETE FROM sophiagraph_embeddings
+                 WHERE record_id = ? AND vector_space = ?
+                """,
+                (record_id, vector_space),
+            )
+            return cursor.rowcount > 0
 
     def history(
         self,

@@ -6,10 +6,15 @@ from dataclasses import asdict, replace
 from typing import Any
 from uuid import uuid4
 
-from sophiagraph.contracts.errors import InvalidArgumentError
+from sophiagraph.contracts.errors import (
+    InvalidArgumentError,
+    NotFoundError,
+)
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
+    MemoryBlock,
     MemoryCandidate,
+    MemoryEmbedding,
     KnowledgeDocumentBlock,
     MemoryNamespace,
     MemoryRecord,
@@ -24,6 +29,7 @@ from sophiagraph.models import (
 from sophiagraph.portability.codec import record_from_dict
 from sophiagraph.query import (
     CandidateListOptions,
+    EmbeddingListOptions,
     GraphSnapshot,
     GraphSnapshotOptions,
     LinkQueryOptions,
@@ -35,20 +41,29 @@ from sophiagraph.query import (
 )
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.helpers import (
+    RecordLifecycleMixin,
     record_matches_namespaces,
     record_matches_query,
     utc_now_iso,
 )
 from sophiagraph.storage.graph_helpers import (
     block_to_dict,
+    memory_block_to_dict,
     namespace_matches_filters,
     record_matches_structural_query,
+)
+from sophiagraph.storage.memory_block_helpers import (
+    enforce_block_edit_gate as _enforce_block_edit_gate,
 )
 from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from sophiagraph.storage.memory_portability import MemoryPortabilityMixin
 
 
-class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
+class SophiaGraphMemoryStore(
+    MemoryPortabilityMixin,
+    RecordLifecycleMixin,
+    SophiaGraphStore,
+):
     """In-memory implementation of the storage contract."""
 
     contract_version = MEMORY_CONTRACT_VERSION
@@ -58,8 +73,10 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         self._relations: dict[str, MemoryRelation] = {}
         self._links: dict[str, StructuralLink] = {}
         self._blocks: dict[str, KnowledgeDocumentBlock] = {}
+        self._memory_blocks: dict[str, MemoryBlock] = {}
         self._candidates: dict[str, MemoryCandidate] = {}
         self._transitions: dict[str, MemoryTierTransition] = {}
+        self._embeddings: dict[tuple[str, str], MemoryEmbedding] = {}
         self._changes: list[SophiaGraphChangeEvent] = []
         self._next_cursor = 1
 
@@ -190,39 +207,6 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         if options.limit is not None:
             matches = matches[: int(options.limit)]
         return matches
-
-    def invalidate_record(
-        self, record_id: str, *, valid_to: str, reason: str
-    ) -> MemoryRecord:
-        record = self.get_record(record_id)
-        if record is None:
-            raise InvalidArgumentError(f"unknown record_id: {record_id}")
-        updated = replace(
-            record,
-            valid_to=str(valid_to),
-            supersession_reason=str(reason or record.supersession_reason or ""),
-            updated_at=utc_now_iso(),
-        )
-        self.put_record(updated)
-        return updated
-
-    def supersede_record(
-        self, old_record_id: str, new_record_id: str, reason: str = ""
-    ) -> MemoryRecord:
-        record = self.get_record(old_record_id)
-        if record is None:
-            raise InvalidArgumentError(f"unknown record_id: {old_record_id}")
-        new_record = self.get_record(new_record_id)
-        valid_to = new_record.created_at if new_record is not None else utc_now_iso()
-        updated = replace(
-            record,
-            valid_to=valid_to,
-            superseded_by_id=new_record_id,
-            supersession_reason=str(reason or "superseded"),
-            updated_at=utc_now_iso(),
-        )
-        self.put_record(updated)
-        return updated
 
     def put_relation(self, relation: MemoryRelation) -> str:
         self._relations[relation.relation_id] = relation
@@ -481,6 +465,146 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         )
         return blocks
 
+    def put_memory_block(self, block: MemoryBlock) -> str:
+        self._memory_blocks[block.block_id] = block
+        self._emit_change(
+            object_type="memory_block",
+            object_id=block.block_id,
+            payload=memory_block_to_dict(block),
+            namespace=block.owner_namespace,
+            schema_identifiers={
+                "node_label": "memory_block",
+                "class_name": block.class_name,
+                "mode": block.mode,
+            },
+        )
+        return block.block_id
+
+    def get_memory_block(self, block_id: str) -> MemoryBlock | None:
+        return self._memory_blocks.get(block_id)
+
+    def list_memory_blocks(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        class_names: list[str] | None = None,
+        include_stale: bool = True,
+        limit: int | None = None,
+    ) -> list[MemoryBlock]:
+        blocks = list(self._memory_blocks.values())
+        if namespaces:
+            blocks = [
+                block
+                for block in blocks
+                if namespace_matches_filters(block.owner_namespace, namespaces)
+            ]
+        if class_names:
+            allow = set(class_names)
+            blocks = [block for block in blocks if block.class_name in allow]
+        if not include_stale:
+            now = utc_now_iso()
+            blocks = [
+                block
+                for block in blocks
+                if not (block.stale_after is not None and block.stale_after <= now)
+            ]
+        blocks.sort(
+            key=lambda block: (block.class_name, block.created_at, block.block_id)
+        )
+        if limit is not None:
+            blocks = blocks[: int(limit)]
+        return blocks
+
+    def update_memory_block_content(
+        self,
+        block_id: str,
+        *,
+        new_content: str,
+        actor: str,
+        operator_action: bool = False,
+    ) -> MemoryBlock:
+        block = self._memory_blocks.get(block_id)
+        if block is None:
+            raise NotFoundError(
+                f"memory block {block_id!r} not found",
+                details={"block_id": block_id},
+            )
+        _enforce_block_edit_gate(
+            block,
+            operator_action=operator_action,
+            actor=actor,
+            operation="update_content",
+        )
+        if not isinstance(new_content, str):
+            raise InvalidArgumentError("new_content must be a string")
+        updated = replace(
+            block,
+            content=new_content,
+            last_updated_at=utc_now_iso(),
+            last_updated_by=actor,
+        )
+        self._memory_blocks[block_id] = updated
+        self._emit_change(
+            object_type="memory_block",
+            object_id=block_id,
+            payload=memory_block_to_dict(updated),
+            namespace=updated.owner_namespace,
+            schema_identifiers={
+                "node_label": "memory_block",
+                "class_name": updated.class_name,
+                "mode": updated.mode,
+                "operation": "update_content",
+            },
+        )
+        return updated
+
+    def delete_memory_block(
+        self,
+        block_id: str,
+        *,
+        actor: str,
+        operator_action: bool = False,
+    ) -> bool:
+        block = self._memory_blocks.get(block_id)
+        if block is None:
+            return False
+        _enforce_block_edit_gate(
+            block,
+            operator_action=operator_action,
+            actor=actor,
+            operation="delete",
+        )
+        del self._memory_blocks[block_id]
+        self._emit_change(
+            object_type="memory_block",
+            object_id=block_id,
+            payload=memory_block_to_dict(block),
+            namespace=block.owner_namespace,
+            schema_identifiers={
+                "node_label": "memory_block",
+                "class_name": block.class_name,
+                "mode": block.mode,
+                "operation": "delete",
+            },
+        )
+        return True
+
+    def mark_memory_block_stale_after(
+        self,
+        block_id: str,
+        *,
+        stale_after: str | None,
+    ) -> MemoryBlock:
+        block = self._memory_blocks.get(block_id)
+        if block is None:
+            raise NotFoundError(
+                f"memory block {block_id!r} not found",
+                details={"block_id": block_id},
+            )
+        updated = replace(block, stale_after=stale_after)
+        self._memory_blocks[block_id] = updated
+        return updated
+
     def put_candidate(self, candidate: MemoryCandidate) -> str:
         self._candidates[candidate.candidate_id] = candidate
         self._emit_change(
@@ -600,6 +724,62 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
             schema_identifiers={"node_label": str(transition.record_type)},
         )
         return transition.transition_id
+
+    def put_embedding(self, embedding: MemoryEmbedding) -> str:
+        key = (embedding.record_id, embedding.vector_space)
+        existing = self._embeddings.get(key)
+        if existing is not None and existing.dimension != embedding.dimension:
+            raise InvalidArgumentError("embedding dimension cannot change for key")
+        self._embeddings[key] = embedding
+        return embedding.key
+
+    def get_embedding(
+        self,
+        record_id: str,
+        vector_space: str,
+        *,
+        include_vector: bool = True,
+    ) -> MemoryEmbedding | None:
+        embedding = self._embeddings.get((record_id, vector_space))
+        if embedding is None:
+            return None
+        return embedding if include_vector else embedding.without_vector()
+
+    def list_embeddings(
+        self,
+        options: EmbeddingListOptions,
+    ) -> list[MemoryEmbedding]:
+        embeddings = list(self._embeddings.values())
+        if options.record_id is not None:
+            embeddings = [
+                embedding
+                for embedding in embeddings
+                if embedding.record_id == options.record_id
+            ]
+        if options.vector_space is not None:
+            embeddings = [
+                embedding
+                for embedding in embeddings
+                if embedding.vector_space == options.vector_space
+            ]
+        if options.namespaces:
+            embeddings = [
+                embedding
+                for embedding in embeddings
+                if any(
+                    embedding.namespace.matches(namespace)
+                    for namespace in options.namespaces
+                )
+            ]
+        embeddings.sort(key=lambda embedding: embedding.updated_at, reverse=True)
+        if options.limit is not None:
+            embeddings = embeddings[: int(options.limit)]
+        if not options.include_vectors:
+            embeddings = [embedding.without_vector() for embedding in embeddings]
+        return embeddings
+
+    def delete_embedding(self, record_id: str, vector_space: str) -> bool:
+        return self._embeddings.pop((record_id, vector_space), None) is not None
 
     def history(self, scope: str, type: MemoryType, key: str) -> list[MemoryRecord]:
         records = [

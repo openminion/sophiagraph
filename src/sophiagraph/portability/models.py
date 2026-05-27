@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from sophiagraph.contracts.provenance import TurnProvenanceTrace
 from sophiagraph.models import (
+    MemoryBlock,
     MemoryNamespace,
     MemoryCandidate,
     MemoryRecord,
@@ -26,6 +27,8 @@ class MemoryBundleExportOptions:
     include_tier_history: bool = False
     # Optional in-memory retrieval provenance for portability snapshots.
     include_provenance: bool = False
+    # Opt in when memory blocks are part of the migration set.
+    include_memory_blocks: bool = False
     namespaces: list[MemoryNamespace] | None = None
 
 
@@ -48,6 +51,8 @@ class MemoryBundleSnapshot:
     tier_transitions: list[MemoryTierTransition] = field(default_factory=list)
     # Empty unless export explicitly includes provenance traces.
     provenance_traces: list[TurnProvenanceTrace] = field(default_factory=list)
+    # Stored DTOs carry all schema-valid modes; callers own activation.
+    memory_blocks: list[MemoryBlock] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -62,6 +67,7 @@ class MemoryBundleImportResult:
     imported_relations: int = 0
     imported_tier_transitions: int = 0
     imported_provenance_traces: int = 0
+    imported_memory_blocks: int = 0
     skipped_records: int = 0
     skipped_sections: list[str] = field(default_factory=list)
     conflicts: list[dict[str, Any]] = field(default_factory=list)

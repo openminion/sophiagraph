@@ -6,7 +6,9 @@ from typing import Any, Protocol
 
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
+    MemoryBlock,
     MemoryCandidate,
+    MemoryEmbedding,
     KnowledgeDocumentBlock,
     MemoryRecord,
     MemoryRelation,
@@ -27,6 +29,7 @@ from sophiagraph.portability.models import (
 )
 from sophiagraph.query import (
     CandidateListOptions,
+    EmbeddingListOptions,
     GraphSnapshot,
     GraphSnapshotOptions,
     LinkQueryOptions,
@@ -166,6 +169,60 @@ class SophiaGraphStore(Protocol):
     ) -> list[MemoryTierTransition]: ...
 
     def put_tier_transition(self, transition: MemoryTierTransition) -> str: ...
+
+    def put_memory_block(self, block: MemoryBlock) -> str: ...
+
+    def get_memory_block(self, block_id: str) -> MemoryBlock | None: ...
+
+    def list_memory_blocks(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        class_names: list[str] | None = None,
+        include_stale: bool = True,
+        limit: int | None = None,
+    ) -> list[MemoryBlock]: ...
+
+    def update_memory_block_content(
+        self,
+        block_id: str,
+        *,
+        new_content: str,
+        actor: str,
+        operator_action: bool = False,
+    ) -> MemoryBlock: ...
+
+    def delete_memory_block(
+        self,
+        block_id: str,
+        *,
+        actor: str,
+        operator_action: bool = False,
+    ) -> bool: ...
+
+    def mark_memory_block_stale_after(
+        self,
+        block_id: str,
+        *,
+        stale_after: str | None,
+    ) -> MemoryBlock: ...
+
+    def put_embedding(self, embedding: MemoryEmbedding) -> str: ...
+
+    def get_embedding(
+        self,
+        record_id: str,
+        vector_space: str,
+        *,
+        include_vector: bool = True,
+    ) -> MemoryEmbedding | None: ...
+
+    def list_embeddings(
+        self,
+        options: EmbeddingListOptions,
+    ) -> list[MemoryEmbedding]: ...
+
+    def delete_embedding(self, record_id: str, vector_space: str) -> bool: ...
 
     def history(
         self,

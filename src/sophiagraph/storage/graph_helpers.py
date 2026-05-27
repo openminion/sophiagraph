@@ -7,6 +7,7 @@ from typing import Any
 
 from sophiagraph.models import (
     KnowledgeDocumentBlock,
+    MemoryBlock,
     MemoryNamespace,
     MemoryRecord,
     StructuralLink,
@@ -41,6 +42,28 @@ def block_to_dict(block: KnowledgeDocumentBlock) -> dict[str, Any]:
 
 def block_from_dict(data: dict[str, Any]) -> KnowledgeDocumentBlock:
     return KnowledgeDocumentBlock(**dict(data))
+
+
+def memory_block_to_dict(block: MemoryBlock) -> dict[str, Any]:
+    """Serialize a ``MemoryBlock`` to a portable dict."""
+    payload = asdict(block)
+    namespace = payload.get("owner_namespace")
+    if isinstance(namespace, MemoryNamespace):
+        payload["owner_namespace"] = namespace.as_dict()
+    if isinstance(block.provenance, dict):
+        payload["provenance"] = dict(block.provenance)
+    else:
+        payload["provenance"] = dict(block.provenance)
+    return payload
+
+
+def memory_block_from_dict(data: dict[str, Any]) -> MemoryBlock:
+    """Hydrate a ``MemoryBlock`` from a portable dict."""
+    payload = dict(data)
+    raw_namespace = payload.get("owner_namespace")
+    if isinstance(raw_namespace, dict):
+        payload["owner_namespace"] = MemoryNamespace.from_dict(raw_namespace)
+    return MemoryBlock(**payload)
 
 
 def graph_node_from_record(
@@ -157,6 +180,8 @@ __all__ = [
     "block_to_dict",
     "link_from_dict",
     "link_to_dict",
+    "memory_block_from_dict",
+    "memory_block_to_dict",
     "namespace_matches_filters",
     "record_matches_structural_query",
 ]

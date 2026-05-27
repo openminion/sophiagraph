@@ -1,5 +1,14 @@
 """Canonical durable-knowledge models and helpers."""
 
+from .block import (
+    MEMORY_BLOCK_DEFERRED_MODES,
+    MEMORY_BLOCK_V1_CLASS_ALLOWLIST,
+    MEMORY_BLOCK_V1_MODES,
+    MemoryBlock,
+    MemoryBlockClass,
+    MemoryBlockMode,
+    validate_block_for_creation,
+)
 from .candidate import CandidateReview, MemoryCandidate
 from .change import (
     ChangeObjectType,
@@ -14,6 +23,7 @@ from .document import (
     KnowledgeDocumentBlock,
     content_hash,
 )
+from .embedding import MemoryEmbedding, memory_embedding_from_dict
 from .link import (
     ContextUnit,
     ExplicitLinkResolver,
@@ -78,6 +88,13 @@ __all__ = [
     "ArtifactRef",
     "CandidateReview",
     "CandidateStatus",
+    "MEMORY_BLOCK_DEFERRED_MODES",
+    "MEMORY_BLOCK_V1_CLASS_ALLOWLIST",
+    "MEMORY_BLOCK_V1_MODES",
+    "MemoryBlock",
+    "MemoryBlockClass",
+    "MemoryBlockMode",
+    "validate_block_for_creation",
     "ChangeObjectType",
     "ChangeOperation",
     "ContextUnit",
@@ -92,6 +109,7 @@ __all__ = [
     "LinkResolutionDiagnostic",
     "LinkResolutionStatus",
     "MemoryCandidate",
+    "MemoryEmbedding",
     "MemoryNamespace",
     "MemoryNamespaceComponent",
     "MemoryPatchResult",
@@ -117,6 +135,7 @@ __all__ = [
     "StructuralLink",
     "SophiaGraphChangeEvent",
     "default_change_namespace",
+    "memory_embedding_from_dict",
     "coerce_candidate_status",
     "coerce_memory_relation_type",
     "coerce_memory_source",

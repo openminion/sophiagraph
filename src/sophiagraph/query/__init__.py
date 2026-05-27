@@ -17,6 +17,18 @@ from .algorithms import (
     retrieval_path_evidence,
     shortest_path,
 )
+from .blocks import (
+    BLOCK_PRIORITY_ORDER,
+    DisagreementKind,
+    DisagreementOutcome,
+    DisagreementSignal,
+    MemoryBlockContextPackage,
+    RenderedBlock,
+    STALE_MARKER,
+    TRUNCATE_ORDER,
+    assemble_block_context,
+    record_disagreement,
+)
 from .graph import (
     GraphEdge,
     GraphNode,
@@ -27,6 +39,7 @@ from .graph import (
 )
 from .options import (
     CandidateListOptions,
+    EmbeddingListOptions,
     ListQueryOptions,
     RecordOrder,
     SearchQueryOptions,
@@ -38,7 +51,12 @@ from .structural import (
 )
 
 __all__ = [
+    "BLOCK_PRIORITY_ORDER",
     "CandidateListOptions",
+    "DisagreementKind",
+    "DisagreementOutcome",
+    "DisagreementSignal",
+    "EmbeddingListOptions",
     "GraphCommonNeighbors",
     "GraphComponent",
     "GraphDegreeMetric",
@@ -51,12 +69,17 @@ __all__ = [
     "LinkQueryOptions",
     "ListQueryOptions",
     "LocalGraphOptions",
+    "MemoryBlockContextPackage",
     "RecordOrder",
+    "RenderedBlock",
     "RetrievalPathEvidence",
+    "STALE_MARKER",
     "SearchQueryOptions",
     "StructuralSearchQuery",
     "StructuralSort",
+    "TRUNCATE_ORDER",
     "all_simple_paths",
+    "assemble_block_context",
     "common_neighbors",
     "connected_components",
     "degree_centrality",
@@ -64,6 +87,7 @@ __all__ = [
     "orphan_clusters",
     "path_evidence",
     "parse_structural_query",
+    "record_disagreement",
     "retrieval_path_evidence",
     "shortest_path",
 ]
