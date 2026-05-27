@@ -1,13 +1,33 @@
-# sophiagraph
+<p align="center">
+  <img src="https://www.openminion.com/brand/sophiagraph-logo.png" alt="Sophiagraph logo" width="128" />
+</p>
 
-Status: `publish-ready alpha`
-Shape: standalone Python package
-License: `Apache-2.0`
+<h1 align="center">Sophiagraph</h1>
 
-Repository: [github.com/openminion/sophiagraph](https://github.com/openminion/sophiagraph)  
-Package index: [pypi.org/project/sophiagraph](https://pypi.org/project/sophiagraph/)
+<p align="center">
+  <strong>Standalone wisdom graph substrate for durable agent memory.</strong>
+</p>
 
-## Official links and impersonation warning
+<p align="center">
+  <a href="https://github.com/openminion/sophiagraph">GitHub</a>
+  · <a href="https://pypi.org/project/sophiagraph/">PyPI</a>
+  · <a href="https://www.openminion.com">Website</a>
+  · <a href="https://x.com/OpenMinion">X</a>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/pypi/v/sophiagraph?color=3775A9"></a>
+  <a href="https://pypi.org/project/sophiagraph/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/sophiagraph"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
+  <img alt="Status" src="https://img.shields.io/badge/status-publish--ready%20alpha-5B8DEF">
+</p>
+
+`sophiagraph` is a standalone wisdom graph substrate for durable agent memory.
+The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this package it
+frames durable knowledge as a graph of records, relations, provenance, trust,
+and portable snapshots.
+
+## Trust and Brand Safety
 
 - Official GitHub: `https://github.com/openminion`
 - Official website: `https://www.openminion.com`
@@ -29,11 +49,6 @@ for truthful attribution. Forks, clones, and derivative distributions must not
 present themselves as the official Sophiagraph project or imply affiliation,
 endorsement, or maintenance by Sophiagraph or OpenMinion contributors unless
 that is actually true.
-
-`sophiagraph` is a standalone wisdom graph substrate for durable agent memory.
-The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this package it
-frames durable knowledge as a graph of records, relations, provenance, trust,
-and portable snapshots.
 
 ## What the package provides
 
