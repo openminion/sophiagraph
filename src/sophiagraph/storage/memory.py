@@ -6,9 +6,13 @@ from dataclasses import asdict, replace
 from typing import Any
 from uuid import uuid4
 
-from sophiagraph.contracts.errors import InvalidArgumentError
+from sophiagraph.contracts.errors import (
+    InvalidArgumentError,
+    NotFoundError,
+)
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
+    MemoryBlock,
     MemoryCandidate,
     MemoryEmbedding,
     KnowledgeDocumentBlock,
@@ -43,8 +47,12 @@ from sophiagraph.storage.helpers import (
 )
 from sophiagraph.storage.graph_helpers import (
     block_to_dict,
+    memory_block_to_dict,
     namespace_matches_filters,
     record_matches_structural_query,
+)
+from sophiagraph.storage.memory_block_helpers import (
+    enforce_block_edit_gate as _enforce_block_edit_gate,
 )
 from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from sophiagraph.storage.memory_portability import MemoryPortabilityMixin
@@ -60,6 +68,7 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         self._relations: dict[str, MemoryRelation] = {}
         self._links: dict[str, StructuralLink] = {}
         self._blocks: dict[str, KnowledgeDocumentBlock] = {}
+        self._memory_blocks: dict[str, MemoryBlock] = {}
         self._candidates: dict[str, MemoryCandidate] = {}
         self._transitions: dict[str, MemoryTierTransition] = {}
         self._embeddings: dict[tuple[str, str], MemoryEmbedding] = {}
@@ -483,6 +492,146 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
             key=lambda block: (block.record_id, block.line_start or 0, block.block_id)
         )
         return blocks
+
+    def put_memory_block(self, block: MemoryBlock) -> str:
+        self._memory_blocks[block.block_id] = block
+        self._emit_change(
+            object_type="memory_block",
+            object_id=block.block_id,
+            payload=memory_block_to_dict(block),
+            namespace=block.owner_namespace,
+            schema_identifiers={
+                "node_label": "memory_block",
+                "class_name": block.class_name,
+                "mode": block.mode,
+            },
+        )
+        return block.block_id
+
+    def get_memory_block(self, block_id: str) -> MemoryBlock | None:
+        return self._memory_blocks.get(block_id)
+
+    def list_memory_blocks(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        class_names: list[str] | None = None,
+        include_stale: bool = True,
+        limit: int | None = None,
+    ) -> list[MemoryBlock]:
+        blocks = list(self._memory_blocks.values())
+        if namespaces:
+            blocks = [
+                block
+                for block in blocks
+                if namespace_matches_filters(block.owner_namespace, namespaces)
+            ]
+        if class_names:
+            allow = set(class_names)
+            blocks = [block for block in blocks if block.class_name in allow]
+        if not include_stale:
+            now = utc_now_iso()
+            blocks = [
+                block
+                for block in blocks
+                if not (block.stale_after is not None and block.stale_after <= now)
+            ]
+        blocks.sort(
+            key=lambda block: (block.class_name, block.created_at, block.block_id)
+        )
+        if limit is not None:
+            blocks = blocks[: int(limit)]
+        return blocks
+
+    def update_memory_block_content(
+        self,
+        block_id: str,
+        *,
+        new_content: str,
+        actor: str,
+        operator_action: bool = False,
+    ) -> MemoryBlock:
+        block = self._memory_blocks.get(block_id)
+        if block is None:
+            raise NotFoundError(
+                f"memory block {block_id!r} not found",
+                details={"block_id": block_id},
+            )
+        _enforce_block_edit_gate(
+            block,
+            operator_action=operator_action,
+            actor=actor,
+            operation="update_content",
+        )
+        if not isinstance(new_content, str):
+            raise InvalidArgumentError("new_content must be a string")
+        updated = replace(
+            block,
+            content=new_content,
+            last_updated_at=utc_now_iso(),
+            last_updated_by=actor,
+        )
+        self._memory_blocks[block_id] = updated
+        self._emit_change(
+            object_type="memory_block",
+            object_id=block_id,
+            payload=memory_block_to_dict(updated),
+            namespace=updated.owner_namespace,
+            schema_identifiers={
+                "node_label": "memory_block",
+                "class_name": updated.class_name,
+                "mode": updated.mode,
+                "operation": "update_content",
+            },
+        )
+        return updated
+
+    def delete_memory_block(
+        self,
+        block_id: str,
+        *,
+        actor: str,
+        operator_action: bool = False,
+    ) -> bool:
+        block = self._memory_blocks.get(block_id)
+        if block is None:
+            return False
+        _enforce_block_edit_gate(
+            block,
+            operator_action=operator_action,
+            actor=actor,
+            operation="delete",
+        )
+        del self._memory_blocks[block_id]
+        self._emit_change(
+            object_type="memory_block",
+            object_id=block_id,
+            payload=memory_block_to_dict(block),
+            namespace=block.owner_namespace,
+            schema_identifiers={
+                "node_label": "memory_block",
+                "class_name": block.class_name,
+                "mode": block.mode,
+                "operation": "delete",
+            },
+        )
+        return True
+
+    def mark_memory_block_stale_after(
+        self,
+        block_id: str,
+        *,
+        stale_after: str | None,
+    ) -> MemoryBlock:
+        block = self._memory_blocks.get(block_id)
+        if block is None:
+            raise NotFoundError(
+                f"memory block {block_id!r} not found",
+                details={"block_id": block_id},
+            )
+        updated = replace(block, stale_after=stale_after)
+        self._memory_blocks[block_id] = updated
+        return updated
 
     def put_candidate(self, candidate: MemoryCandidate) -> str:
         self._candidates[candidate.candidate_id] = candidate

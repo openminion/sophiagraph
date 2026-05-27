@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
+    MemoryBlock,
     MemoryCandidate,
     MemoryNamespace,
     MemoryRelation,
@@ -18,6 +19,7 @@ from sophiagraph.portability.codec import (
     build_manifest,
     candidate_from_dict,
     json_dumps,
+    memory_block_from_dict,
     record_from_dict,
     relation_from_dict,
     tier_transition_from_dict,
@@ -75,6 +77,12 @@ class SqlitePortabilityMixin:
             tier_transitions = self.list_tier_transitions(
                 scopes=options.scopes, limit=options.limit
             )
+        memory_blocks: list[MemoryBlock] = []
+        if options.include_memory_blocks:
+            memory_blocks = self.list_memory_blocks(
+                namespaces=options.namespaces,
+                limit=options.limit,
+            )
         snapshot = MemoryBundleSnapshot(
             manifest={},
             records=records,
@@ -82,6 +90,7 @@ class SqlitePortabilityMixin:
             relations=relations,
             tier_transitions=tier_transitions,
             provenance_traces=[],
+            memory_blocks=memory_blocks,
         )
         return replace(snapshot, manifest=build_manifest(snapshot=snapshot))
 
@@ -185,6 +194,13 @@ class SqlitePortabilityMixin:
         for transition in snapshot.tier_transitions:
             self.put_tier_transition(transition)
             imported_tier_transitions += 1
+        imported_memory_blocks = 0
+        for block in snapshot.memory_blocks:
+            # Stored/portable path: bundle round-trips all four mode literals
+            # without invoking ``validate_block_for_creation``. The caller is
+            # responsible for activating blocks via the validator.
+            self.put_memory_block(block)
+            imported_memory_blocks += 1
         return MemoryBundleImportResult(
             applied=True,
             trust_mode=options.trust_mode,
@@ -195,6 +211,7 @@ class SqlitePortabilityMixin:
             imported_candidates=imported_candidates,
             imported_relations=imported_relations,
             imported_tier_transitions=imported_tier_transitions,
+            imported_memory_blocks=imported_memory_blocks,
             skipped_records=skipped_records,
             skipped_sections=skipped_sections,
             rewrites=rewrites,
@@ -347,6 +364,12 @@ class SqlitePortabilityMixin:
                             json_dumps(asdict(transition)),
                         ),
                     )
+                elif event.object_type == "memory_block":
+                    block = memory_block_from_dict(event.payload)
+                    # Reuse the SQLite store's persistence path so namespace
+                    # columns + structural fields stay in sync. Pass the live
+                    # ``conn`` so the delta runs inside the open transaction.
+                    self._persist_memory_block(conn, block, operation="delta_import")
                 else:
                     skipped.append(event.event_id)
                     continue

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 import uuid
 
 
@@ -11,6 +11,16 @@ def _utc_now_iso() -> str:
     from datetime import datetime, timezone
 
     return datetime.now(timezone.utc).isoformat()
+
+
+# Structural recorder; callers own the audit sink lifecycle.
+MemoryAuditRecorder = Callable[["MemoryAuditEvent"], None]
+
+
+def noop_audit_recorder(
+    event: "MemoryAuditEvent",
+) -> None:  # pragma: no cover - trivial
+    return None
 
 
 @dataclass(frozen=True)
@@ -82,3 +92,28 @@ class TrustGateEvent:
             session_id=self.session_id,
             details=details,
         )
+
+
+def memory_block_audit_event(
+    *,
+    event_type: str,
+    block_id: str,
+    class_name: str | None = None,
+    mode: str | None = None,
+    session_id: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> MemoryAuditEvent:
+    """Build a canonical memory-block audit event."""
+
+    enriched: dict[str, Any] = dict(details or {})
+    if class_name is not None:
+        enriched.setdefault("class_name", class_name)
+    if mode is not None:
+        enriched.setdefault("mode", mode)
+    return MemoryAuditEvent(
+        event_type=event_type,
+        target_kind="memory_block",
+        target_id=block_id,
+        session_id=session_id,
+        details=enriched,
+    )

@@ -7,10 +7,11 @@ from typing import Any
 from uuid import uuid4
 
 from sophiagraph.contracts.errors import InvalidArgumentError
-from sophiagraph.models import MemoryCandidate, MemoryNamespace
+from sophiagraph.models import MemoryBlock, MemoryCandidate, MemoryNamespace
 from sophiagraph.portability.codec import (
     build_manifest,
     candidate_from_dict,
+    memory_block_from_dict,
     record_from_dict,
     relation_from_dict,
     tier_transition_from_dict,
@@ -36,6 +37,7 @@ class MemoryPortabilityMixin:
     _relations: dict[str, Any]
     _links: dict[str, Any]
     _blocks: dict[str, Any]
+    _memory_blocks: dict[str, MemoryBlock]
     _candidates: dict[str, Any]
     _transitions: dict[str, Any]
 
@@ -71,6 +73,12 @@ class MemoryPortabilityMixin:
             transitions = self.list_tier_transitions(
                 scopes=options.scopes, limit=options.limit
             )
+        memory_blocks: list[MemoryBlock] = []
+        if options.include_memory_blocks:
+            memory_blocks = self.list_memory_blocks(
+                namespaces=options.namespaces,
+                limit=options.limit,
+            )
         snapshot = MemoryBundleSnapshot(
             manifest={},
             records=records,
@@ -78,6 +86,7 @@ class MemoryPortabilityMixin:
             relations=relations,
             tier_transitions=transitions,
             provenance_traces=[],
+            memory_blocks=memory_blocks,
         )
         return replace(snapshot, manifest=build_manifest(snapshot=snapshot))
 
@@ -179,6 +188,14 @@ class MemoryPortabilityMixin:
         for transition in snapshot.tier_transitions:
             self.put_tier_transition(transition)
             imported_tier_transitions += 1
+        imported_memory_blocks = 0
+        for block in snapshot.memory_blocks:
+            # Stored/portable path: bundle round-trips all four mode literals
+            # without invoking ``validate_block_for_creation``. Callers that
+            # want active-block guarantees should call the validator after
+            # import.
+            self.put_memory_block(block)
+            imported_memory_blocks += 1
         return MemoryBundleImportResult(
             applied=True,
             trust_mode=options.trust_mode,
@@ -189,6 +206,7 @@ class MemoryPortabilityMixin:
             imported_candidates=imported_candidates,
             imported_relations=imported_relations,
             imported_tier_transitions=imported_tier_transitions,
+            imported_memory_blocks=imported_memory_blocks,
             skipped_records=skipped_records,
             skipped_sections=skipped_sections,
             rewrites=rewrites,
@@ -255,6 +273,9 @@ class MemoryPortabilityMixin:
             elif event.object_type == "block":
                 block = block_from_dict(event.payload)
                 self._blocks[block.block_id] = block
+            elif event.object_type == "memory_block":
+                memory_block = memory_block_from_dict(event.payload)
+                self._memory_blocks[memory_block.block_id] = memory_block
             else:
                 skipped.append(event.event_id)
                 continue

@@ -1,5 +1,14 @@
 """Canonical durable-knowledge models and helpers."""
 
+from .block import (
+    MEMORY_BLOCK_DEFERRED_MODES,
+    MEMORY_BLOCK_V1_CLASS_ALLOWLIST,
+    MEMORY_BLOCK_V1_MODES,
+    MemoryBlock,
+    MemoryBlockClass,
+    MemoryBlockMode,
+    validate_block_for_creation,
+)
 from .candidate import CandidateReview, MemoryCandidate
 from .change import (
     ChangeObjectType,
@@ -79,6 +88,13 @@ __all__ = [
     "ArtifactRef",
     "CandidateReview",
     "CandidateStatus",
+    "MEMORY_BLOCK_DEFERRED_MODES",
+    "MEMORY_BLOCK_V1_CLASS_ALLOWLIST",
+    "MEMORY_BLOCK_V1_MODES",
+    "MemoryBlock",
+    "MemoryBlockClass",
+    "MemoryBlockMode",
+    "validate_block_for_creation",
     "ChangeObjectType",
     "ChangeOperation",
     "ContextUnit",

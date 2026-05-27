@@ -10,7 +10,7 @@ from sophiagraph.models import KnowledgeDocumentBlock, MemoryNamespace, MemoryRe
 from sophiagraph.portability.codec import json_dumps
 from sophiagraph.query import StructuralSearchQuery
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_CONNECT_TIMEOUT_SECONDS = SQLITE_BUSY_TIMEOUT_MS / 1000
 SQLITE_JOURNAL_MODE = "wal"
@@ -221,6 +221,34 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             ON sophiagraph_embeddings(record_id, vector_space);
         CREATE INDEX IF NOT EXISTS idx_sophiagraph_embeddings_namespace
             ON sophiagraph_embeddings(
+                tenant_id, org_id, user_id, agent_id, session_id,
+                conversation_id, project_id, graph_id
+            );
+
+        CREATE TABLE IF NOT EXISTS sophiagraph_memory_blocks (
+            block_id TEXT PRIMARY KEY,
+            class_name TEXT NOT NULL,
+            mode TEXT NOT NULL,
+            token_estimate INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            tenant_id TEXT,
+            org_id TEXT,
+            user_id TEXT,
+            agent_id TEXT,
+            session_id TEXT,
+            conversation_id TEXT,
+            project_id TEXT,
+            graph_id TEXT,
+            created_at TEXT NOT NULL,
+            last_updated_at TEXT NOT NULL,
+            last_updated_by TEXT NOT NULL,
+            stale_after TEXT,
+            payload_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_memory_blocks_class
+            ON sophiagraph_memory_blocks(class_name, last_updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_memory_blocks_namespace
+            ON sophiagraph_memory_blocks(
                 tenant_id, org_id, user_id, agent_id, session_id,
                 conversation_id, project_id, graph_id
             );
