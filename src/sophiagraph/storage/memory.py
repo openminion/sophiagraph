@@ -41,6 +41,7 @@ from sophiagraph.query import (
 )
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.helpers import (
+    RecordLifecycleMixin,
     record_matches_namespaces,
     record_matches_query,
     utc_now_iso,
@@ -58,7 +59,11 @@ from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_
 from sophiagraph.storage.memory_portability import MemoryPortabilityMixin
 
 
-class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
+class SophiaGraphMemoryStore(
+    MemoryPortabilityMixin,
+    RecordLifecycleMixin,
+    SophiaGraphStore,
+):
     """In-memory implementation of the storage contract."""
 
     contract_version = MEMORY_CONTRACT_VERSION
@@ -202,39 +207,6 @@ class SophiaGraphMemoryStore(MemoryPortabilityMixin, SophiaGraphStore):
         if options.limit is not None:
             matches = matches[: int(options.limit)]
         return matches
-
-    def invalidate_record(
-        self, record_id: str, *, valid_to: str, reason: str
-    ) -> MemoryRecord:
-        record = self.get_record(record_id)
-        if record is None:
-            raise InvalidArgumentError(f"unknown record_id: {record_id}")
-        updated = replace(
-            record,
-            valid_to=str(valid_to),
-            supersession_reason=str(reason or record.supersession_reason or ""),
-            updated_at=utc_now_iso(),
-        )
-        self.put_record(updated)
-        return updated
-
-    def supersede_record(
-        self, old_record_id: str, new_record_id: str, reason: str = ""
-    ) -> MemoryRecord:
-        record = self.get_record(old_record_id)
-        if record is None:
-            raise InvalidArgumentError(f"unknown record_id: {old_record_id}")
-        new_record = self.get_record(new_record_id)
-        valid_to = new_record.created_at if new_record is not None else utc_now_iso()
-        updated = replace(
-            record,
-            valid_to=valid_to,
-            superseded_by_id=new_record_id,
-            supersession_reason=str(reason or "superseded"),
-            updated_at=utc_now_iso(),
-        )
-        self.put_record(updated)
-        return updated
 
     def put_relation(self, relation: MemoryRelation) -> str:
         self._relations[relation.relation_id] = relation
