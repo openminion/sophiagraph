@@ -7,6 +7,29 @@ License: `Apache-2.0`
 Repository: [github.com/openminion/sophiagraph](https://github.com/openminion/sophiagraph)  
 Package index: [pypi.org/project/sophiagraph](https://pypi.org/project/sophiagraph/)
 
+## Official links and impersonation warning
+
+- Official GitHub: `https://github.com/openminion`
+- Official website: `https://www.openminion.com`
+- Official X account: `https://x.com/OpenMinion`
+
+`sophiagraph` has no official token, coin, NFT, airdrop, staking program,
+treasury product, or investment offering. Any claim otherwise is unauthorized
+and should be treated as a scam.
+
+## License and brand-use boundary
+
+- Source code license: `Apache-2.0`
+- Brand/trademark grant: `none`
+
+The software license grants rights to use, modify, and redistribute the code.
+It does **not** grant rights to use the Sophiagraph, Sophiagraph Server, or
+OpenMinion names, logos, branding, website identity, or social identity except
+for truthful attribution. Forks, clones, and derivative distributions must not
+present themselves as the official Sophiagraph project or imply affiliation,
+endorsement, or maintenance by Sophiagraph or OpenMinion contributors unless
+that is actually true.
+
 `sophiagraph` is a standalone wisdom graph substrate for durable agent memory.
 The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this package it
 frames durable knowledge as a graph of records, relations, provenance, trust,
