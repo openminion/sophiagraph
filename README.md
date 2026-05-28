@@ -313,23 +313,6 @@ Example:
 from sophiagraph.adapters.markdown import extract_markdown
 from sophiagraph.models import LinkResolutionCandidate, MemoryNamespace
 from sophiagraph.query import LinkQueryOptions, LocalGraphOptions, shortest_path
-```
-
-## Schema and Async Helpers
-
-Use `sophiagraph.schema.describe_schema(...)` to inspect current property-graph
-labels, relation types, property keys, namespace dimensions, and property-type
-conflicts from explicit records/relations/links/blocks.
-
-The optional async facade wraps a sync store without adding provider or async
-database dependencies:
-
-```python
-from sophiagraph.storage import async_store
-
-async_facade = async_store(store)
-record = await async_facade.get_record("rec-1")
-```
 
 namespace = MemoryNamespace(agent_id="demo", graph_id="main")
 imported = extract_markdown(
@@ -358,6 +341,22 @@ The resolver contract is deliberately structural: explicit path first, then
 case-insensitive title/alias matching inside the namespace. Unresolved and
 ambiguous targets are preserved as first-class outcomes. Unlinked mentions are
 not persisted as graph edges.
+
+## Schema and Async Helpers
+
+Use `sophiagraph.schema.describe_schema(...)` to inspect current property-graph
+labels, relation types, property keys, namespace dimensions, and property-type
+conflicts from explicit records/relations/links/blocks.
+
+The optional async facade wraps a sync store without adding provider or async
+database dependencies:
+
+```python
+from sophiagraph.storage import async_store
+
+async_facade = async_store(store)
+record = await async_facade.get_record("rec-1")
+```
 
 ## Search and SQLite Connections
 
