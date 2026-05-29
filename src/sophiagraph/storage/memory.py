@@ -40,7 +40,7 @@ from sophiagraph.query import (
     StructuralSearchQuery,
 )
 from sophiagraph.storage.base import SophiaGraphStore
-from sophiagraph.storage.helpers import (
+from sophiagraph.storage.record_lifecycle import (
     RecordLifecycleMixin,
     record_matches_namespaces,
     record_matches_query,

@@ -20,7 +20,7 @@ from sophiagraph.models import (
     split_target_parts,
 )
 from sophiagraph.query import LinkQueryOptions, ListQueryOptions
-from sophiagraph.storage.helpers import utc_now_iso
+from sophiagraph.storage.record_lifecycle import utc_now_iso
 
 VaultFileKind = Literal["markdown", "canvas", "asset"]
 VaultDiagnosticSeverity = Literal["info", "warning", "error"]

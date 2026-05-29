@@ -14,7 +14,7 @@ from sophiagraph.portability.models import (
     MemoryBundleSnapshot,
     MemoryDeltaSnapshot,
 )
-from sophiagraph.storage.helpers import record_matches_namespaces
+from sophiagraph.storage.record_lifecycle import record_matches_namespaces
 
 
 def import_snapshot_into_store(
