@@ -1,27 +1,6 @@
-"""BL-101 migration tooling: detect / backup / verify baseline for KPR-03.
+"""Structural detect, backup, and verify helpers for lifecycle migrations.
 
-Per `docs/trackers/wip/storage-migration-tooling-bl101-on-kpr03-tracker.md`,
-this module ships a typed PURE-FUNCTION layer above the KPR-03 typed surface
-(`lifecycle_policy.py`) + the existing sync store API. NO new transport or
-persistence layer is introduced.
-
-Three operations:
-
-1. `detect_migration_needed(policy, store, now_iso) -> MigrationDecision` —
-   evaluates every record in the policy's namespace via `evaluate_policy`
-   and decides whether any records need phase transitions.
-
-2. `backup_before_migration(policy, store) -> BackupReceipt` — snapshots the
-   policy's namespace via the existing portability codec.
-
-3. `verify_migration_result(policy, store, expected_decisions, now_iso) ->
-   VerifyOutcome` — confirms post-migration phase distribution matches the
-   detect-time expectations.
-
-Anti-LLM boundary per tracker:
-1. `MigrationDecision` is structural (closed enum); no LLM-judge.
-2. `BackupReceipt` carries typed metadata only; no LLM-summary.
-3. `VerifyOutcome` is structural diff result; no LLM-judge.
+The helpers wrap existing store APIs and emit typed results only.
 """
 
 from __future__ import annotations
@@ -54,9 +33,6 @@ __all__ = [
 ]
 
 
-# ---- Closed enums ----
-
-
 class MigrationDecisionKind(StrEnum):
     """Closed-enum migration decision per BL-101 anti-LLM lock #1."""
 
@@ -71,9 +47,6 @@ class VerifyOutcomeKind(StrEnum):
     PASS = "pass"
     FAIL = "fail"
     UNVERIFIABLE = "unverifiable"
-
-
-# ---- Typed return values ----
 
 
 @dataclass(frozen=True)
@@ -136,18 +109,12 @@ class VerifyOutcome:
             raise ValueError("mismatch_count must be non-negative")
 
 
-# ---- Helpers ----
-
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
 def _namespace_filter_signature(policy: LifecyclePolicy) -> str:
-    """Deterministic structural signature of the policy's namespace filter.
-
-    Used for audit + verify correlation. NO LLM-summary of the filter.
-    """
+    """Return a deterministic signature of the policy namespace filter."""
     ns = policy.namespace_filter
     parts = []
     for key in (
@@ -167,14 +134,7 @@ def _namespace_filter_signature(policy: LifecyclePolicy) -> str:
 
 
 def _derive_scopes_for_namespace(namespace) -> list[str]:
-    """Derive the candidate scope strings for a namespace filter.
-
-    The legacy scope strings are agent:/session:/project:/global:. A
-    namespace with `agent_id` set maps to `agent:<id>`; similarly for
-    session/project/graph. If multiple dimensions are set, we return all
-    matching scopes (the namespace filter additionally narrows via the
-    `namespaces` parameter).
-    """
+    """Derive candidate legacy scope strings for a namespace filter."""
     scopes: list[str] = []
     if getattr(namespace, "agent_id", None):
         scopes.append(f"agent:{namespace.agent_id}")
@@ -191,11 +151,7 @@ def _list_records_for_policy(
     policy: LifecyclePolicy,
     store: "SophiaGraphStore",
 ) -> list:
-    """List all records matching the policy's namespace filter.
-
-    Derives candidate scopes from the namespace filter, then narrows via
-    the `namespaces` parameter for AND-conjunctive isolation per KPR-02.
-    """
+    """List records matching the policy namespace filter."""
     scopes = _derive_scopes_for_namespace(policy.namespace_filter)
     if not scopes:
         # No scope-bridgeable dimension on the filter — nothing to list
@@ -227,15 +183,7 @@ def detect_migration_needed(
     *,
     now_iso: str | None = None,
 ) -> MigrationDecision:
-    """BL101-02: detect whether records under `policy` need phase transitions.
-
-    Pure function: enumerates records, evaluates each via KPR-03
-    `evaluate_policy`, tallies transitions. No mutations.
-
-    Returns:
-        `MigrationDecision` with kind = NEEDED (>=1 transition),
-        NOT_NEEDED (zero transitions), or AMBIGUOUS (evaluation errors).
-    """
+    """Detect whether records under ``policy`` need phase transitions."""
     evaluation_time = now_iso or _now_iso()
     try:
         records = _list_records_for_policy(policy, store)
@@ -287,16 +235,7 @@ def backup_before_migration(
     backup_id: str,
     snapshot_ref: str,
 ) -> BackupReceipt:
-    """BL101-03: produce a typed backup receipt for the policy's namespace.
-
-    The actual snapshot bytes are produced by the existing portability
-    codec at the caller's discretion (this function returns the receipt
-    metadata only). `snapshot_ref` is operator-supplied (e.g., path on
-    disk where the caller persisted `store.export_snapshot(...)` output).
-
-    The function still enumerates records to compute `record_count` for
-    audit, but does NOT inline the payload (per anti-LLM lock #2).
-    """
+    """Produce a typed backup receipt for the policy namespace."""
     if not backup_id:
         raise ValueError("backup_id is required")
     if not snapshot_ref:
@@ -319,14 +258,7 @@ def verify_migration_result(
     *,
     now_iso: str | None = None,
 ) -> VerifyOutcome:
-    """BL101-04: verify post-migration state matches the detect-time expectations.
-
-    Re-enumerates records under `policy` and tallies their current phase
-    distribution. If `expected_decision.kind == NEEDED`, the post-migration
-    state should show records in their `next_phase` rather than
-    `current_phase`. Verification is structural: a PASS means the observed
-    phase distribution reflects the expected transitions were applied.
-    """
+    """Verify post-migration phase distribution structurally."""
     evaluation_time = now_iso or _now_iso()
     try:
         records = _list_records_for_policy(policy, store)

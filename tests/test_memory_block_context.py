@@ -1,20 +1,4 @@
-"""SMBL-04 + SMBL-05 — context assembly and the three frozen failure modes.
-
-Covers:
-
-- Deterministic render order (``agent_identity`` → ``active_mission`` →
-  ``session_pin``).
-- Reverse-priority truncation under budget pressure.
-- Identity hard floor + loud failure via
-  ``MemoryBlocksBudgetHardFloorViolatedError``.
-- No silent block drops without an audit event.
-- FM-1: ``MEMORY_BLOCKS_BUDGET_EXCEEDED`` emission with truncation details.
-- FM-2: ``MEMORY_BLOCK_STALE_SURFACED`` fires once per session per stale
-  block.
-- FM-3: structural / caller-supplied disagreement detector records the
-  canonical audit event and prefers the block, never the retrieval hit;
-  prose-level inference is rejected at the API surface.
-"""
+"""Memory-block context assembly and failure-mode tests."""
 
 from __future__ import annotations
 
@@ -96,9 +80,7 @@ def _session_pin(
     )
 
 
-# ---------------------------------------------------------------------------
 # SMBL-04 — assembly behavior
-# ---------------------------------------------------------------------------
 
 
 def test_render_order_matches_frozen_priority() -> None:
@@ -167,9 +149,7 @@ def test_no_silent_drops_truncated_paths_recorded() -> None:
         assert block.token_cost >= 0
 
 
-# ---------------------------------------------------------------------------
 # SMBL-05 FM-1 — budget exceeded audit event
-# ---------------------------------------------------------------------------
 
 
 def test_budget_exceeded_emits_typed_audit_event() -> None:
@@ -205,9 +185,7 @@ def test_under_budget_emits_no_budget_event() -> None:
     ]
 
 
-# ---------------------------------------------------------------------------
 # SMBL-05 FM-2 — stale-but-still-pinned block
-# ---------------------------------------------------------------------------
 
 
 def test_stale_block_renders_with_marker_and_counts_against_budget() -> None:
@@ -254,9 +232,7 @@ def test_stale_event_fires_once_per_session() -> None:
     assert len(stale_events) == 1
 
 
-# ---------------------------------------------------------------------------
 # SMBL-05 FM-3 — structural / caller-supplied disagreement
-# ---------------------------------------------------------------------------
 
 
 def test_claim_key_polarity_disagreement_records_event() -> None:
@@ -326,13 +302,7 @@ def test_claim_key_polarity_rejects_identical_polarities() -> None:
 
 
 def test_no_runtime_prose_inference_in_signal_construction() -> None:
-    """API surface only accepts structural signals — no prose path exists.
-
-    This test is a structural assertion: the only public input to FM-3
-    is ``DisagreementSignal``, and its constructor requires explicit
-    structural fields. There is no ``record_disagreement_from_prose``
-    or analogous prose-classification entry point.
-    """
+    """Guard the public surface against prose-inference symbols."""
     from sophiagraph.query import blocks as blocks_mod
 
     public_callables = {

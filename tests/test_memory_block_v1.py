@@ -1,20 +1,4 @@
-"""SMBL-01 — MemoryBlock DTO + class/mode validation + typed error codes.
-
-Pins the v1 frozen contract from
-``docs/specs/sophiagraph-memory-blocks-spec.md`` and
-``docs/discussions/memory-blocks-scope-and-modes-2026-05-26.md``:
-
-(a) only ``agent_identity``, ``active_mission``, and ``session_pin`` pass
-    class validation;
-(b) ``shared`` / ``writable`` round-trip through the stored/portable DTO
-    path but fail creation/activation with
-    ``MEMORY_BLOCK_MODE_NOT_YET_SUPPORTED``;
-(c) unknown modes fail with ``MEMORY_BLOCK_MODE_INVALID``;
-(d) unknown classes fail with ``MEMORY_BLOCK_CLASS_NOT_ELIGIBLE``;
-(e) no parallel namespace alias is introduced — ``owner_namespace`` must
-    be the canonical ``MemoryNamespace`` from
-    ``sophiagraph.models.namespace``.
-"""
+"""MemoryBlock v1 DTO, class, mode, and error-code tests."""
 
 from __future__ import annotations
 
@@ -60,9 +44,7 @@ def _block(**overrides):
     return MemoryBlock(**payload)
 
 
-# ---------------------------------------------------------------------------
 # Exit criterion (a): v1 class allowlist enforcement.
-# ---------------------------------------------------------------------------
 
 
 class TestClassAllowlist:
@@ -80,9 +62,7 @@ class TestClassAllowlist:
         )
 
 
-# ---------------------------------------------------------------------------
 # Exit criterion (b): deferred modes round-trip through DTO but fail creation.
-# ---------------------------------------------------------------------------
 
 
 class TestDeferredModeRoundTripVsCreation:
@@ -112,19 +92,13 @@ class TestDeferredModeRoundTripVsCreation:
         assert MEMORY_BLOCK_V1_MODES == frozenset({"read_only", "pinned"})
 
 
-# ---------------------------------------------------------------------------
 # Exit criterion (c): unknown modes fail with MEMORY_BLOCK_MODE_INVALID.
-# ---------------------------------------------------------------------------
 
 
 class TestUnknownModeRejection:
     @pytest.mark.parametrize("bad_mode", ["", "foo", "READ_ONLY", "Pinned"])
     def test_dto_constructor_rejects_unknown_mode(self, bad_mode: str) -> None:
-        """The DTO rejects genuinely-unknown modes at construction time.
-
-        Distinct from the deferred-mode case: unknown means "not a known
-        literal at all," not "known but deferred in v1."
-        """
+        """The DTO rejects modes outside the known literal set."""
 
         if bad_mode == "":
             # Empty string fails the structural check before the mode
@@ -139,9 +113,7 @@ class TestUnknownModeRejection:
         assert excinfo.value.details["mode"] == bad_mode
 
 
-# ---------------------------------------------------------------------------
 # Exit criterion (d): unknown classes fail with MEMORY_BLOCK_CLASS_NOT_ELIGIBLE.
-# ---------------------------------------------------------------------------
 
 
 class TestClassNotEligibleRejection:
@@ -166,21 +138,13 @@ class TestClassNotEligibleRejection:
         assert set(excinfo.value.details["eligible"]) == MEMORY_BLOCK_V1_CLASS_ALLOWLIST
 
     def test_dto_constructor_does_not_validate_class_eligibility(self) -> None:
-        """The class-eligibility check is creation-only.
-
-        A bundle from a future v2 codebase that contains class
-        ``hot_procedural`` must round-trip through the DTO. The
-        ``validate_block_for_creation`` gate is the v1 active-set guard,
-        not the DTO ctor.
-        """
+        """The class-eligibility check is creation-only."""
 
         block = _block(class_name="hot_procedural")
         assert block.class_name == "hot_procedural"
 
 
-# ---------------------------------------------------------------------------
 # Exit criterion (e): no parallel namespace alias.
-# ---------------------------------------------------------------------------
 
 
 class TestNamespaceOwnerGrounding:
@@ -201,11 +165,7 @@ class TestNamespaceOwnerGrounding:
         assert block.owner_namespace.session_id == "s-1"
 
     def test_no_floating_namespace_alias_exported_from_models(self) -> None:
-        """SMBL-01 forbids introducing a parallel alias such as ``NamespaceRef``.
-
-        This test pins the negative — the export surface must NOT carry
-        a ``NamespaceRef``-style alias.
-        """
+        """SMBL-01 forbids a parallel namespace alias."""
 
         from sophiagraph import models
 
@@ -213,9 +173,7 @@ class TestNamespaceOwnerGrounding:
         assert not hasattr(models, "BlockNamespaceRef")
 
 
-# ---------------------------------------------------------------------------
 # Audit/error code central-ownership (SMBL-01 owns all six codes).
-# ---------------------------------------------------------------------------
 
 
 class TestTypedCodeOwnership:
@@ -240,9 +198,7 @@ class TestTypedCodeOwnership:
         assert MEMORY_BLOCK_STALE_SURFACED == "MEMORY_BLOCK_STALE_SURFACED"
 
 
-# ---------------------------------------------------------------------------
 # DTO structural validation (defense-in-depth coverage).
-# ---------------------------------------------------------------------------
 
 
 class TestDtoStructuralValidation:

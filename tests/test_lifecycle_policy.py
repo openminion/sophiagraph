@@ -1,15 +1,4 @@
-"""KPR-03 typed-surface tests.
-
-Covers:
-1. Enum closure (membership-pin) for `LifecyclePhase` + `PromotionPredicateKind`.
-2. `PromotionPredicate` cross-field invariants per kind.
-3. `LifecyclePolicy` field invariants.
-4. `LifecycleDecision`, `ConsolidationRunSummary`, `ConsolidationJob` invariants.
-5. `evaluate_policy` table-driven over 7 paths.
-6. Purity regression (inputs not mutated).
-7. Determinism regression (same inputs → same output).
-8. Anti-LLM source-token grep over the new module.
-"""
+"""Lifecycle policy typed-surface tests."""
 
 from __future__ import annotations
 
@@ -36,9 +25,7 @@ from sophiagraph.storage.lifecycle_policy import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 
 def _make_record(
@@ -89,9 +76,7 @@ def _iso(dt: datetime) -> str:
     return dt.isoformat()
 
 
-# ---------------------------------------------------------------------------
 # 1. Enum closure (membership-pin)
-# ---------------------------------------------------------------------------
 
 
 def test_lifecycle_phase_is_exact_four_members() -> None:
@@ -112,9 +97,7 @@ def test_promotion_predicate_kind_is_exact_four_members() -> None:
     }
 
 
-# ---------------------------------------------------------------------------
 # 2. PromotionPredicate cross-field invariants
-# ---------------------------------------------------------------------------
 
 
 def test_predicate_access_count_requires_threshold() -> None:
@@ -196,9 +179,7 @@ def test_predicate_rejects_non_enum_kind() -> None:
         PromotionPredicate(kind="access_count_above_threshold", threshold=1)  # type: ignore[arg-type]
 
 
-# ---------------------------------------------------------------------------
 # 3. LifecyclePolicy invariants
-# ---------------------------------------------------------------------------
 
 
 def test_policy_requires_non_empty_policy_id() -> None:
@@ -251,9 +232,7 @@ def test_policy_promotion_predicates_must_be_tuple_of_predicates() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # 4. LifecycleDecision + ConsolidationRunSummary + ConsolidationJob
-# ---------------------------------------------------------------------------
 
 
 def test_decision_promotion_reason_requires_matched_kind() -> None:
@@ -331,9 +310,7 @@ def test_consolidation_job_requires_non_empty_strings() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # 5. evaluate_policy — table-driven over 7 paths
-# ---------------------------------------------------------------------------
 
 
 NOW = datetime(2026, 5, 28, 12, 0, 0, tzinfo=timezone.utc)
@@ -512,9 +489,7 @@ def test_evaluate_tier_transition_predicate_reads_meta_key() -> None:
     assert decision.next_phase == LifecyclePhase.ACTIVE
 
 
-# ---------------------------------------------------------------------------
 # 6. Purity regression
-# ---------------------------------------------------------------------------
 
 
 def test_evaluate_policy_does_not_mutate_record() -> None:
@@ -543,9 +518,7 @@ def test_evaluate_policy_does_not_mutate_policy() -> None:
     assert policy.ttl_active_iso == snapshot_ttl_active
 
 
-# ---------------------------------------------------------------------------
 # 7. Determinism regression
-# ---------------------------------------------------------------------------
 
 
 def test_evaluate_policy_is_deterministic() -> None:
@@ -556,9 +529,7 @@ def test_evaluate_policy_is_deterministic() -> None:
     assert a == b
 
 
-# ---------------------------------------------------------------------------
 # 8. derive_default_policy
-# ---------------------------------------------------------------------------
 
 
 def test_derive_default_policy_returns_typed_policy() -> None:
@@ -577,9 +548,7 @@ def test_derive_default_policy_rejects_non_namespace() -> None:
         derive_default_policy({"session_id": "s1"})  # type: ignore[arg-type]
 
 
-# ---------------------------------------------------------------------------
 # 9. Anti-LLM source-token regression
-# ---------------------------------------------------------------------------
 
 
 def test_lifecycle_policy_module_contains_no_llm_call_tokens() -> None:

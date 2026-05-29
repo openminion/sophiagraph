@@ -1,16 +1,4 @@
-"""Focused tests for row-level integrity hash extension (SIH lane).
-
-Rows under test:
-
-1. SIH-01 — ``compute_row_integrity_hash`` deterministic SHA-256
-   over typed record fields, with field-order independence,
-   type-coercion stability, and known-vector regression.
-2. SIH-02 — optional ``integrity_hash: str | None`` field on
-   ``MemoryRecord`` with operator-flag-gated put-record population
-   and backward-compat default.
-3. SIH-03 — ``verify_row_integrity`` returning closed-enum
-   ``IntegrityOutcome``.
-"""
+"""Row-level integrity hash tests."""
 
 from __future__ import annotations
 
@@ -31,9 +19,7 @@ from sophiagraph.models import ArtifactRef, MemoryRecord
 from sophiagraph.storage.memory import SophiaGraphMemoryStore
 
 
-# ---------------------------------------------------------------------------
 # Fixtures
-# ---------------------------------------------------------------------------
 
 
 def _record(**overrides: object) -> MemoryRecord:
@@ -56,9 +42,7 @@ def _record(**overrides: object) -> MemoryRecord:
     return MemoryRecord(**base)  # type: ignore[arg-type]
 
 
-# ---------------------------------------------------------------------------
 # SIH-01 — compute_row_integrity_hash
-# ---------------------------------------------------------------------------
 
 
 class TestComputeRowIntegrityHash:
@@ -167,9 +151,7 @@ class TestComputeRowIntegrityHash:
         assert compute_row_integrity_hash(rec) == expected
 
 
-# ---------------------------------------------------------------------------
 # SIH-02 — populate + MemoryRecord field
-# ---------------------------------------------------------------------------
 
 
 class TestMemoryRecordIntegrityField:
@@ -239,9 +221,7 @@ class TestInMemoryStoreIntegrityFlag:
         assert verify_row_integrity(loaded) is IntegrityOutcome.VALID
 
 
-# ---------------------------------------------------------------------------
 # SIH-03 — verify_row_integrity / IntegrityOutcome
-# ---------------------------------------------------------------------------
 
 
 class TestVerifyRowIntegrity:
@@ -287,9 +267,7 @@ class TestVerifyRowIntegrity:
         assert verify_row_integrity(mutated) is IntegrityOutcome.TAMPERED
 
 
-# ---------------------------------------------------------------------------
 # Sanity: pure-function property (no hidden side effects)
-# ---------------------------------------------------------------------------
 
 
 def test_compute_does_not_mutate_record() -> None:
@@ -307,9 +285,7 @@ def test_verify_does_not_mutate_record() -> None:
     assert stamped == snapshot
 
 
-# ---------------------------------------------------------------------------
 # Module-level smoke: pure, importable, no LLM dependencies
-# ---------------------------------------------------------------------------
 
 
 def test_integrity_module_has_no_llm_imports() -> None:
@@ -326,9 +302,7 @@ def test_integrity_module_has_no_llm_imports() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # Defensive: pytest collection sanity
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("outcome", list(IntegrityOutcome))

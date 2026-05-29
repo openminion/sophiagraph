@@ -1,30 +1,6 @@
-"""KPR-03 typed surface: background-consolidation lifecycle policy contracts.
+"""Typed lifecycle policy contracts for background consolidation.
 
-This module ships the 9 typed symbols declared by the KPR-03 design spec
-(`docs/specs/sophiagraph-background-consolidation-lifecycle-spec.md`) and
-the implementation-discipline companion spec
-(`docs/specs/sophiagraph-kpr-03-typed-surface-spec.md`):
-
-1. `LifecyclePhase` (StrEnum)
-2. `PromotionPredicateKind` (StrEnum)
-3. `PromotionPredicate` (frozen dataclass)
-4. `LifecyclePolicy` (frozen dataclass)
-5. `LifecycleDecision` (frozen dataclass)
-6. `ConsolidationRunSummary` (frozen dataclass)
-7. `ConsolidationJob` (frozen dataclass)
-8. `evaluate_policy` (pure function)
-9. `derive_default_policy` (structural helper)
-
-Typing mechanism: `@dataclass(frozen=True)` with manual `__post_init__`
-validation. This diverges from the parent spec wording ("Pydantic v2
-BaseModel") to preserve sophiagraph's `dependencies = []` posture and
-match the KPR-02 `MemoryNamespace` dataclass precedent at
-`sophiagraph/src/sophiagraph/models/namespace.py:93`. Rationale lives in
-the companion spec §"Locked decisions" §1.
-
-Anti-LLM boundary: this module performs no LLM calls, no content
-classification, no summarization. Phase decisions are deterministic and
-structural per closed-enum predicates.
+Phase decisions are deterministic and structural over closed-enum predicates.
 """
 
 from __future__ import annotations
@@ -68,14 +44,7 @@ TransitionReason = Literal[
 
 
 _TIER_TRANSITION_COUNT_META_KEY = "tier_transition_count"
-"""Documented key the host runtime stashes tier-transition counts under
-on `MemoryRecord.meta` for `TIER_TRANSITION_COUNT_ABOVE_THRESHOLD`
-evaluation. Per companion spec §"Locked decisions" §4."""
-
-
-# ---------------------------------------------------------------------------
-# ISO 8601 duration parsing (stdlib-only, scoped to KPR-03 needs)
-# ---------------------------------------------------------------------------
+"""Host-runtime meta key for tier-transition count predicates."""
 
 _ISO_DURATION_PATTERN = re.compile(
     r"^P"
@@ -92,12 +61,7 @@ _ISO_DURATION_PATTERN = re.compile(
 
 
 def _parse_iso_duration(duration: str) -> timedelta:
-    """Parse a bounded ISO 8601 duration string into a timedelta.
-
-    Supports `PnY`, `PnM`, `PnW`, `PnD`, `PTnH`, `PTnM`, `PTnS`, and
-    combinations (`P1Y2M3DT4H5M6S`). Approximation rules: year = 365 days,
-    month = 30 days. Per companion spec §"Locked decisions" §3.
-    """
+    """Parse the bounded ISO 8601 duration subset used by lifecycle policies."""
 
     if not isinstance(duration, str) or not duration:
         raise InvalidArgumentError("duration must be a non-empty ISO 8601 string")
@@ -134,15 +98,9 @@ def _parse_iso_datetime(value: str) -> datetime:
     return parsed
 
 
-# ---------------------------------------------------------------------------
-# Frozen record types
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class PromotionPredicate:
-    """One operator-named structural check; cross-field invariants enforced
-    in `__post_init__` per companion spec §"Cross-field invariants"."""
+    """One operator-named structural check."""
 
     kind: PromotionPredicateKind
     threshold: int | None = None
@@ -335,21 +293,11 @@ class ConsolidationJob:
             )
 
 
-# ---------------------------------------------------------------------------
 # Pure evaluation
-# ---------------------------------------------------------------------------
 
 
 def _record_phase(record: MemoryRecord) -> LifecyclePhase:
-    """Derive the current phase from existing MemoryRecord fields.
-
-    KPR-03 backward-compat §1: records without an explicit phase default
-    to ACTIVE. Once a record is superseded (`superseded_by_id` set) it
-    reads as SUPERSEDED. Phase persistence is a host-runtime concern out
-    of v1 scope; for v1, callers MAY stash a phase under
-    `record.meta["lifecycle_phase"]`, and this function reads it
-    structurally.
-    """
+    """Derive the current lifecycle phase from explicit record fields."""
 
     if record.superseded_by_id:
         return LifecyclePhase.SUPERSEDED
@@ -402,11 +350,7 @@ def evaluate_policy(
     policy: LifecyclePolicy,
     now_iso: str,
 ) -> LifecycleDecision:
-    """Pure, deterministic, side-effect-free policy evaluation.
-
-    Honors KPR-03 §"TTL semantics" and §"Promotion semantics". Does NOT
-    call the store, does NOT mutate inputs, does NOT call any LLM.
-    """
+    """Evaluate one record against a lifecycle policy without side effects."""
 
     if not isinstance(record, MemoryRecord):
         raise InvalidArgumentError("record must be a MemoryRecord")
@@ -493,12 +437,7 @@ def derive_default_policy(
     ttl_active_iso: str | None = None,
     ttl_cooling_iso: str | None = None,
 ) -> LifecyclePolicy:
-    """Structural helper for operator-config defaults.
-
-    Constructs a `LifecyclePolicy` with no promotion predicates, the
-    supplied namespace as filter, and the supplied TTL values. Per
-    companion spec §"Locked decisions" §6.
-    """
+    """Build a default policy over one namespace filter."""
 
     if not isinstance(namespace, MemoryNamespace):
         raise InvalidArgumentError("namespace must be a MemoryNamespace")
