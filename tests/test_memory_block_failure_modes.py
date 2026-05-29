@@ -1,21 +1,4 @@
-"""SMBL-07 — Memory-block compatibility / failure-mode bundle.
-
-Exercises every v1 decision in one focused suite:
-
-- v1 class allowlist denial (creation)
-- deferred-mode denial (creation)
-- portability compatibility (stored DTO accepts all four modes)
-- truncation order (reverse-priority)
-- hard-floor loud failure
-- stale marker emission
-- read-only denial audit
-- OpenMinion command surfaces (smoke-level cross-package check via
-  module import + factory swap)
-
-The OpenMinion CLI itself has dedicated coverage in
-``openminion/tests/memory/test_memory_blocks_cli.py``; the test here
-confirms the cross-package wiring works from the sophiagraph side.
-"""
+"""Memory-block failure modes and cross-package smoke coverage."""
 
 from __future__ import annotations
 
