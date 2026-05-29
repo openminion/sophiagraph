@@ -1,4 +1,4 @@
-"""Shared storage helpers for package-local record filtering and timestamps."""
+"""Record filtering and lifecycle helpers for storage backends."""
 
 from __future__ import annotations
 

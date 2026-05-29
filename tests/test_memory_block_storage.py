@@ -1,11 +1,4 @@
-"""SMBL-02 + SMBL-03 storage and portability coverage for ``MemoryBlock``.
-
-Proves both backends (memory + SQLite) round-trip blocks, persist all four
-mode literals (including the deferred ``shared`` / ``writable`` modes),
-keep namespace isolation, support bundle export/import, and honor the
-SMBL-03 edit-semantics gate (``read_only`` rejected always; ``pinned``
-rejected unless ``operator_action=True``).
-"""
+"""MemoryBlock storage, portability, and edit-gate tests."""
 
 from __future__ import annotations
 
@@ -99,9 +92,7 @@ def store(request, tmp_path: Path):
     return SophiaGraphSqliteStore(tmp_path / "sg.sqlite3")
 
 
-# ---------------------------------------------------------------------------
 # SMBL-02 — persistence + portability + namespace isolation
-# ---------------------------------------------------------------------------
 
 
 def test_put_get_round_trip(store) -> None:
@@ -157,11 +148,7 @@ def test_namespace_isolation(store) -> None:
 
 
 def test_stored_dto_round_trips_deferred_modes(store) -> None:
-    """A ``shared``/``writable`` block must round-trip without crashing.
-
-    The stored/portable contract is intentionally permissive; the v1 active
-    gate runs at ``validate_block_for_creation``, not at the store layer.
-    """
+    """Deferred modes round-trip while creation validation stays stricter."""
     deferred = _deferred_block()
     store.put_memory_block(deferred)
     loaded = store.get_memory_block(deferred.block_id)
@@ -245,9 +232,7 @@ def test_changefeed_emits_memory_block_events(store) -> None:
     }
 
 
-# ---------------------------------------------------------------------------
 # SMBL-03 — edit semantics + denial via typed error
-# ---------------------------------------------------------------------------
 
 
 def test_read_only_update_denied_with_typed_error(store) -> None:

@@ -73,6 +73,7 @@ class MemoryRecord:
     deleted_reason: str | None = None
     tier: MemoryTier = "working"
     access_count: int = 0
+    integrity_hash: str | None = None
 
     @property
     def superseded(self) -> bool:

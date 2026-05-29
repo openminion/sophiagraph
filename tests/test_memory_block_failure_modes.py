@@ -1,21 +1,4 @@
-"""SMBL-07 — Memory-block compatibility / failure-mode bundle.
-
-Exercises every v1 decision in one focused suite:
-
-- v1 class allowlist denial (creation)
-- deferred-mode denial (creation)
-- portability compatibility (stored DTO accepts all four modes)
-- truncation order (reverse-priority)
-- hard-floor loud failure
-- stale marker emission
-- read-only denial audit
-- OpenMinion command surfaces (smoke-level cross-package check via
-  module import + factory swap)
-
-The OpenMinion CLI itself has dedicated coverage in
-``openminion/tests/memory/test_memory_blocks_cli.py``; the test here
-confirms the cross-package wiring works from the sophiagraph side.
-"""
+"""Memory-block failure modes and cross-package smoke coverage."""
 
 from __future__ import annotations
 
@@ -88,9 +71,7 @@ def _build(
     )
 
 
-# ---------------------------------------------------------------------------
 # Allowlist + mode denials at creation
-# ---------------------------------------------------------------------------
 
 
 def test_class_allowlist_denial() -> None:
@@ -124,10 +105,8 @@ def test_unknown_mode_rejected_at_dto_construction() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # Portability compatibility — all four modes round-trip; activation gate
 # still rejects deferred modes on the importing side.
-# ---------------------------------------------------------------------------
 
 
 def test_bundle_round_trips_all_four_modes(tmp_path: Path) -> None:
@@ -166,9 +145,7 @@ def test_bundle_round_trips_all_four_modes(tmp_path: Path) -> None:
         validate_block_for_creation(shared)
 
 
-# ---------------------------------------------------------------------------
 # Reverse-priority truncation + hard-floor loud failure
-# ---------------------------------------------------------------------------
 
 
 def test_reverse_priority_truncation_and_hard_floor() -> None:
@@ -196,9 +173,7 @@ def test_reverse_priority_truncation_and_hard_floor() -> None:
         )
 
 
-# ---------------------------------------------------------------------------
 # FM-1 + FM-2 audit-event emissions wired through the recorder
-# ---------------------------------------------------------------------------
 
 
 def test_failure_mode_audit_emissions() -> None:
@@ -251,9 +226,7 @@ def test_failure_mode_audit_emissions() -> None:
     assert len(stale_events) == 1  # once per session per stale block
 
 
-# ---------------------------------------------------------------------------
 # FM-3 structural disagreement + block preference
-# ---------------------------------------------------------------------------
 
 
 def test_structural_disagreement_records_and_prefers_block() -> None:
@@ -271,9 +244,7 @@ def test_structural_disagreement_records_and_prefers_block() -> None:
     assert events and events[0].event_type == MEMORY_BLOCK_DISAGREEMENT_RECORDED
 
 
-# ---------------------------------------------------------------------------
 # Read-only denial + audit code
-# ---------------------------------------------------------------------------
 
 
 def test_read_only_denial_carries_canonical_audit_code(tmp_path: Path) -> None:
@@ -292,19 +263,11 @@ def test_read_only_denial_carries_canonical_audit_code(tmp_path: Path) -> None:
     assert store.get_memory_block("blk-id").content == "x"
 
 
-# ---------------------------------------------------------------------------
 # OpenMinion command-surface smoke (cross-package wiring)
-# ---------------------------------------------------------------------------
 
 
 def test_openminion_cli_module_importable_with_factory_swap() -> None:
-    """Smoke: the OpenMinion CLI module imports cleanly against sophiagraph.
-
-    Full CLI behavior is covered in
-    ``openminion/tests/memory/test_memory_blocks_cli.py``; this test
-    just confirms the cross-package import path is healthy from the
-    sophiagraph side, so a fresh-wheel install can wire the CLI.
-    """
+    """Smoke the OpenMinion CLI import path from SophiaGraph."""
     pytest.importorskip("openminion.cli.commands.memory")
     from openminion.cli.commands import memory as memory_cmd
 
