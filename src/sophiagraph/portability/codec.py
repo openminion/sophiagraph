@@ -153,6 +153,9 @@ def record_from_dict(data: dict[str, Any]) -> MemoryRecord:
         else None,
         tier=coerce_memory_tier(str(data.get("tier", "working"))),
         access_count=max(0, int(data.get("access_count", 0) or 0)),
+        integrity_hash=str(data.get("integrity_hash"))
+        if data.get("integrity_hash") is not None
+        else None,
     )
 
 

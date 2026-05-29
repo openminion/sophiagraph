@@ -11,6 +11,7 @@ from sophiagraph.contracts.errors import (
     NotFoundError,
 )
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
+from sophiagraph.integrity import populate_integrity_hash
 from sophiagraph.models import (
     MemoryBlock,
     MemoryCandidate,
@@ -68,7 +69,7 @@ class SophiaGraphMemoryStore(
 
     contract_version = MEMORY_CONTRACT_VERSION
 
-    def __init__(self) -> None:
+    def __init__(self, *, integrity_hash_enabled: bool = False) -> None:
         self._records: dict[str, MemoryRecord] = {}
         self._relations: dict[str, MemoryRelation] = {}
         self._links: dict[str, StructuralLink] = {}
@@ -79,6 +80,10 @@ class SophiaGraphMemoryStore(
         self._embeddings: dict[tuple[str, str], MemoryEmbedding] = {}
         self._changes: list[SophiaGraphChangeEvent] = []
         self._next_cursor = 1
+        # Operator-config flag (default off = backward-compat). When
+        # enabled, ``put_record`` stamps an integrity hash on every
+        # record at write time via ``populate_integrity_hash``.
+        self._integrity_hash_enabled = integrity_hash_enabled
 
     def _has_change(self, event: SophiaGraphChangeEvent) -> bool:
         return any(
@@ -119,15 +124,16 @@ class SophiaGraphMemoryStore(
         )
 
     def put_record(self, record: MemoryRecord) -> str:
-        self._records[record.id] = record
+        stamped = populate_integrity_hash(record, enabled=self._integrity_hash_enabled)
+        self._records[stamped.id] = stamped
         self._emit_change(
             object_type="record",
-            object_id=record.id,
-            payload=asdict(record),
-            namespace=record.effective_namespace,
-            schema_identifiers={"node_label": str(record.type)},
+            object_id=stamped.id,
+            payload=asdict(stamped),
+            namespace=stamped.effective_namespace,
+            schema_identifiers={"node_label": str(stamped.type)},
         )
-        return record.id
+        return stamped.id
 
     def upsert_record(
         self, scope: str, type: MemoryType, key: str, record_patch: dict[str, Any]

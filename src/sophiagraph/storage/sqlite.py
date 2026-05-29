@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.contracts.errors import InvalidArgumentError, NotFoundError
+from sophiagraph.integrity import populate_integrity_hash
 from sophiagraph.models import (
     MemoryBlock,
     MemoryCandidate,
@@ -93,9 +94,18 @@ class SophiaGraphSqliteStore(
 
     contract_version = MEMORY_CONTRACT_VERSION
 
-    def __init__(self, db_path: str | Path) -> None:
+    def __init__(
+        self,
+        db_path: str | Path,
+        *,
+        integrity_hash_enabled: bool = False,
+    ) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Operator-config flag (default off = backward-compat). When
+        # enabled, ``put_record`` stamps an integrity hash on every
+        # record at write time via ``populate_integrity_hash``.
+        self._integrity_hash_enabled = integrity_hash_enabled
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
@@ -299,17 +309,18 @@ class SophiaGraphSqliteStore(
         return row is not None
 
     def put_record(self, record: MemoryRecord) -> str:
+        stamped = populate_integrity_hash(record, enabled=self._integrity_hash_enabled)
         with self._write_connection() as conn:
-            self._put_record_payload(conn, record)
+            self._put_record_payload(conn, stamped)
             self._emit_change(
                 conn,
                 object_type="record",
-                object_id=record.id,
-                payload=asdict(record),
-                namespace=record.effective_namespace,
-                schema_identifiers={"node_label": str(record.type)},
+                object_id=stamped.id,
+                payload=asdict(stamped),
+                namespace=stamped.effective_namespace,
+                schema_identifiers={"node_label": str(stamped.type)},
             )
-        return record.id
+        return stamped.id
 
     def upsert_record(
         self,
