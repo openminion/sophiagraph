@@ -1,7 +1,4 @@
-"""Typed lifecycle policy contracts for background consolidation.
-
-Phase decisions are deterministic and structural over closed-enum predicates.
-"""
+"""Typed lifecycle policy contracts for background consolidation."""
 
 from __future__ import annotations
 
@@ -18,7 +15,7 @@ from sophiagraph.storage.record_lifecycle import utc_now_iso
 
 
 class LifecyclePhase(StrEnum):
-    """Closed 4-enum phase taxonomy per KPR-03 Locked Decision 3."""
+    """Closed lifecycle phase taxonomy."""
 
     ACTIVE = "active"
     COOLING = "cooling"
@@ -27,7 +24,7 @@ class LifecyclePhase(StrEnum):
 
 
 class PromotionPredicateKind(StrEnum):
-    """Closed 4-enum predicate taxonomy per KPR-03 §PromotionPredicateKind."""
+    """Closed promotion predicate taxonomy."""
 
     ACCESS_COUNT_ABOVE_THRESHOLD = "access_count_above_threshold"
     TIER_TRANSITION_COUNT_ABOVE_THRESHOLD = "tier_transition_count_above_threshold"
@@ -191,8 +188,7 @@ class LifecyclePolicy:
 
 @dataclass(frozen=True)
 class LifecycleDecision:
-    """Result of `evaluate_policy`; phase transition is structural and
-    deterministic per KPR-03 Anti-LLM Boundary §3."""
+    """Result of `evaluate_policy`."""
 
     current_phase: LifecyclePhase
     next_phase: LifecyclePhase
@@ -266,8 +262,7 @@ class ConsolidationRunSummary:
 
 @dataclass(frozen=True)
 class ConsolidationJob:
-    """Declarative descriptor; execution is host-runtime concern per KPR-03
-    Locked Decision 7."""
+    """Declarative lifecycle job descriptor."""
 
     job_id: str
     policy: LifecyclePolicy
@@ -358,8 +353,6 @@ def evaluate_policy(
         raise InvalidArgumentError("policy must be a LifecyclePolicy")
     now = _parse_iso_datetime(now_iso)
     current_phase = _record_phase(record)
-
-    # Terminal phases stay terminal (KPR-03 Locked Decision 9).
     if current_phase in (LifecyclePhase.ARCHIVED, LifecyclePhase.SUPERSEDED):
         return LifecycleDecision(
             current_phase=current_phase,
@@ -431,6 +424,21 @@ def evaluate_policy(
     )
 
 
+def apply_decision_to_record_meta(
+    current_meta: dict | None,
+    decision: LifecycleDecision,
+) -> dict:
+    """Return a new ``meta`` dict reflecting ``decision``."""
+
+    if decision is None or not isinstance(decision, LifecycleDecision):
+        raise InvalidArgumentError("decision must be a LifecycleDecision")
+    new_meta: dict = dict(current_meta or {})
+    new_meta["lifecycle_phase"] = decision.next_phase.value
+    if decision.transition_reason != "no_transition":
+        new_meta["lifecycle_transition_reason"] = decision.transition_reason
+    return new_meta
+
+
 def derive_default_policy(
     namespace: MemoryNamespace,
     *,
@@ -463,6 +471,8 @@ __all__ = [
     "LifecyclePolicy",
     "PromotionPredicate",
     "PromotionPredicateKind",
+    "TransitionReason",
+    "apply_decision_to_record_meta",
     "derive_default_policy",
     "evaluate_policy",
 ]

@@ -1,8 +1,4 @@
-"""BL-101 migration tooling tests.
-
-Covers detect / backup / verify pure functions per
-`docs/trackers/wip/storage-migration-tooling-bl101-on-kpr03-tracker.md`.
-"""
+"""Migration tooling tests."""
 
 from __future__ import annotations
 
@@ -66,9 +62,6 @@ def empty_store() -> SophiaGraphMemoryStore:
     return SophiaGraphMemoryStore()
 
 
-# ---- detect_migration_needed ----
-
-
 def test_detect_returns_not_needed_for_empty_store(empty_store, policy):
     decision = detect_migration_needed(
         policy, empty_store, now_iso="2026-05-28T00:00:00+00:00"
@@ -124,9 +117,6 @@ def test_detect_decision_invariants():
         )
 
 
-# ---- backup_before_migration ----
-
-
 def test_backup_produces_typed_receipt(store_with_records, policy):
     receipt = backup_before_migration(
         policy,
@@ -177,9 +167,6 @@ def test_backup_namespace_filter_signature_is_deterministic(store_with_records):
         policy_b, store_with_records, backup_id="x2", snapshot_ref="/tmp/b"
     )
     assert receipt_a.namespace_filter_signature == receipt_b.namespace_filter_signature
-
-
-# ---- verify_migration_result ----
 
 
 def test_verify_passes_when_no_transitions_expected(empty_store, policy):
@@ -236,9 +223,6 @@ def test_migration_decision_kinds_closed_enum():
         "not_needed",
         "ambiguous",
     }
-
-
-# ---- Promotion-predicate roundtrip via detect ----
 
 
 def test_detect_promotion_predicate_keeps_cooling_records_in_cooling():

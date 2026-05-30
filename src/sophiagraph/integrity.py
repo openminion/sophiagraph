@@ -1,8 +1,4 @@
-"""Row-level integrity hash primitives for ``MemoryRecord``.
-
-Hashes are deterministic SHA-256 values over typed record fields.
-Audit, retention, and export policy stay with operator/runtime owners.
-"""
+"""Row-level integrity hash primitives for ``MemoryRecord``."""
 
 from __future__ import annotations
 

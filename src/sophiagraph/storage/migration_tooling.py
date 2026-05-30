@@ -1,7 +1,4 @@
-"""Structural detect, backup, and verify helpers for lifecycle migrations.
-
-The helpers wrap existing store APIs and emit typed results only.
-"""
+"""Structural detect, backup, and verify helpers for lifecycle migrations."""
 
 from __future__ import annotations
 
@@ -34,7 +31,7 @@ __all__ = [
 
 
 class MigrationDecisionKind(StrEnum):
-    """Closed-enum migration decision per BL-101 anti-LLM lock #1."""
+    """Closed migration decision enum."""
 
     NEEDED = "needed"
     NOT_NEEDED = "not_needed"
@@ -42,7 +39,7 @@ class MigrationDecisionKind(StrEnum):
 
 
 class VerifyOutcomeKind(StrEnum):
-    """Closed-enum verify result per BL-101 anti-LLM lock #3."""
+    """Closed verification outcome enum."""
 
     PASS = "pass"
     FAIL = "fail"
@@ -172,9 +169,6 @@ def _compute_phase_distribution(records: list) -> dict[str, int]:
         phase_str = str(phase)
         distribution[phase_str] = distribution.get(phase_str, 0) + 1
     return distribution
-
-
-# ---- Public pure functions ----
 
 
 def detect_migration_needed(
