@@ -51,7 +51,7 @@ def _mission(
         block_id=block_id,
         class_name="active_mission",
         mode="pinned",
-        content="Investigate the failing tracker and write down findings.",
+        content="Investigate the failing task and write down findings.",
         token_estimate=token_estimate,
         owner_namespace=_ns(),
         source="operator_pin",
