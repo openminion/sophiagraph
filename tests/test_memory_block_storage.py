@@ -58,7 +58,7 @@ def _mission_block(block_id: str = "blk-mission-1") -> MemoryBlock:
         block_id=block_id,
         class_name="active_mission",
         mode="pinned",
-        content="Investigate the failing tracker.",
+        content="Investigate the failing task.",
         token_estimate=20,
         owner_namespace=_ns_a(),
         source="operator_pin",
@@ -220,8 +220,7 @@ def test_changefeed_emits_memory_block_events(store) -> None:
     events = store.list_changes()
     block_events = [event for event in events if event.object_type == "memory_block"]
     assert len(block_events) == 2
-    # Schema identifiers carry the canonical names that SGNPOG-06 returns
-    # from ``describe_schema()`` — required by the SGNPOG-01 contract.
+    # Schema identifiers carry the canonical names returned by ``describe_schema()``.
     assert all(
         event.schema_identifiers.get("node_label") == "memory_block"
         for event in block_events

@@ -83,5 +83,31 @@ MEMORY_BLOCK_STALE_SURFACED = "MEMORY_BLOCK_STALE_SURFACED"
 MEMORY_BLOCK_EDIT_DENIED = "MEMORY_BLOCK_EDIT_DENIED"
 MEMORY_BLOCK_DISAGREEMENT_RECORDED = "MEMORY_BLOCK_DISAGREEMENT_RECORDED"
 
+
+class InvalidSupersessionError(MemctlError):
+    """Raised when a contradiction references missing or invalid fact IDs."""
+
+    code = "INVALID_SUPERSESSION"
+
+
 MEMORY_IDENTITY_BLOCK_HARD_FLOOR_TOKENS = 128
 MEMORY_BLOCKS_BUDGET_CEILING_DEFAULT_TOKENS = 4096
+
+
+class OntologyNotFoundError(MemctlError):
+    """Raised when caller references a (ontology_id, version) that is not registered."""
+
+    code = "ONTOLOGY_NOT_FOUND"
+
+
+class OntologyValidationError(MemctlError):
+    """Raised when a record/entity/relation fails ontology validation."""
+
+    code = "ONTOLOGY_VALIDATION_FAILED"
+
+
+class OntologyVersionConflictError(MemctlError):
+    """Raised when a re-registration tries to overwrite an existing
+    (ontology_id, version) with a different payload."""
+
+    code = "ONTOLOGY_VERSION_CONFLICT"

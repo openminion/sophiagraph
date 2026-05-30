@@ -78,6 +78,19 @@ class SophiaGraphMemoryStore(
         self._candidates: dict[str, MemoryCandidate] = {}
         self._transitions: dict[str, MemoryTierTransition] = {}
         self._embeddings: dict[tuple[str, str], MemoryEmbedding] = {}
+        # SEFT-02 / SEPM-02 — entity/fact/episode rows.
+        self._entities: dict[str, Any] = {}
+        self._entity_aliases: dict[str, Any] = {}
+        self._facts: dict[str, Any] = {}
+        self._contradictions: dict[str, Any] = {}
+        self._entity_summaries: dict[str, Any] = {}
+        self._episodes: dict[str, Any] = {}
+        self._episode_steps: dict[str, Any] = {}
+        self._outcomes: dict[str, Any] = {}
+        self._decisions: dict[str, Any] = {}
+        self._procedures: dict[str, Any] = {}
+        self._raw_episodes: dict[str, Any] = {}
+        self._fact_convergence_links: dict[str, Any] = {}
         self._changes: list[SophiaGraphChangeEvent] = []
         self._next_cursor = 1
         # Operator-config flag (default off = backward-compat). When
@@ -801,3 +814,643 @@ class SophiaGraphMemoryStore(
 
     def candidate_count(self) -> int:
         return len(self._candidates)
+
+    # SEFT-02 + SEFT-03 + SEFT-04 — entity / fact / contradiction / summary.
+
+    def put_entity(self, entity) -> str:
+        from sophiagraph.storage.graph_helpers import entity_to_dict
+
+        self._entities[entity.entity_id] = entity
+        self._emit_change(
+            object_type="entity",
+            object_id=entity.entity_id,
+            payload=entity_to_dict(entity),
+            namespace=entity.namespace,
+            schema_identifiers={
+                "node_label": "entity",
+                "entity_type": entity.entity_type,
+            },
+        )
+        return entity.entity_id
+
+    def get_entity(self, entity_id):
+        return self._entities.get(entity_id)
+
+    def list_entities(
+        self,
+        *,
+        namespaces=None,
+        canonical_name=None,
+        entity_type=None,
+        include_invalidated=False,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import entity_passes
+
+        rows = [
+            entity
+            for entity in self._entities.values()
+            if entity_passes(
+                entity,
+                namespaces=namespaces,
+                canonical_name=canonical_name,
+                entity_type=entity_type,
+                include_invalidated=include_invalidated,
+            )
+        ]
+        rows.sort(key=lambda e: (e.canonical_name, e.entity_id))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_entity_alias(self, alias) -> str:
+        from sophiagraph.storage.graph_helpers import entity_alias_to_dict
+
+        self._entity_aliases[alias.alias_id] = alias
+        self._emit_change(
+            object_type="entity_alias",
+            object_id=alias.alias_id,
+            payload=entity_alias_to_dict(alias),
+            namespace=alias.namespace,
+            schema_identifiers={
+                "node_label": "entity_alias",
+                "entity_id": alias.entity_id,
+            },
+        )
+        return alias.alias_id
+
+    def list_entity_aliases(
+        self,
+        *,
+        entity_id=None,
+        alias_name=None,
+        namespaces=None,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import entity_alias_passes
+
+        rows = [
+            alias
+            for alias in self._entity_aliases.values()
+            if entity_alias_passes(
+                alias,
+                namespaces=namespaces,
+                entity_id=entity_id,
+                alias_name=alias_name,
+            )
+        ]
+        rows.sort(key=lambda a: (a.alias_name, a.alias_id))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_fact(self, fact) -> str:
+        from sophiagraph.storage.graph_helpers import fact_to_dict
+
+        self._facts[fact.fact_id] = fact
+        self._emit_change(
+            object_type="fact",
+            object_id=fact.fact_id,
+            payload=fact_to_dict(fact),
+            namespace=fact.namespace,
+            schema_identifiers={
+                "node_label": "fact",
+                "predicate": fact.predicate,
+            },
+        )
+        return fact.fact_id
+
+    def get_fact(self, fact_id):
+        return self._facts.get(fact_id)
+
+    def list_facts(
+        self,
+        *,
+        namespaces=None,
+        subject_entity_id=None,
+        object_entity_id=None,
+        predicate=None,
+        valid_at=None,
+        learned_at=None,
+        active_state="active",
+        source_episode_id=None,
+        include_invalidated=False,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import fact_passes
+
+        rows = [
+            fact
+            for fact in self._facts.values()
+            if fact_passes(
+                fact,
+                namespaces=namespaces,
+                subject_entity_id=subject_entity_id,
+                object_entity_id=object_entity_id,
+                predicate=predicate,
+                valid_at=valid_at,
+                learned_at=learned_at,
+                active_state=active_state,
+                source_episode_id=source_episode_id,
+                include_invalidated=include_invalidated,
+            )
+        ]
+        rows.sort(key=lambda f: (f.observed_at or "", f.fact_id))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def record_contradiction(self, contradiction):
+        from dataclasses import replace
+
+        from sophiagraph.storage.entity_episode_store import (
+            validate_contradiction_references,
+        )
+        from sophiagraph.storage.graph_helpers import contradiction_to_dict
+
+        validate_contradiction_references(
+            contradiction, known_fact_ids=self._facts.keys()
+        )
+        # Apply decision semantics while preserving both facts.
+        target = self._facts[contradiction.target_fact_id]
+        if contradiction.decision == "supersedes":
+            updated = replace(
+                target,
+                invalidated_at=contradiction.decided_at,
+                superseded_by_fact_id=contradiction.contradicting_fact_id,
+            )
+            self._facts[contradiction.target_fact_id] = updated
+        elif contradiction.decision == "invalidates_target":
+            updated = replace(target, invalidated_at=contradiction.decided_at)
+            self._facts[contradiction.target_fact_id] = updated
+        # "both_valid" leaves both facts intact.
+        self._contradictions[contradiction.contradiction_id] = contradiction
+        self._emit_change(
+            object_type="contradiction",
+            object_id=contradiction.contradiction_id,
+            payload=contradiction_to_dict(contradiction),
+            namespace=contradiction.namespace,
+            schema_identifiers={
+                "node_label": "contradiction",
+                "decision": contradiction.decision,
+            },
+        )
+        return contradiction
+
+    def list_contradictions(
+        self,
+        *,
+        target_fact_id=None,
+        contradicting_fact_id=None,
+        namespaces=None,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import contradiction_passes
+
+        rows = [
+            c
+            for c in self._contradictions.values()
+            if contradiction_passes(
+                c,
+                namespaces=namespaces,
+                target_fact_id=target_fact_id,
+                contradicting_fact_id=contradicting_fact_id,
+            )
+        ]
+        rows.sort(key=lambda c: (c.decided_at, c.contradiction_id))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_entity_summary(self, summary) -> str:
+        from sophiagraph.storage.graph_helpers import entity_summary_to_dict
+
+        self._entity_summaries[summary.summary_id] = summary
+        self._emit_change(
+            object_type="entity_summary",
+            object_id=summary.summary_id,
+            payload=entity_summary_to_dict(summary),
+            namespace=summary.namespace,
+            schema_identifiers={
+                "node_label": "entity_summary",
+                "entity_id": summary.entity_id,
+            },
+        )
+        return summary.summary_id
+
+    def list_entity_summaries(
+        self,
+        *,
+        entity_id=None,
+        namespaces=None,
+        include_invalidated=False,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import entity_summary_passes
+
+        rows = [
+            s
+            for s in self._entity_summaries.values()
+            if entity_summary_passes(
+                s,
+                namespaces=namespaces,
+                entity_id=entity_id,
+                include_invalidated=include_invalidated,
+            )
+        ]
+        rows.sort(key=lambda s: (s.updated_at or s.created_at or "", s.summary_id))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    # SEPM-02 + SEPM-03 — episode / step / outcome / decision / procedure.
+
+    def put_episode(self, episode) -> str:
+        from sophiagraph.storage.graph_helpers import episode_to_dict
+
+        self._episodes[episode.episode_id] = episode
+        self._emit_change(
+            object_type="episode",
+            object_id=episode.episode_id,
+            payload=episode_to_dict(episode),
+            namespace=episode.namespace,
+            schema_identifiers={"node_label": "episode", "status": episode.status},
+        )
+        return episode.episode_id
+
+    def get_episode(self, episode_id):
+        return self._episodes.get(episode_id)
+
+    def list_episodes(
+        self,
+        *,
+        namespaces=None,
+        status=None,
+        task_id=None,
+        artifact_id=None,
+        tool_id=None,
+        started_after=None,
+        started_before=None,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import episode_passes
+
+        rows = [
+            ep
+            for ep in self._episodes.values()
+            if episode_passes(
+                ep,
+                namespaces=namespaces,
+                status=status,
+                task_id=task_id,
+                artifact_id=artifact_id,
+                tool_id=tool_id,
+                started_after=started_after,
+                started_before=started_before,
+            )
+        ]
+        rows.sort(key=lambda e: (e.started_at, e.episode_id), reverse=True)
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_episode_step(self, step) -> str:
+        from sophiagraph.storage.graph_helpers import episode_step_to_dict
+
+        self._episode_steps[step.step_id] = step
+        self._emit_change(
+            object_type="episode_step",
+            object_id=step.step_id,
+            payload=episode_step_to_dict(step),
+            namespace=step.namespace,
+            schema_identifiers={"node_label": "episode_step", "kind": step.kind},
+        )
+        return step.step_id
+
+    def list_episode_steps(self, *, episode_id, kind=None, limit=None):
+        from sophiagraph.storage.entity_episode_store import episode_step_passes
+
+        rows = [
+            s
+            for s in self._episode_steps.values()
+            if episode_step_passes(s, episode_id=episode_id, kind=kind)
+        ]
+        rows.sort(key=lambda s: (s.sequence, s.step_id))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_outcome(self, outcome) -> str:
+        from sophiagraph.storage.graph_helpers import outcome_to_dict
+
+        self._outcomes[outcome.outcome_id] = outcome
+        self._emit_change(
+            object_type="outcome",
+            object_id=outcome.outcome_id,
+            payload=outcome_to_dict(outcome),
+            namespace=outcome.namespace,
+            schema_identifiers={"node_label": "outcome", "status": outcome.status},
+        )
+        return outcome.outcome_id
+
+    def list_outcomes(
+        self,
+        *,
+        episode_id=None,
+        step_id=None,
+        status=None,
+        namespaces=None,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import outcome_passes
+
+        rows = [
+            o
+            for o in self._outcomes.values()
+            if outcome_passes(
+                o,
+                episode_id=episode_id,
+                step_id=step_id,
+                status=status,
+                namespaces=namespaces,
+            )
+        ]
+        rows.sort(key=lambda o: (o.occurred_at, o.outcome_id), reverse=True)
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_decision(self, decision) -> str:
+        from sophiagraph.storage.graph_helpers import decision_to_dict
+
+        self._decisions[decision.decision_id] = decision
+        self._emit_change(
+            object_type="decision",
+            object_id=decision.decision_id,
+            payload=decision_to_dict(decision),
+            namespace=decision.namespace,
+            schema_identifiers={"node_label": "decision"},
+        )
+        return decision.decision_id
+
+    def list_decisions(self, *, episode_id=None, namespaces=None, limit=None):
+        from sophiagraph.storage.entity_episode_store import decision_passes
+
+        rows = [
+            d
+            for d in self._decisions.values()
+            if decision_passes(d, episode_id=episode_id, namespaces=namespaces)
+        ]
+        rows.sort(key=lambda d: (d.occurred_at, d.decision_id), reverse=True)
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_procedure(self, procedure) -> str:
+        from sophiagraph.storage.graph_helpers import procedure_to_dict
+
+        self._procedures[procedure.procedure_id] = procedure
+        self._emit_change(
+            object_type="procedure",
+            object_id=procedure.procedure_id,
+            payload=procedure_to_dict(procedure),
+            namespace=procedure.namespace,
+            schema_identifiers={
+                "node_label": "procedure",
+                "promotion_tier": procedure.promotion_tier,
+            },
+        )
+        return procedure.procedure_id
+
+    def get_procedure(self, procedure_id):
+        return self._procedures.get(procedure_id)
+
+    def list_procedures(
+        self,
+        *,
+        namespaces=None,
+        promotion_tier=None,
+        include_invalidated=False,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import procedure_passes
+
+        rows = [
+            p
+            for p in self._procedures.values()
+            if procedure_passes(
+                p,
+                namespaces=namespaces,
+                promotion_tier=promotion_tier,
+                include_invalidated=include_invalidated,
+            )
+        ]
+        rows.sort(
+            key=lambda p: (p.updated_at or p.created_at, p.procedure_id), reverse=True
+        )
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_raw_episode(self, episode) -> str:
+        from sophiagraph.storage.graph_helpers import raw_episode_to_dict
+
+        self._raw_episodes[episode.episode_id] = episode
+        self._emit_change(
+            object_type="raw_episode",
+            object_id=episode.episode_id,
+            payload=raw_episode_to_dict(episode),
+            namespace=episode.namespace,
+            schema_identifiers={
+                "node_label": "raw_episode",
+                "kind": episode.kind,
+            },
+        )
+        return episode.episode_id
+
+    def get_raw_episode(self, episode_id):
+        return self._raw_episodes.get(episode_id)
+
+    def list_raw_episodes(
+        self,
+        *,
+        namespaces=None,
+        kind=None,
+        source=None,
+        occurred_after=None,
+        occurred_before=None,
+        include_invalidated=False,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import raw_episode_passes
+
+        rows = [
+            e
+            for e in self._raw_episodes.values()
+            if raw_episode_passes(
+                e,
+                namespaces=namespaces,
+                kind=kind,
+                source=source,
+                occurred_after=occurred_after,
+                occurred_before=occurred_before,
+                include_invalidated=include_invalidated,
+            )
+        ]
+        rows.sort(key=lambda e: (e.occurred_at, e.episode_id), reverse=True)
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def put_fact_convergence_link(self, link) -> str:
+        from sophiagraph.storage.graph_helpers import fact_convergence_link_to_dict
+
+        self._fact_convergence_links[link.link_id] = link
+        self._emit_change(
+            object_type="fact_convergence_link",
+            object_id=link.link_id,
+            payload=fact_convergence_link_to_dict(link),
+            namespace=link.namespace,
+            schema_identifiers={
+                "node_label": "fact_convergence_link",
+                "role": link.role,
+            },
+        )
+        return link.link_id
+
+    def list_fact_convergence_links(
+        self,
+        *,
+        fact_id=None,
+        episode_id=None,
+        namespaces=None,
+        limit=None,
+    ):
+        from sophiagraph.storage.entity_episode_store import (
+            fact_convergence_link_passes,
+        )
+
+        rows = [
+            link
+            for link in self._fact_convergence_links.values()
+            if fact_convergence_link_passes(
+                link,
+                fact_id=fact_id,
+                episode_id=episode_id,
+                namespaces=namespaces,
+            )
+        ]
+        rows.sort(key=lambda link: (link.created_at, link.link_id))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    # Ontology storage.
+
+    def put_ontology(self, ontology):
+        from sophiagraph.contracts.errors import OntologyVersionConflictError
+        from sophiagraph.storage.graph_helpers import ontology_to_dict
+
+        key = (ontology.ontology_id, ontology.version)
+        existing = self._ontologies.get(key) if hasattr(self, "_ontologies") else None
+        if not hasattr(self, "_ontologies"):
+            self._ontologies = {}
+        if existing is not None and ontology_to_dict(existing) != ontology_to_dict(
+            ontology
+        ):
+            raise OntologyVersionConflictError(
+                f"ontology {ontology.ontology_id!r}@{ontology.version!r} already exists "
+                f"with a different payload; pick a new version or call delete+put",
+                details={
+                    "ontology_id": ontology.ontology_id,
+                    "version": ontology.version,
+                },
+            )
+        self._ontologies[key] = ontology
+        self._emit_change(
+            object_type="ontology",
+            object_id=f"{ontology.ontology_id}@{ontology.version}",
+            payload=ontology_to_dict(ontology),
+            namespace=ontology.namespace,
+            schema_identifiers={
+                "node_label": "ontology",
+                "ontology_id": ontology.ontology_id,
+                "version": ontology.version,
+            },
+        )
+        return key
+
+    def get_ontology(self, *, ontology_id, version):
+        if not hasattr(self, "_ontologies"):
+            self._ontologies = {}
+        return self._ontologies.get((ontology_id, version))
+
+    def list_ontologies(
+        self,
+        *,
+        ontology_id=None,
+        owner=None,
+        namespaces=None,
+        limit=None,
+    ):
+        from sophiagraph.storage.graph_helpers import namespace_matches_filters
+
+        if not hasattr(self, "_ontologies"):
+            self._ontologies = {}
+        rows = list(self._ontologies.values())
+        if ontology_id:
+            rows = [o for o in rows if o.ontology_id == ontology_id]
+        if owner:
+            rows = [o for o in rows if o.owner == owner]
+        rows = [o for o in rows if namespace_matches_filters(o.namespace, namespaces)]
+        rows.sort(key=lambda o: (o.ontology_id, o.version))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    # SLCE-02 — lifecycle policy storage.
+
+    def put_lifecycle_policy(self, policy):
+        if not hasattr(self, "_lifecycle_policies"):
+            self._lifecycle_policies = {}
+        self._lifecycle_policies[policy.policy_id] = policy
+        self._emit_change(
+            object_type="lifecycle_policy",
+            object_id=policy.policy_id,
+            payload={
+                "policy_id": policy.policy_id,
+                "namespace_filter": policy.namespace_filter.as_dict(),
+                "ttl_active_iso": policy.ttl_active_iso,
+                "ttl_cooling_iso": policy.ttl_cooling_iso,
+            },
+            namespace=policy.namespace_filter,
+            schema_identifiers={
+                "node_label": "lifecycle_policy",
+                "policy_id": policy.policy_id,
+            },
+        )
+        return policy.policy_id
+
+    def get_lifecycle_policy(self, policy_id):
+        if not hasattr(self, "_lifecycle_policies"):
+            self._lifecycle_policies = {}
+        return self._lifecycle_policies.get(policy_id)
+
+    def list_lifecycle_policies(
+        self,
+        *,
+        namespaces=None,
+        limit=None,
+    ):
+        from sophiagraph.storage.graph_helpers import namespace_matches_filters
+
+        if not hasattr(self, "_lifecycle_policies"):
+            self._lifecycle_policies = {}
+        rows = list(self._lifecycle_policies.values())
+        rows = [
+            p for p in rows if namespace_matches_filters(p.namespace_filter, namespaces)
+        ]
+        rows.sort(key=lambda p: p.policy_id)
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows

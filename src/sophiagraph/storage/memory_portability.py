@@ -75,6 +75,12 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
                 namespaces=options.namespaces,
                 limit=options.limit,
             )
+        ontologies = []
+        if options.include_ontologies:
+            ontologies = self.list_ontologies(
+                namespaces=options.namespaces,
+                limit=options.limit,
+            )
         snapshot = MemoryBundleSnapshot(
             manifest={},
             records=records,
@@ -83,6 +89,7 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
             tier_transitions=transitions,
             provenance_traces=[],
             memory_blocks=memory_blocks,
+            ontologies=ontologies,
         )
         return replace(snapshot, manifest=build_manifest(snapshot=snapshot))
 
@@ -130,6 +137,68 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
             elif event.object_type == "memory_block":
                 memory_block = memory_block_from_dict(event.payload)
                 self._memory_blocks[memory_block.block_id] = memory_block
+            elif event.object_type == "entity":
+                from sophiagraph.storage.graph_helpers import entity_from_dict
+
+                entity = entity_from_dict(event.payload)
+                self._entities[entity.entity_id] = entity
+            elif event.object_type == "entity_alias":
+                from sophiagraph.storage.graph_helpers import entity_alias_from_dict
+
+                alias = entity_alias_from_dict(event.payload)
+                self._entity_aliases[alias.alias_id] = alias
+            elif event.object_type == "fact":
+                from sophiagraph.storage.graph_helpers import fact_from_dict
+
+                fact = fact_from_dict(event.payload)
+                self._facts[fact.fact_id] = fact
+            elif event.object_type == "contradiction":
+                from sophiagraph.storage.graph_helpers import contradiction_from_dict
+
+                contradiction = contradiction_from_dict(event.payload)
+                self._contradictions[contradiction.contradiction_id] = contradiction
+            elif event.object_type == "entity_summary":
+                from sophiagraph.storage.graph_helpers import entity_summary_from_dict
+
+                summary = entity_summary_from_dict(event.payload)
+                self._entity_summaries[summary.summary_id] = summary
+            elif event.object_type == "episode":
+                from sophiagraph.storage.graph_helpers import episode_from_dict
+
+                episode = episode_from_dict(event.payload)
+                self._episodes[episode.episode_id] = episode
+            elif event.object_type == "episode_step":
+                from sophiagraph.storage.graph_helpers import episode_step_from_dict
+
+                step = episode_step_from_dict(event.payload)
+                self._episode_steps[step.step_id] = step
+            elif event.object_type == "outcome":
+                from sophiagraph.storage.graph_helpers import outcome_from_dict
+
+                outcome = outcome_from_dict(event.payload)
+                self._outcomes[outcome.outcome_id] = outcome
+            elif event.object_type == "decision":
+                from sophiagraph.storage.graph_helpers import decision_from_dict
+
+                decision = decision_from_dict(event.payload)
+                self._decisions[decision.decision_id] = decision
+            elif event.object_type == "procedure":
+                from sophiagraph.storage.graph_helpers import procedure_from_dict
+
+                procedure = procedure_from_dict(event.payload)
+                self._procedures[procedure.procedure_id] = procedure
+            elif event.object_type == "raw_episode":
+                from sophiagraph.storage.graph_helpers import raw_episode_from_dict
+
+                episode = raw_episode_from_dict(event.payload)
+                self._raw_episodes[episode.episode_id] = episode
+            elif event.object_type == "fact_convergence_link":
+                from sophiagraph.storage.graph_helpers import (
+                    fact_convergence_link_from_dict,
+                )
+
+                link = fact_convergence_link_from_dict(event.payload)
+                self._fact_convergence_links[link.link_id] = link
             else:
                 skipped.append(event.event_id)
                 continue

@@ -70,6 +70,8 @@ that is actually true.
 - a package-local SQLite durable engine
 - a package-local in-memory backend for tests and ephemeral consumers
 - a standalone smoke entrypoint for publish/install validation
+- a typed vector-similarity metric registry (`cosine`, `L2`, `dot`) and a
+  backend-agnostic conformance harness (see [docs/vector-conformance.md](docs/vector-conformance.md))
 
 ## What the package does not provide
 
@@ -416,6 +418,20 @@ Supported import roots:
 - `sophiagraph.trust`
 - `sophiagraph.temporal`
 - `sophiagraph.contracts`
+
+## OpenMinion submission integration
+
+OpenMinion feeds typed, provenance-rich activity into Sophiagraph through the
+direct-SDK path defined in
+[`openminion/src/openminion/modules/memory/submissions/`](../openminion/src/openminion/modules/memory/submissions/).
+The `SubmissionEnvelope` shape is pinned by
+`SUBMISSION_ENVELOPE_SCHEMA_VERSION = "openminion_sophiagraph_submission.v1"`
+so future MCP or REST transports can route the same payload without renaming
+fields. Detailed contract lives at
+[`docs/specs/sophiagraph-openminion-submission-pipeline-spec.md`](../docs/specs/sophiagraph-openminion-submission-pipeline-spec.md).
+
+The direct-SDK path is the default OpenMinion integration; `sophiagraph-server`
+service transports are opt-in for external clients or non-Python hosts.
 
 ## API Compatibility
 
