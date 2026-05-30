@@ -120,6 +120,10 @@ def import_snapshot_into_store(
     for block in snapshot.memory_blocks:
         store.put_memory_block(block)
         imported_memory_blocks += 1
+    imported_ontologies = 0
+    for ontology in snapshot.ontologies:
+        store.put_ontology(ontology)
+        imported_ontologies += 1
     return MemoryBundleImportResult(
         applied=True,
         trust_mode=options.trust_mode,
@@ -131,6 +135,7 @@ def import_snapshot_into_store(
         imported_relations=imported_relations,
         imported_tier_transitions=imported_tier_transitions,
         imported_memory_blocks=imported_memory_blocks,
+        imported_ontologies=imported_ontologies,
         skipped_records=skipped_records,
         skipped_sections=skipped_sections,
         rewrites=rewrites,

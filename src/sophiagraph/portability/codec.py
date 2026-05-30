@@ -309,6 +309,7 @@ def build_manifest(
         "tier_transitions": len(snapshot.tier_transitions),
         "provenance_traces": len(snapshot.provenance_traces),
         "memory_blocks": len(snapshot.memory_blocks),
+        "ontologies": len(snapshot.ontologies),
     }
     manifest["sections"] = {
         "records": True,
@@ -317,6 +318,7 @@ def build_manifest(
         "tier_transitions": bool(snapshot.tier_transitions),
         "provenance_traces": bool(snapshot.provenance_traces),
         "memory_blocks": bool(snapshot.memory_blocks),
+        "ontologies": bool(snapshot.ontologies),
     }
     manifest["artifacts_included"] = False
     manifest.setdefault("files", {})
@@ -370,6 +372,28 @@ def _hydrate_memory_blocks(data: bytes) -> list[MemoryBlock]:
     return result
 
 
+def _serialize_ontologies(ontologies) -> bytes:
+    from sophiagraph.storage.graph_helpers import ontology_to_dict
+
+    payload = "\n".join(json_dumps(ontology_to_dict(o)) for o in ontologies)
+    if payload:
+        payload += "\n"
+    return payload.encode("utf-8")
+
+
+def _hydrate_ontologies(data: bytes):
+    from sophiagraph.storage.graph_helpers import ontology_from_dict
+
+    lines = [line.strip() for line in data.decode("utf-8").splitlines() if line.strip()]
+    result = []
+    for line in lines:
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise InvalidArgumentError("bundle ontology row must decode to an object")
+        result.append(ontology_from_dict(payload))
+    return result
+
+
 def _serialize_provenance_traces(traces: list[TurnProvenanceTrace]) -> bytes:
     """Serialize provenance traces as JSONL via the contract `to_dict()` helper."""
 
@@ -410,6 +434,8 @@ def write_bundle_snapshot(snapshot: MemoryBundleSnapshot, out_path: str | Path) 
         )
     if snapshot.memory_blocks:
         files["memory_blocks.jsonl"] = _serialize_memory_blocks(snapshot.memory_blocks)
+    if snapshot.ontologies:
+        files["ontologies.jsonl"] = _serialize_ontologies(snapshot.ontologies)
 
     manifest = build_manifest(snapshot=snapshot, files=files)
     manifest_bytes = json_dumps(manifest, indent=2).encode("utf-8")
@@ -467,6 +493,7 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
     )
     provenance_traces = _hydrate_provenance_traces(members.get("provenance.jsonl", b""))
     memory_blocks = _hydrate_memory_blocks(members.get("memory_blocks.jsonl", b""))
+    ontologies = _hydrate_ontologies(members.get("ontologies.jsonl", b""))
     return MemoryBundleSnapshot(
         manifest=manifest,
         records=records,
@@ -475,6 +502,7 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
         tier_transitions=tier_transitions,
         provenance_traces=provenance_traces,
         memory_blocks=memory_blocks,
+        ontologies=ontologies,
     )
 
 
