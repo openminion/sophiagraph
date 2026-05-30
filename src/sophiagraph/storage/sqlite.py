@@ -2481,7 +2481,203 @@ class SophiaGraphSqliteStore(
             rows = conn.execute(sql, params).fetchall()
         return [ontology_from_dict(row_json(row)) for row in rows]
 
-    # SLCE-02 — lifecycle policy storage.
+    # Artifact reference storage.
+
+    def put_artifact(self, artifact):
+        from dataclasses import asdict
+
+        payload = asdict(artifact)
+        payload["namespace"] = artifact.namespace.as_dict()
+        cols = self._ns_columns_clause(self._ns_values(artifact.namespace))
+        with self._write_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO sophiagraph_artifacts(
+                    artifact_id, uri, sha256, mime, size_bytes,
+                    source_class, retention, source_owner,
+                    target_record_id, derived_text_record_id,
+                    tenant_id, org_id, user_id, agent_id, session_id,
+                    conversation_id, project_id, graph_id,
+                    created_at, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    artifact.artifact_id,
+                    artifact.uri,
+                    artifact.sha256,
+                    artifact.mime,
+                    artifact.size_bytes,
+                    artifact.source_class,
+                    artifact.retention,
+                    artifact.source_owner,
+                    artifact.target_record_id,
+                    artifact.derived_text_record_id,
+                    *cols,
+                    artifact.created_at,
+                    json_dumps(payload),
+                ),
+            )
+            self._emit_change(
+                conn,
+                object_type="artifact",
+                object_id=artifact.artifact_id,
+                payload=payload,
+                namespace=artifact.namespace,
+                schema_identifiers={
+                    "node_label": "artifact",
+                    "artifact_id": artifact.artifact_id,
+                },
+            )
+        return artifact.artifact_id
+
+    def get_artifact(self, artifact_id):
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM sophiagraph_artifacts WHERE artifact_id = ?",
+                (artifact_id,),
+            ).fetchone()
+        return None if row is None else self._artifact_from_payload(row_json(row))
+
+    def list_artifacts(
+        self,
+        *,
+        namespaces=None,
+        target_record_id=None,
+        source_class=None,
+        limit=None,
+    ):
+        clauses = ["1=1"]
+        params: list[Any] = []
+        if target_record_id is not None:
+            clauses.append("target_record_id = ?")
+            params.append(target_record_id)
+        if source_class is not None:
+            clauses.append("source_class = ?")
+            params.append(source_class)
+        ns_sql, ns_params = self._ns_filter(namespaces)
+        if ns_sql:
+            clauses.append(ns_sql)
+            params.extend(ns_params)
+        sql = (
+            "SELECT payload_json FROM sophiagraph_artifacts WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY artifact_id ASC"
+        )
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        with self._connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [self._artifact_from_payload(row_json(row)) for row in rows]
+
+    @staticmethod
+    def _artifact_from_payload(data):
+        from sophiagraph.models import ArtifactRecord, MemoryNamespace
+
+        payload = dict(data)
+        ns = payload.get("namespace")
+        if isinstance(ns, dict):
+            payload["namespace"] = MemoryNamespace.from_dict(ns)
+        return ArtifactRecord(**payload)
+
+    # Canvas board storage.
+
+    def put_canvas_board(self, board):
+        from sophiagraph.canvas import canvas_board_to_dict
+
+        payload = canvas_board_to_dict(board)
+        cols = self._ns_columns_clause(self._ns_values(board.namespace))
+        with self._write_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO sophiagraph_canvas_boards(
+                    board_id,
+                    tenant_id, org_id, user_id, agent_id, session_id,
+                    conversation_id, project_id, graph_id,
+                    created_at, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (board.board_id, *cols, None, json_dumps(payload)),
+            )
+            self._emit_change(
+                conn,
+                object_type="canvas",
+                object_id=board.board_id,
+                payload=payload,
+                namespace=board.namespace,
+                schema_identifiers={
+                    "node_label": "canvas_board",
+                    "board_id": board.board_id,
+                },
+            )
+        return board.board_id
+
+    def get_canvas_board(self, board_id):
+        from sophiagraph.canvas import canvas_board_from_dict
+
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM sophiagraph_canvas_boards WHERE board_id = ?",
+                (board_id,),
+            ).fetchone()
+        return None if row is None else canvas_board_from_dict(row_json(row))
+
+    def list_canvas_boards(self, *, namespaces=None, limit=None):
+        from sophiagraph.canvas import canvas_board_from_dict
+
+        clauses = ["1=1"]
+        params: list[Any] = []
+        ns_sql, ns_params = self._ns_filter(namespaces)
+        if ns_sql:
+            clauses.append(ns_sql)
+            params.extend(ns_params)
+        sql = (
+            "SELECT payload_json FROM sophiagraph_canvas_boards WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY board_id ASC"
+        )
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        with self._connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [canvas_board_from_dict(row_json(row)) for row in rows]
+
+    def delete_canvas_board(self, board_id):
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM sophiagraph_canvas_boards WHERE board_id = ?",
+                (board_id,),
+            ).fetchone()
+        if row is None:
+            return False
+        from sophiagraph.canvas import canvas_board_from_dict
+
+        board = canvas_board_from_dict(row_json(row))
+        with self._write_connection() as conn:
+            conn.execute(
+                "DELETE FROM sophiagraph_canvas_boards WHERE board_id = ?",
+                (board_id,),
+            )
+            self._insert_change_event(
+                conn,
+                SophiaGraphChangeEvent(
+                    event_id=f"chg-{uuid4()}",
+                    object_type="canvas",
+                    object_id=board_id,
+                    operation="delete",
+                    changed_at=utc_now_iso(),
+                    payload={"board_id": board_id, "deleted": True},
+                    namespace=board.namespace,
+                    schema_identifiers={
+                        "node_label": "canvas_board",
+                        "board_id": board_id,
+                    },
+                ),
+            )
+        return True
+
+    # Lifecycle policy storage.
 
     def put_lifecycle_policy(self, policy):
         from sophiagraph.storage.graph_helpers import lifecycle_policy_to_dict
