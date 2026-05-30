@@ -19,6 +19,19 @@ ChangeObjectType = Literal[
     "view",
     "canvas",
     "schema",
+    "entity",
+    "entity_alias",
+    "fact",
+    "contradiction",
+    "entity_summary",
+    "episode",
+    "episode_step",
+    "outcome",
+    "decision",
+    "procedure",
+    "raw_episode",
+    "fact_convergence_link",
+    "ontology",
 ]
 ChangeOperation = Literal["put", "delete", "import"]
 
@@ -57,6 +70,19 @@ class SophiaGraphChangeEvent:
             "view",
             "canvas",
             "schema",
+            "entity",
+            "entity_alias",
+            "fact",
+            "contradiction",
+            "entity_summary",
+            "episode",
+            "episode_step",
+            "outcome",
+            "decision",
+            "procedure",
+            "raw_episode",
+            "fact_convergence_link",
+            "ontology",
         }:
             raise InvalidArgumentError(f"invalid object_type: {self.object_type!r}")
         if self.operation not in {"put", "delete", "import"}:
