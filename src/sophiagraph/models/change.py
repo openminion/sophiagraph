@@ -32,6 +32,8 @@ ChangeObjectType = Literal[
     "raw_episode",
     "fact_convergence_link",
     "ontology",
+    "lifecycle_policy",
+    "artifact",
 ]
 ChangeOperation = Literal["put", "delete", "import"]
 
@@ -83,6 +85,8 @@ class SophiaGraphChangeEvent:
             "raw_episode",
             "fact_convergence_link",
             "ontology",
+            "lifecycle_policy",
+            "artifact",
         }:
             raise InvalidArgumentError(f"invalid object_type: {self.object_type!r}")
         if self.operation not in {"put", "delete", "import"}:

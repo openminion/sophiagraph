@@ -72,6 +72,44 @@ that is actually true.
 - a standalone smoke entrypoint for publish/install validation
 - a typed vector-similarity metric registry (`cosine`, `L2`, `dot`) and a
   backend-agnostic conformance harness (see [docs/vector-conformance.md](docs/vector-conformance.md))
+- typed governance + observability event DTOs (write attempt/accepted,
+  retrieval, export, policy denial, lifecycle action, webhook delivery
+  attempt, retrieval explanation, quality eval signal) and deterministic
+  policy hook protocols in `sophiagraph.audit`
+- typed lifecycle policy DTOs and a pure `evaluate_policy` /
+  `apply_decision_to_record_meta` engine for TTL, promotion, and archival
+  transitions with cross-backend `put_lifecycle_policy` /
+  `get_lifecycle_policy` / `list_lifecycle_policies`
+- typed `ArtifactRecord` DTO + cross-backend `put_artifact` /
+  `get_artifact` / `list_artifacts` for multimodal artifact references
+  with caller-supplied URI, sha256, MIME, source class, retention
+  policy, and explicit `derived_text_record_id` link (the package
+  never OCRs, transcribes, or extracts claims from artifact content)
+- extended JSON Canvas DTOs (`CanvasNode.subpath`/`label`,
+  `CanvasEdge.from_side`/`to_side`/`from_end`/`to_end`) plus
+  cross-backend `put_canvas_board` / `get_canvas_board` /
+  `list_canvas_boards` / `delete_canvas_board` with deterministic
+  changefeed emission; explicit caller-supplied relation-type policy
+  for the optional canvas-edge → graph-relation mapping
+
+### Package vs service ownership for governance, lifecycle, and webhooks
+
+`sophiagraph` (this package) is the **typed shape and deterministic
+evaluator** for governance and lifecycle. It exposes:
+
+- typed event DTOs and audit recorder callbacks (`sophiagraph.audit.*`),
+- deterministic policy hook evaluation (`evaluate_policy_hooks` with
+  short-circuit-on-first-deny semantics),
+- pure lifecycle policy evaluation (`evaluate_policy` and
+  `apply_decision_to_record_meta`),
+- typed `WebhookDeliveryAttemptEvent` so service/admin consumers can
+  align on the event shape.
+
+`sophiagraph` does **NOT** open HTTP connections, run cron schedulers,
+or deliver webhooks. Those are the responsibility of
+`sophiagraph-server` (the runtime service) and the host runtime. The
+package supplies the typed contract; the service supplies the
+operational behavior.
 
 ## What the package does not provide
 
@@ -83,6 +121,11 @@ This package does **not** provide:
 - session orchestration
 - automatic link, tag, relation, entity, or summary inference from prose
 - implicit imports back into any host framework
+- HTTP webhook delivery, scheduled job execution, or hosted admin UI
+  (those belong to `sophiagraph-server` or the host runtime)
+- semantic policy decisions inferred from freeform model output (policy
+  hooks must return typed `PolicyDecision` instances with closed-enum
+  reason codes)
 
 Host frameworks remain the orchestrators. `sophiagraph` owns reusable durable
 wisdom graph primitives and the standalone durable engine.

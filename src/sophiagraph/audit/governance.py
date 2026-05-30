@@ -405,7 +405,7 @@ class PolicyDenialEvent:
         )
 
 
-# Lifecycle action (SLCE bridge).
+# Lifecycle action event.
 
 LifecycleAction = Literal[
     "ttl_active_elapsed",

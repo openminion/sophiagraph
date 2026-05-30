@@ -11,6 +11,12 @@ from sophiagraph.models import MemoryNamespace, MemoryRelation
 
 CanvasNodeType = Literal["text", "file", "link", "group", "record"]
 
+CanvasEdgeSide = Literal["top", "right", "bottom", "left"]
+CanvasEdgeEnd = Literal["none", "arrow"]
+
+_CANVAS_EDGE_SIDES = frozenset({"top", "right", "bottom", "left"})
+_CANVAS_EDGE_ENDS = frozenset({"none", "arrow"})
+
 
 @dataclass(frozen=True, slots=True)
 class CanvasNode:
@@ -25,6 +31,8 @@ class CanvasNode:
     url: str | None = None
     record_id: str | None = None
     color: str | None = None
+    subpath: str | None = None
+    label: str | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -40,12 +48,35 @@ class CanvasEdge:
     to_node: str
     label: str | None = None
     color: str | None = None
+    from_side: CanvasEdgeSide | None = None
+    to_side: CanvasEdgeSide | None = None
+    from_end: CanvasEdgeEnd | None = None
+    to_end: CanvasEdgeEnd | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
             raise InvalidArgumentError("canvas edge id is required")
         if not self.from_node or not self.to_node:
             raise InvalidArgumentError("canvas edge endpoints are required")
+        if self.from_side is not None and self.from_side not in _CANVAS_EDGE_SIDES:
+            raise InvalidArgumentError(
+                f"unknown from_side: {self.from_side!r}; "
+                f"allowed: {sorted(_CANVAS_EDGE_SIDES)}"
+            )
+        if self.to_side is not None and self.to_side not in _CANVAS_EDGE_SIDES:
+            raise InvalidArgumentError(
+                f"unknown to_side: {self.to_side!r}; "
+                f"allowed: {sorted(_CANVAS_EDGE_SIDES)}"
+            )
+        if self.from_end is not None and self.from_end not in _CANVAS_EDGE_ENDS:
+            raise InvalidArgumentError(
+                f"unknown from_end: {self.from_end!r}; "
+                f"allowed: {sorted(_CANVAS_EDGE_ENDS)}"
+            )
+        if self.to_end is not None and self.to_end not in _CANVAS_EDGE_ENDS:
+            raise InvalidArgumentError(
+                f"unknown to_end: {self.to_end!r}; allowed: {sorted(_CANVAS_EDGE_ENDS)}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +131,10 @@ class CanvasBoard:
                 to_node=str(item["toNode"] if "toNode" in item else item["to_node"]),
                 label=item.get("label"),
                 color=item.get("color"),
+                from_side=item.get("fromSide") or item.get("from_side"),
+                to_side=item.get("toSide") or item.get("to_side"),
+                from_end=item.get("fromEnd") or item.get("from_end"),
+                to_end=item.get("toEnd") or item.get("to_end"),
             )
             for item in data.get("edges", [])
         ]
@@ -137,10 +172,40 @@ def canvas_edges_to_relations(
     return relations
 
 
+def canvas_board_to_dict(board: "CanvasBoard") -> dict:
+    """Serialize a board for cross-backend storage."""
+
+    return {
+        "board_id": board.board_id,
+        "namespace": board.namespace.as_dict(),
+        "nodes": [asdict(node) for node in board.nodes],
+        "edges": [asdict(edge) for edge in board.edges],
+    }
+
+
+def canvas_board_from_dict(data: dict) -> "CanvasBoard":
+    """Hydrate a board from a cross-backend storage row."""
+
+    payload = dict(data)
+    namespace = MemoryNamespace.from_dict(payload["namespace"])
+    nodes = [CanvasNode(**dict(n)) for n in payload.get("nodes", [])]
+    edges = [CanvasEdge(**dict(e)) for e in payload.get("edges", [])]
+    return CanvasBoard(
+        board_id=payload["board_id"],
+        namespace=namespace,
+        nodes=nodes,
+        edges=edges,
+    )
+
+
 __all__ = [
     "CanvasBoard",
     "CanvasEdge",
+    "CanvasEdgeEnd",
+    "CanvasEdgeSide",
     "CanvasNode",
     "CanvasNodeType",
+    "canvas_board_from_dict",
+    "canvas_board_to_dict",
     "canvas_edges_to_relations",
 ]

@@ -1,5 +1,12 @@
 """Canonical durable-knowledge models and helpers."""
 
+from .artifact import (
+    ARTIFACT_RETENTION_POLICIES,
+    ARTIFACT_SOURCE_CLASSES,
+    ArtifactRecord,
+    ArtifactRetentionPolicy,
+    ArtifactSourceClass,
+)
 from .block import (
     MEMORY_BLOCK_DEFERRED_MODES,
     MEMORY_BLOCK_V1_CLASS_ALLOWLIST,
@@ -132,7 +139,12 @@ _as_memory_type_list = _primitive_models._as_memory_type_list
 _coerce_temporal_dt = _record_models._coerce_temporal_dt
 
 __all__ = [
+    "ARTIFACT_RETENTION_POLICIES",
+    "ARTIFACT_SOURCE_CLASSES",
+    "ArtifactRecord",
     "ArtifactRef",
+    "ArtifactRetentionPolicy",
+    "ArtifactSourceClass",
     "CONTRADICTION_DECISIONS",
     "CandidateReview",
     "CandidateStatus",

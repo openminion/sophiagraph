@@ -278,7 +278,7 @@ def ontology_from_dict(data: dict[str, Any]) -> OntologyDefinition:
 
 
 def lifecycle_policy_to_dict(policy: Any) -> dict[str, Any]:
-    """SLCE-02 — serialize a ``LifecyclePolicy`` to a portable dict."""
+    """Serialize a ``LifecyclePolicy`` to a portable dict."""
 
     from sophiagraph.storage.lifecycle_policy import (
         LifecyclePolicy,
@@ -308,7 +308,7 @@ def lifecycle_policy_to_dict(policy: Any) -> dict[str, Any]:
 
 
 def lifecycle_policy_from_dict(data: dict[str, Any]) -> Any:
-    """SLCE-02 — hydrate a ``LifecyclePolicy`` from a portable dict."""
+    """Hydrate a ``LifecyclePolicy`` from a portable dict."""
 
     from sophiagraph.storage.lifecycle_policy import (
         LifecyclePolicy,

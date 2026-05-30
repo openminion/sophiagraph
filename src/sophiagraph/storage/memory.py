@@ -1408,7 +1408,117 @@ class SophiaGraphMemoryStore(
             rows = rows[: int(limit)]
         return rows
 
-    # SLCE-02 — lifecycle policy storage.
+    # Artifact reference storage.
+
+    def put_artifact(self, artifact):
+        from dataclasses import asdict
+
+        if not hasattr(self, "_artifacts"):
+            self._artifacts = {}
+        self._artifacts[artifact.artifact_id] = artifact
+        payload = asdict(artifact)
+        payload["namespace"] = artifact.namespace.as_dict()
+        self._emit_change(
+            object_type="artifact",
+            object_id=artifact.artifact_id,
+            payload=payload,
+            namespace=artifact.namespace,
+            schema_identifiers={
+                "node_label": "artifact",
+                "artifact_id": artifact.artifact_id,
+            },
+        )
+        return artifact.artifact_id
+
+    def get_artifact(self, artifact_id):
+        if not hasattr(self, "_artifacts"):
+            self._artifacts = {}
+        return self._artifacts.get(artifact_id)
+
+    def list_artifacts(
+        self,
+        *,
+        namespaces=None,
+        target_record_id=None,
+        source_class=None,
+        limit=None,
+    ):
+        from sophiagraph.storage.graph_helpers import namespace_matches_filters
+
+        if not hasattr(self, "_artifacts"):
+            self._artifacts = {}
+        rows = list(self._artifacts.values())
+        rows = [a for a in rows if namespace_matches_filters(a.namespace, namespaces)]
+        if target_record_id is not None:
+            rows = [a for a in rows if a.target_record_id == target_record_id]
+        if source_class is not None:
+            rows = [a for a in rows if a.source_class == source_class]
+        rows.sort(key=lambda a: a.artifact_id)
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    # Canvas board storage.
+
+    def put_canvas_board(self, board):
+        from sophiagraph.canvas import canvas_board_to_dict
+
+        if not hasattr(self, "_canvas_boards"):
+            self._canvas_boards = {}
+        self._canvas_boards[board.board_id] = board
+        self._emit_change(
+            object_type="canvas",
+            object_id=board.board_id,
+            payload=canvas_board_to_dict(board),
+            namespace=board.namespace,
+            schema_identifiers={
+                "node_label": "canvas_board",
+                "board_id": board.board_id,
+            },
+        )
+        return board.board_id
+
+    def get_canvas_board(self, board_id):
+        if not hasattr(self, "_canvas_boards"):
+            self._canvas_boards = {}
+        return self._canvas_boards.get(board_id)
+
+    def list_canvas_boards(self, *, namespaces=None, limit=None):
+        from sophiagraph.storage.graph_helpers import namespace_matches_filters
+
+        if not hasattr(self, "_canvas_boards"):
+            self._canvas_boards = {}
+        rows = list(self._canvas_boards.values())
+        rows = [b for b in rows if namespace_matches_filters(b.namespace, namespaces)]
+        rows.sort(key=lambda b: b.board_id)
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def delete_canvas_board(self, board_id):
+        if not hasattr(self, "_canvas_boards"):
+            self._canvas_boards = {}
+        if board_id in self._canvas_boards:
+            board = self._canvas_boards.pop(board_id)
+            self._append_change(
+                SophiaGraphChangeEvent(
+                    event_id=f"chg-{uuid4()}",
+                    object_type="canvas",
+                    object_id=board_id,
+                    operation="delete",
+                    changed_at=utc_now_iso(),
+                    payload={"board_id": board_id},
+                    namespace=board.namespace,
+                    schema_identifiers={
+                        "node_label": "canvas_board",
+                        "board_id": board_id,
+                    },
+                )
+            )
+            return True
+        return False
+
+    # Lifecycle policy storage.
 
     def put_lifecycle_policy(self, policy):
         if not hasattr(self, "_lifecycle_policies"):
