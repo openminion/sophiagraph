@@ -109,9 +109,7 @@ class SophiaGraphSqliteStore(
     ) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        # Operator-config flag (default off = backward-compat). When
-        # enabled, ``put_record`` stamps an integrity hash on every
-        # record at write time via ``populate_integrity_hash``.
+        # Integrity hashing stays opt-in for backward compatibility.
         self._integrity_hash_enabled = integrity_hash_enabled
         self._ensure_schema()
 

@@ -315,7 +315,6 @@ def assemble_retrieval(
     """Execute the hybrid retrieval pipeline in canonical stage order."""
 
     active = request.active_stages
-    # Enforce canonical order: stages must already be in ascending STAGE_ORDER.
     for prev, curr in zip(active, active[1:]):
         if STAGE_ORDER[prev] >= STAGE_ORDER[curr]:
             raise InvalidArgumentError(
@@ -342,7 +341,6 @@ def assemble_retrieval(
         )
         for index, record in enumerate(store.search_records(options)):
             record_map[record.id] = record
-            # Rank-decay raw score: top hit = 1.0, decays linearly.
             raw = max(0.0, 1.0 - (index / max(1, request.keyword.limit)))
             component_map.setdefault(record.id, []).append(
                 ScoreComponent(
@@ -390,7 +388,6 @@ def assemble_retrieval(
                 )
 
     if request.graph is not None and request.graph.depth > 0:
-        # Expand 1-hop neighborhood around current hits via public relation API.
         seeds = list(record_map.keys())
         for seed in seeds:
             try:
@@ -518,7 +515,6 @@ def assemble_retrieval(
                 },
             )
         )
-    # Deterministic ordering: final_score desc, then record_id asc.
     explanations.sort(key=lambda e: (-e.final_score, e.record_id))
     hits = [
         RetrievalHit(

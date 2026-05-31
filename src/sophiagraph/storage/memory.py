@@ -100,9 +100,7 @@ class SophiaGraphMemoryStore(
         self._fact_convergence_links: dict[str, Any] = {}
         self._changes: list[SophiaGraphChangeEvent] = []
         self._next_cursor = 1
-        # Operator-config flag (default off = backward-compat). When
-        # enabled, ``put_record`` stamps an integrity hash on every
-        # record at write time via ``populate_integrity_hash``.
+        # Integrity hashing stays opt-in for backward compatibility.
         self._integrity_hash_enabled = integrity_hash_enabled
 
     def _has_change(self, event: SophiaGraphChangeEvent) -> bool:
