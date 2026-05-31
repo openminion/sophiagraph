@@ -80,6 +80,7 @@ from .retrieval import (
     KeywordStageOptions,
     RETRIEVAL_STAGES,
     RecencyStageOptions,
+    RerankAdapter,
     RerankStageOptions,
     RetrievalExplanation,
     RetrievalHit,
@@ -99,6 +100,10 @@ from .structural import (
     StructuralSearchQuery,
     StructuralSort,
     parse_structural_query,
+)
+from .temporal import (
+    has_bitemporal_filter,
+    record_matches_bitemporal,
 )
 
 __all__ = [
@@ -151,6 +156,7 @@ __all__ = [
     "RecencyStageOptions",
     "RecordOrder",
     "RenderedBlock",
+    "RerankAdapter",
     "RerankStageOptions",
     "RETRIEVAL_STAGES",
     "RetrievalExplanation",
@@ -183,6 +189,8 @@ __all__ = [
     "orphan_clusters",
     "path_evidence",
     "parse_structural_query",
+    "has_bitemporal_filter",
+    "record_matches_bitemporal",
     "record_disagreement",
     "retrieval_path_evidence",
     "shortest_path",

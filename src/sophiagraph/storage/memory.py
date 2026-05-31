@@ -11,6 +11,11 @@ from sophiagraph.contracts.errors import (
     NotFoundError,
 )
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
+from sophiagraph.deletion import (
+    DeletionCascadeResult,
+    ErasureAuditEntry,
+    ErasureAuditExport,
+)
 from sophiagraph.integrity import populate_integrity_hash
 from sophiagraph.models import (
     MemoryBlock,
@@ -39,6 +44,8 @@ from sophiagraph.query import (
     RecordOrder,
     SearchQueryOptions,
     StructuralSearchQuery,
+    has_bitemporal_filter,
+    record_matches_bitemporal,
 )
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.record_lifecycle import (
@@ -122,13 +129,14 @@ class SophiaGraphMemoryStore(
         payload: dict[str, Any],
         namespace: MemoryNamespace,
         schema_identifiers: dict[str, str],
+        operation: str = "put",
     ) -> None:
         self._append_change(
             SophiaGraphChangeEvent(
                 event_id=f"chg-{uuid4()}",
                 object_type=object_type,  # type: ignore[arg-type]
                 object_id=object_id,
-                operation="put",
+                operation=operation,  # type: ignore[arg-type]
                 changed_at=utc_now_iso(),
                 payload=payload,
                 namespace=namespace,
@@ -197,8 +205,14 @@ class SophiaGraphMemoryStore(
         if options.tiers:
             tier_allow = set(options.tiers)
             records = [record for record in records if record.tier in tier_allow]
-        if not options.include_invalidated:
+        if not options.include_invalidated and not has_bitemporal_filter(options):
             records = [record for record in records if record.is_current_at()]
+        if has_bitemporal_filter(options):
+            records = [
+                record
+                for record in records
+                if record_matches_bitemporal(record, options)
+            ]
         reverse = options.order_by != RecordOrder.UPDATED_AT_ASC
         records.sort(key=lambda record: record.updated_at, reverse=reverse)
         if options.offset is not None:
@@ -218,6 +232,10 @@ class SophiaGraphMemoryStore(
                 offset=None,
                 order_by=RecordOrder.UPDATED_AT_DESC,
                 namespaces=options.namespaces,
+                as_of=options.as_of,
+                valid_at=options.valid_at,
+                effective_during=options.effective_during,
+                believed_at=options.believed_at,
             )
         )
         matches = [
@@ -785,6 +803,118 @@ class SophiaGraphMemoryStore(
 
     def delete_embedding(self, record_id: str, vector_space: str) -> bool:
         return self._embeddings.pop((record_id, vector_space), None) is not None
+
+    def tombstone_record(
+        self,
+        record_id: str,
+        *,
+        deleted_at: str,
+        reason: str,
+    ) -> MemoryRecord:
+        record = self.get_record(record_id)
+        if record is None:
+            raise NotFoundError(f"record not found: {record_id}")
+        tombstone = replace(
+            record,
+            is_deleted=True,
+            deleted_at=deleted_at,
+            deleted_reason=reason,
+            valid_to=record.valid_to or deleted_at,
+            updated_at=deleted_at,
+        )
+        self.put_record(tombstone)
+        self._emit_change(
+            object_type="record",
+            object_id=record_id,
+            payload={
+                "record_id": record_id,
+                "deleted_at": deleted_at,
+                "reason": reason,
+            },
+            namespace=tombstone.effective_namespace,
+            schema_identifiers={"node_label": str(tombstone.type)},
+            operation="delete",
+        )
+        return tombstone
+
+    def cascade_tombstones(
+        self,
+        record_id: str,
+        *,
+        deleted_at: str,
+        reason: str,
+    ) -> DeletionCascadeResult:
+        tombstone = self.tombstone_record(
+            record_id,
+            deleted_at=deleted_at,
+            reason=reason,
+        )
+        relation_ids = [
+            relation_id
+            for relation_id, relation in self._relations.items()
+            if relation.source_record_id == record_id
+            or relation.target_record_id == record_id
+        ]
+        for relation_id in relation_ids:
+            self._relations.pop(relation_id, None)
+        link_ids = [
+            link_id
+            for link_id, link in self._links.items()
+            if link.source_record_id == record_id or link.target_record_id == record_id
+        ]
+        for link_id in link_ids:
+            self._links.pop(link_id, None)
+        block_ids = [
+            block_id
+            for block_id, block in self._blocks.items()
+            if block.record_id == record_id
+        ]
+        for block_id in block_ids:
+            self._blocks.pop(block_id, None)
+        embedding_keys = [
+            f"{embedding.record_id}:{embedding.vector_space}"
+            for embedding in self.list_embeddings(
+                EmbeddingListOptions(record_id=record_id)
+            )
+        ]
+        for embedding in list(
+            self.list_embeddings(EmbeddingListOptions(record_id=record_id))
+        ):
+            self.delete_embedding(embedding.record_id, embedding.vector_space)
+        return DeletionCascadeResult(
+            root_record_id=record_id,
+            tombstoned_record_ids=[tombstone.id],
+            removed_relation_ids=relation_ids,
+            removed_link_ids=link_ids,
+            removed_block_ids=block_ids,
+            removed_embedding_keys=embedding_keys,
+        )
+
+    def erasure_audit_export(
+        self,
+        *,
+        record_id: str | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+    ) -> ErasureAuditExport:
+        records = [
+            record
+            for record in self._records.values()
+            if record.is_deleted
+            and (record_id is None or record.id == record_id)
+            and record_matches_namespaces(record, namespaces)
+        ]
+        return ErasureAuditExport(
+            entries=[
+                ErasureAuditEntry(
+                    record_id=record.id,
+                    namespace=record.effective_namespace,
+                    deleted_at=record.deleted_at or record.updated_at,
+                    reason=record.deleted_reason or "",
+                    cascaded=bool(record.meta.get("cascade_deleted", False)),
+                )
+                for record in records
+            ]
+        )
 
     def history(self, scope: str, type: MemoryType, key: str) -> list[MemoryRecord]:
         records = [

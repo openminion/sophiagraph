@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
+from sophiagraph.deletion import DeletionCascadeResult, ErasureAuditExport
 from sophiagraph.models import (
     Contradiction,
     Decision,
@@ -421,6 +422,29 @@ class SophiaGraphStore(Protocol):
     ) -> list[MemoryEmbedding]: ...
 
     def delete_embedding(self, record_id: str, vector_space: str) -> bool: ...
+
+    def tombstone_record(
+        self,
+        record_id: str,
+        *,
+        deleted_at: str,
+        reason: str,
+    ) -> MemoryRecord: ...
+
+    def cascade_tombstones(
+        self,
+        record_id: str,
+        *,
+        deleted_at: str,
+        reason: str,
+    ) -> DeletionCascadeResult: ...
+
+    def erasure_audit_export(
+        self,
+        *,
+        record_id: str | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+    ) -> ErasureAuditExport: ...
 
     def history(
         self,
