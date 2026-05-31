@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Iterable
 
 from sophiagraph.contracts.errors import InvalidSupersessionError
@@ -21,6 +22,17 @@ from sophiagraph.models import (
     RawEpisode,
 )
 from sophiagraph.storage.graph_helpers import namespace_matches_filters
+
+
+@dataclass(frozen=True, slots=True)
+class RawEpisodeListOptions:
+    namespaces: list[MemoryNamespace] | None = None
+    kind: str | None = None
+    source: str | None = None
+    occurred_after: str | None = None
+    occurred_before: str | None = None
+    include_invalidated: bool = False
+    limit: int | None = None
 
 
 def entity_passes(
@@ -203,24 +215,19 @@ def decision_passes(
 def raw_episode_passes(
     episode: RawEpisode,
     *,
-    namespaces: list[MemoryNamespace] | None,
-    kind: str | None,
-    source: str | None,
-    occurred_after: str | None,
-    occurred_before: str | None,
-    include_invalidated: bool,
+    options: RawEpisodeListOptions,
 ) -> bool:
-    if not namespace_matches_filters(episode.namespace, namespaces):
+    if not namespace_matches_filters(episode.namespace, options.namespaces):
         return False
-    if kind and episode.kind != kind:
+    if options.kind and episode.kind != options.kind:
         return False
-    if source and episode.source != source:
+    if options.source and episode.source != options.source:
         return False
-    if occurred_after and episode.occurred_at < occurred_after:
+    if options.occurred_after and episode.occurred_at < options.occurred_after:
         return False
-    if occurred_before and episode.occurred_at > occurred_before:
+    if options.occurred_before and episode.occurred_at > options.occurred_before:
         return False
-    if not include_invalidated and episode.invalidated_at is not None:
+    if not options.include_invalidated and episode.invalidated_at is not None:
         return False
     return True
 
@@ -287,6 +294,7 @@ def validate_contradiction_references(
 
 
 __all__ = [
+    "RawEpisodeListOptions",
     "contradiction_passes",
     "decision_passes",
     "entity_alias_passes",

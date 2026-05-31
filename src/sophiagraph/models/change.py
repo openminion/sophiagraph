@@ -34,6 +34,14 @@ ChangeObjectType = Literal[
     "ontology",
     "lifecycle_policy",
     "artifact",
+    "sync_conflict",
+    "freshness_entry",
+    "source_registry",
+    "source_ingest",
+    "shared_block_attachment",
+    "shared_block_mirror",
+    "shared_block_conflict",
+    "shared_block_usage",
 ]
 ChangeOperation = Literal["put", "delete", "import"]
 
@@ -87,6 +95,14 @@ class SophiaGraphChangeEvent:
             "ontology",
             "lifecycle_policy",
             "artifact",
+            "sync_conflict",
+            "freshness_entry",
+            "source_registry",
+            "source_ingest",
+            "shared_block_attachment",
+            "shared_block_mirror",
+            "shared_block_conflict",
+            "shared_block_usage",
         }:
             raise InvalidArgumentError(f"invalid object_type: {self.object_type!r}")
         if self.operation not in {"put", "delete", "import"}:

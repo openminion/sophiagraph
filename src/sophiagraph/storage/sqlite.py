@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import asdict, replace
-import json
 from pathlib import Path
 import sqlite3
 from typing import Any, Iterator
@@ -29,14 +28,12 @@ from sophiagraph.models import (
     MemoryTierTransition,
     MemoryType,
     RelationDirection,
-    SophiaGraphChangeEvent,
     StructuralLink,
     default_change_namespace,
     memory_embedding_from_dict,
 )
 from sophiagraph.portability.codec import (
     candidate_from_dict,
-    change_event_from_dict,
     json_dumps,
     record_from_dict,
     relation_from_dict,
@@ -74,6 +71,8 @@ from sophiagraph.storage.graph_helpers import (
 from sophiagraph.storage.memory_block_helpers import (
     enforce_block_edit_gate as _enforce_block_edit_gate,
 )
+from sophiagraph.storage.sqlite_aux import SqliteAuxObjectMixin
+from sophiagraph.storage.sqlite_changefeed import SqliteChangefeedMixin
 from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from sophiagraph.storage.sqlite_support import (
     SQLITE_BUSY_TIMEOUT_MS,
@@ -94,6 +93,8 @@ from sophiagraph.storage.sqlite_portability import SqlitePortabilityMixin
 
 class SophiaGraphSqliteStore(
     SqlitePortabilityMixin,
+    SqliteChangefeedMixin,
+    SqliteAuxObjectMixin,
     RecordLifecycleMixin,
     SophiaGraphStore,
 ):
@@ -173,94 +174,6 @@ class SophiaGraphSqliteStore(
     def _embedding_from_row(self, row: sqlite3.Row) -> MemoryEmbedding:
         return memory_embedding_from_dict(row_json(row))
 
-    def _change_from_row(self, row: sqlite3.Row) -> SophiaGraphChangeEvent:
-        namespace = MemoryNamespace(
-            tenant_id=row["tenant_id"],
-            org_id=row["org_id"],
-            user_id=row["user_id"],
-            agent_id=row["agent_id"],
-            session_id=row["session_id"],
-            conversation_id=row["conversation_id"],
-            project_id=row["project_id"],
-            graph_id=row["graph_id"],
-        )
-        return change_event_from_dict(
-            {
-                "cursor": row["cursor"],
-                "event_id": row["event_id"],
-                "object_type": row["object_type"],
-                "object_id": row["object_id"],
-                "operation": row["operation"],
-                "changed_at": row["changed_at"],
-                "namespace": namespace.as_dict(),
-                "idempotency_key": row["idempotency_key"],
-                "source_operation_id": row["source_operation_id"],
-                "schema_identifiers": json.loads(row["schema_identifiers_json"]),
-                "payload": json.loads(row["payload_json"]),
-            }
-        )
-
-    def _insert_change_event(
-        self,
-        conn: sqlite3.Connection,
-        event: SophiaGraphChangeEvent,
-    ) -> None:
-        namespace_values = event.namespace.as_dict()
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO sophiagraph_change_events(
-                event_id, object_type, object_id, operation, changed_at,
-                tenant_id, org_id, user_id, agent_id, session_id,
-                conversation_id, project_id, graph_id, idempotency_key,
-                source_operation_id, schema_identifiers_json, payload_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                event.event_id,
-                event.object_type,
-                event.object_id,
-                event.operation,
-                event.changed_at,
-                namespace_values.get("tenant_id"),
-                namespace_values.get("org_id"),
-                namespace_values.get("user_id"),
-                namespace_values.get("agent_id"),
-                namespace_values.get("session_id"),
-                namespace_values.get("conversation_id"),
-                namespace_values.get("project_id"),
-                namespace_values.get("graph_id"),
-                event.idempotency_key,
-                event.source_operation_id,
-                json_dumps(event.schema_identifiers),
-                json_dumps(event.payload),
-            ),
-        )
-
-    def _emit_change(
-        self,
-        conn: sqlite3.Connection,
-        *,
-        object_type: str,
-        object_id: str,
-        payload: dict[str, Any],
-        namespace: MemoryNamespace,
-        schema_identifiers: dict[str, str],
-        operation: str = "put",
-    ) -> None:
-        self._insert_change_event(
-            conn,
-            SophiaGraphChangeEvent(
-                event_id=f"chg-{uuid4()}",
-                object_type=object_type,  # type: ignore[arg-type]
-                object_id=object_id,
-                operation=operation,  # type: ignore[arg-type]
-                changed_at=utc_now_iso(),
-                payload=payload,
-                namespace=namespace,
-                schema_identifiers=schema_identifiers,
-            ),
-        )
-
     def _put_record_payload(
         self,
         conn: sqlite3.Connection,
@@ -298,21 +211,6 @@ class SophiaGraphSqliteStore(
             ),
         )
         replace_record_fts(conn, record)
-
-    def _change_exists(
-        self,
-        conn: sqlite3.Connection,
-        event: SophiaGraphChangeEvent,
-    ) -> bool:
-        row = conn.execute(
-            """
-            SELECT 1 FROM sophiagraph_change_events
-             WHERE event_id = ?
-                OR (? IS NOT NULL AND idempotency_key = ?)
-            """,
-            (event.event_id, event.idempotency_key, event.idempotency_key),
-        ).fetchone()
-        return row is not None
 
     def put_record(self, record: MemoryRecord) -> str:
         stamped = populate_integrity_hash(record, enabled=self._integrity_hash_enabled)
@@ -2418,25 +2316,35 @@ class SophiaGraphSqliteStore(
         include_invalidated=False,
         limit=None,
     ):
+        from sophiagraph.storage.entity_episode_store import RawEpisodeListOptions
         from sophiagraph.storage.graph_helpers import raw_episode_from_dict
 
+        options = RawEpisodeListOptions(
+            namespaces=namespaces,
+            kind=kind,
+            source=source,
+            occurred_after=occurred_after,
+            occurred_before=occurred_before,
+            include_invalidated=include_invalidated,
+            limit=limit,
+        )
         clauses = ["1=1"]
         params: list[Any] = []
-        if kind:
+        if options.kind:
             clauses.append("kind = ?")
-            params.append(kind)
-        if source:
+            params.append(options.kind)
+        if options.source:
             clauses.append("source = ?")
-            params.append(source)
-        if occurred_after:
+            params.append(options.source)
+        if options.occurred_after:
             clauses.append("occurred_at >= ?")
-            params.append(occurred_after)
-        if occurred_before:
+            params.append(options.occurred_after)
+        if options.occurred_before:
             clauses.append("occurred_at <= ?")
-            params.append(occurred_before)
-        if not include_invalidated:
+            params.append(options.occurred_before)
+        if not options.include_invalidated:
             clauses.append("invalidated_at IS NULL")
-        ns_sql, ns_params = self._ns_filter(namespaces)
+        ns_sql, ns_params = self._ns_filter(options.namespaces)
         if ns_sql:
             clauses.append(ns_sql)
             params.extend(ns_params)
@@ -2445,9 +2353,9 @@ class SophiaGraphSqliteStore(
             + " AND ".join(clauses)
             + " ORDER BY occurred_at DESC, episode_id ASC"
         )
-        if limit is not None:
+        if options.limit is not None:
             sql += " LIMIT ?"
-            params.append(int(limit))
+            params.append(int(options.limit))
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
         return [raw_episode_from_dict(row_json(row)) for row in rows]
@@ -2810,23 +2718,19 @@ class SophiaGraphSqliteStore(
                 "DELETE FROM sophiagraph_canvas_boards WHERE board_id = ?",
                 (board_id,),
             )
-            self._insert_change_event(
+            self._emit_change(
                 conn,
-                SophiaGraphChangeEvent(
-                    event_id=f"chg-{uuid4()}",
-                    object_type="canvas",
-                    object_id=board_id,
-                    operation="delete",
-                    changed_at=utc_now_iso(),
-                    payload={"board_id": board_id, "deleted": True},
-                    namespace=board.namespace,
-                    schema_identifiers={
-                        "node_label": "canvas_board",
-                        "board_id": board_id,
-                    },
-                ),
+                object_type="canvas",
+                object_id=board_id,
+                operation="delete",
+                payload={"board_id": board_id, "deleted": True},
+                namespace=board.namespace,
+                schema_identifiers={
+                    "node_label": "canvas_board",
+                    "board_id": board_id,
+                },
             )
-        return True
+            return True
 
     # Lifecycle policy storage.
 
@@ -2903,3 +2807,394 @@ class SophiaGraphSqliteStore(
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
         return [lifecycle_policy_from_dict(row_json(row)) for row in rows]
+
+    # Local-first sync, freshness, connector, and shared-block storage.
+
+    def put_sync_conflict(self, conflict):
+        from sophiagraph.sync import sync_conflict_to_dict
+
+        payload = sync_conflict_to_dict(conflict)
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="sync_conflict",
+                object_id=conflict.conflict_id,
+                namespace=conflict.namespace,
+                updated_at=conflict.created_at,
+                payload=payload,
+            )
+            self._emit_change(
+                conn,
+                object_type="sync_conflict",
+                object_id=conflict.conflict_id,
+                payload=payload,
+                namespace=conflict.namespace,
+                schema_identifiers={
+                    "node_label": "sync_conflict",
+                    "kind": conflict.kind,
+                },
+            )
+        return conflict.conflict_id
+
+    def get_sync_conflict(self, conflict_id):
+        from sophiagraph.sync import sync_conflict_from_dict
+
+        payload = self._get_aux_object("sync_conflict", conflict_id)
+        return None if payload is None else sync_conflict_from_dict(payload)
+
+    def list_sync_conflicts(
+        self,
+        *,
+        namespaces=None,
+        status=None,
+        source_id=None,
+        limit=None,
+    ):
+        from sophiagraph.sync import sync_conflict_from_dict
+
+        rows = [
+            sync_conflict_from_dict(payload)
+            for payload in self._list_aux_objects(
+                "sync_conflict", namespaces=namespaces, limit=limit
+            )
+        ]
+        if status is not None:
+            rows = [row for row in rows if row.status == status]
+        if source_id is not None:
+            rows = [row for row in rows if row.source_id == source_id]
+        return rows[: int(limit)] if limit is not None else rows
+
+    def put_freshness_entry(self, entry):
+        from sophiagraph.freshness import freshness_entry_to_dict
+
+        payload = freshness_entry_to_dict(entry)
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="freshness_entry",
+                object_id=entry.ledger_id,
+                namespace=entry.namespace,
+                updated_at=entry.updated_at,
+                payload=payload,
+            )
+            self._emit_change(
+                conn,
+                object_type="freshness_entry",
+                object_id=entry.ledger_id,
+                payload=payload,
+                namespace=entry.namespace,
+                schema_identifiers={
+                    "node_label": "freshness_entry",
+                    "source_kind": entry.source_kind,
+                },
+            )
+        return entry.ledger_id
+
+    def get_freshness_entry(self, ledger_id):
+        from sophiagraph.freshness import freshness_entry_from_dict
+
+        payload = self._get_aux_object("freshness_entry", ledger_id)
+        return None if payload is None else freshness_entry_from_dict(payload)
+
+    def list_freshness_entries(
+        self,
+        *,
+        namespaces=None,
+        source_kind=None,
+        source_id=None,
+        status=None,
+        limit=None,
+    ):
+        from sophiagraph.freshness import freshness_entry_from_dict
+
+        rows = [
+            freshness_entry_from_dict(payload)
+            for payload in self._list_aux_objects(
+                "freshness_entry", namespaces=namespaces, limit=limit
+            )
+        ]
+        if source_kind is not None:
+            rows = [row for row in rows if row.source_kind == source_kind]
+        if source_id is not None:
+            rows = [row for row in rows if row.source_id == source_id]
+        if status is not None:
+            rows = [row for row in rows if row.status == status]
+        return rows[: int(limit)] if limit is not None else rows
+
+    def put_source_entry(self, source):
+        from sophiagraph.connectors import source_entry_to_dict
+
+        payload = source_entry_to_dict(source)
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="source_registry",
+                object_id=source.source_id,
+                namespace=source.namespace,
+                updated_at=source.updated_at,
+                payload=payload,
+            )
+            self._emit_change(
+                conn,
+                object_type="source_registry",
+                object_id=source.source_id,
+                payload=payload,
+                namespace=source.namespace,
+                schema_identifiers={
+                    "node_label": "source_registry",
+                    "source_type": source.source_type,
+                },
+            )
+        return source.source_id
+
+    def get_source_entry(self, source_id):
+        from sophiagraph.connectors import source_entry_from_dict
+
+        payload = self._get_aux_object("source_registry", source_id)
+        return None if payload is None else source_entry_from_dict(payload)
+
+    def list_source_entries(
+        self,
+        *,
+        namespaces=None,
+        source_type=None,
+        permission_scope=None,
+        limit=None,
+    ):
+        from sophiagraph.connectors import source_entry_from_dict
+
+        rows = [
+            source_entry_from_dict(payload)
+            for payload in self._list_aux_objects(
+                "source_registry", namespaces=namespaces, limit=limit
+            )
+        ]
+        if source_type is not None:
+            rows = [row for row in rows if row.source_type == source_type]
+        if permission_scope is not None:
+            rows = [row for row in rows if row.permission_scope == permission_scope]
+        return rows[: int(limit)] if limit is not None else rows
+
+    def put_source_ingest(self, envelope):
+        from sophiagraph.connectors import source_ingest_to_dict
+
+        payload = source_ingest_to_dict(envelope)
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="source_ingest",
+                object_id=envelope.ingest_id,
+                namespace=envelope.namespace,
+                updated_at=envelope.cursor,
+                payload=payload,
+            )
+            self._emit_change(
+                conn,
+                object_type="source_ingest",
+                object_id=envelope.ingest_id,
+                payload=payload,
+                namespace=envelope.namespace,
+                schema_identifiers={
+                    "node_label": "source_ingest",
+                    "payload_kind": envelope.payload_kind,
+                },
+            )
+        return envelope.ingest_id
+
+    def get_source_ingest(self, ingest_id):
+        from sophiagraph.connectors import source_ingest_from_dict
+
+        payload = self._get_aux_object("source_ingest", ingest_id)
+        return None if payload is None else source_ingest_from_dict(payload)
+
+    def put_shared_block_attachment(self, attachment):
+        from sophiagraph.shared_blocks import shared_attachment_to_dict
+
+        payload = shared_attachment_to_dict(attachment)
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="shared_block_attachment",
+                object_id=attachment.attachment_id,
+                namespace=attachment.namespace,
+                updated_at=attachment.attached_at,
+                payload=payload,
+            )
+            self._emit_change(
+                conn,
+                object_type="shared_block_attachment",
+                object_id=attachment.attachment_id,
+                payload=payload,
+                namespace=attachment.namespace,
+                schema_identifiers={"node_label": "shared_block_attachment"},
+            )
+        return attachment.attachment_id
+
+    def list_shared_block_attachments(
+        self,
+        *,
+        block_id=None,
+        namespaces=None,
+        attached_agent_id=None,
+        status=None,
+        limit=None,
+    ):
+        from sophiagraph.shared_blocks import shared_attachment_from_dict
+
+        rows = [
+            shared_attachment_from_dict(payload)
+            for payload in self._list_aux_objects(
+                "shared_block_attachment", namespaces=namespaces, limit=limit
+            )
+        ]
+        if block_id is not None:
+            rows = [row for row in rows if row.block_id == block_id]
+        if attached_agent_id is not None:
+            rows = [row for row in rows if row.attached_agent_id == attached_agent_id]
+        if status is not None:
+            rows = [row for row in rows if row.status == status]
+        return rows[: int(limit)] if limit is not None else rows
+
+    def put_shared_block_mirror(self, mirror):
+        from sophiagraph.shared_blocks import shared_mirror_to_dict
+
+        payload = shared_mirror_to_dict(mirror)
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="shared_block_mirror",
+                object_id=mirror.mirror_id,
+                namespace=mirror.mirror_namespace,
+                updated_at=mirror.last_synced_at,
+                payload=payload,
+            )
+            self._emit_change(
+                conn,
+                object_type="shared_block_mirror",
+                object_id=mirror.mirror_id,
+                payload=payload,
+                namespace=mirror.mirror_namespace,
+                schema_identifiers={"node_label": "shared_block_mirror"},
+            )
+        return mirror.mirror_id
+
+    def get_shared_block_mirror(self, mirror_id):
+        from sophiagraph.shared_blocks import shared_mirror_from_dict
+
+        payload = self._get_aux_object("shared_block_mirror", mirror_id)
+        return None if payload is None else shared_mirror_from_dict(payload)
+
+    def list_shared_block_mirrors(
+        self,
+        *,
+        block_id=None,
+        namespaces=None,
+        status=None,
+        limit=None,
+    ):
+        from sophiagraph.shared_blocks import shared_mirror_from_dict
+
+        rows = [
+            shared_mirror_from_dict(payload)
+            for payload in self._list_aux_objects(
+                "shared_block_mirror", namespaces=namespaces, limit=limit
+            )
+        ]
+        if block_id is not None:
+            rows = [row for row in rows if row.block_id == block_id]
+        if status is not None:
+            rows = [row for row in rows if row.status == status]
+        return rows[: int(limit)] if limit is not None else rows
+
+    def put_shared_block_conflict(self, conflict):
+        from sophiagraph.shared_blocks import shared_conflict_to_dict
+
+        payload = shared_conflict_to_dict(conflict)
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="shared_block_conflict",
+                object_id=conflict.conflict_id,
+                namespace=conflict.namespace,
+                updated_at=conflict.created_at,
+                payload=payload,
+            )
+            self._emit_change(
+                conn,
+                object_type="shared_block_conflict",
+                object_id=conflict.conflict_id,
+                payload=payload,
+                namespace=conflict.namespace,
+                schema_identifiers={"node_label": "shared_block_conflict"},
+            )
+        return conflict.conflict_id
+
+    def list_shared_block_conflicts(
+        self,
+        *,
+        block_id=None,
+        namespaces=None,
+        status=None,
+        limit=None,
+    ):
+        from sophiagraph.shared_blocks import shared_conflict_from_dict
+
+        rows = [
+            shared_conflict_from_dict(payload)
+            for payload in self._list_aux_objects(
+                "shared_block_conflict", namespaces=namespaces, limit=limit
+            )
+        ]
+        if block_id is not None:
+            rows = [row for row in rows if row.block_id == block_id]
+        if status is not None:
+            rows = [row for row in rows if row.status == status]
+        return rows[: int(limit)] if limit is not None else rows
+
+    def put_shared_block_usage_event(self, event):
+        from sophiagraph.shared_blocks import shared_usage_to_dict
+
+        payload = shared_usage_to_dict(event)
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="shared_block_usage",
+                object_id=event.event_id,
+                namespace=event.namespace,
+                updated_at=event.occurred_at,
+                payload=payload,
+            )
+            self._emit_change(
+                conn,
+                object_type="shared_block_usage",
+                object_id=event.event_id,
+                payload=payload,
+                namespace=event.namespace,
+                schema_identifiers={
+                    "node_label": "shared_block_usage",
+                    "action": event.action,
+                },
+            )
+        return event.event_id
+
+    def list_shared_block_usage_events(
+        self,
+        *,
+        block_id=None,
+        namespaces=None,
+        action=None,
+        limit=None,
+    ):
+        from sophiagraph.shared_blocks import shared_usage_from_dict
+
+        rows = [
+            shared_usage_from_dict(payload)
+            for payload in self._list_aux_objects(
+                "shared_block_usage", namespaces=namespaces, limit=limit
+            )
+        ]
+        if block_id is not None:
+            rows = [row for row in rows if row.block_id == block_id]
+        if action is not None:
+            rows = [row for row in rows if row.action == action]
+        return rows[: int(limit)] if limit is not None else rows

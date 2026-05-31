@@ -33,6 +33,8 @@ from sophiagraph.models import (
     SophiaGraphChangeEvent,
     StructuralLink,
 )
+from sophiagraph.connectors import SourceIngestEnvelope, SourceRegistryEntry
+from sophiagraph.freshness import FreshnessLedgerEntry
 from sophiagraph.portability.models import (
     MemoryDeltaImportResult,
     MemoryDeltaSnapshot,
@@ -41,6 +43,13 @@ from sophiagraph.portability.models import (
     MemoryBundleImportResult,
     MemoryBundleSnapshot,
 )
+from sophiagraph.shared_blocks import (
+    SharedBlockAttachment,
+    SharedBlockEditConflict,
+    SharedBlockMirror,
+    SharedBlockUsageEvent,
+)
+from sophiagraph.sync import SyncConflictRecord
 from sophiagraph.query import (
     CandidateListOptions,
     EmbeddingListOptions,
@@ -226,6 +235,100 @@ class SophiaGraphStore(Protocol):
         *,
         stale_after: str | None,
     ) -> MemoryBlock: ...
+
+    def put_sync_conflict(self, conflict: SyncConflictRecord) -> str: ...
+
+    def get_sync_conflict(self, conflict_id: str) -> SyncConflictRecord | None: ...
+
+    def list_sync_conflicts(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        status: str | None = None,
+        source_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[SyncConflictRecord]: ...
+
+    def put_freshness_entry(self, entry: FreshnessLedgerEntry) -> str: ...
+
+    def get_freshness_entry(self, ledger_id: str) -> FreshnessLedgerEntry | None: ...
+
+    def list_freshness_entries(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        source_kind: str | None = None,
+        source_id: str | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+    ) -> list[FreshnessLedgerEntry]: ...
+
+    def put_source_entry(self, source: SourceRegistryEntry) -> str: ...
+
+    def get_source_entry(self, source_id: str) -> SourceRegistryEntry | None: ...
+
+    def list_source_entries(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        source_type: str | None = None,
+        permission_scope: str | None = None,
+        limit: int | None = None,
+    ) -> list[SourceRegistryEntry]: ...
+
+    def put_source_ingest(self, envelope: SourceIngestEnvelope) -> str: ...
+
+    def get_source_ingest(self, ingest_id: str) -> SourceIngestEnvelope | None: ...
+
+    def put_shared_block_attachment(
+        self,
+        attachment: SharedBlockAttachment,
+    ) -> str: ...
+
+    def list_shared_block_attachments(
+        self,
+        *,
+        block_id: str | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+        attached_agent_id: str | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+    ) -> list[SharedBlockAttachment]: ...
+
+    def put_shared_block_mirror(self, mirror: SharedBlockMirror) -> str: ...
+
+    def get_shared_block_mirror(self, mirror_id: str) -> SharedBlockMirror | None: ...
+
+    def list_shared_block_mirrors(
+        self,
+        *,
+        block_id: str | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+    ) -> list[SharedBlockMirror]: ...
+
+    def put_shared_block_conflict(self, conflict: SharedBlockEditConflict) -> str: ...
+
+    def list_shared_block_conflicts(
+        self,
+        *,
+        block_id: str | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+    ) -> list[SharedBlockEditConflict]: ...
+
+    def put_shared_block_usage_event(self, event: SharedBlockUsageEvent) -> str: ...
+
+    def list_shared_block_usage_events(
+        self,
+        *,
+        block_id: str | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+        action: str | None = None,
+        limit: int | None = None,
+    ) -> list[SharedBlockUsageEvent]: ...
 
     # Entity / fact / contradiction (SEFT-02 + SEFT-03 + SEFT-04).
 
