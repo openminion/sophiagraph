@@ -215,6 +215,28 @@ import_store = create_memory_store()
 import_store.import_snapshot(snapshot, MemoryBundleImportOptions())
 ```
 
+MCP-style host bridge without importing OpenMinion:
+
+```python
+from dataclasses import asdict
+
+from sophiagraph.adapters import McpMemoryRequest, SophiaGraphMcpAdapter
+
+adapter = SophiaGraphMcpAdapter(store)
+adapter.handle(McpMemoryRequest(operation="create", payload={"record": asdict(record)}))
+adapter.handle(
+    McpMemoryRequest(
+        operation="search",
+        payload={"query": "Apollo", "scopes": ["agent:demo"], "limit": 5},
+    )
+)
+```
+
+Claude Code, Cursor, Windsurf, and other MCP hosts should wire this adapter
+through their own MCP runtime package. `sophiagraph` supplies the structural
+CRUD/search bridge; host-specific manifests, auth, process lifecycle, and
+transport are owned by the host or an optional sibling adapter package.
+
 Runnable example:
 
 ```bash

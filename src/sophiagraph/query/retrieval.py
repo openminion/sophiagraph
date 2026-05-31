@@ -135,9 +135,10 @@ class TrustStageOptions:
 
 @dataclass(frozen=True)
 class RerankStageOptions:
-    """Rerank stage — caller-supplied score override map by record id."""
+    """Rerank stage with deterministic fallback score overrides."""
 
     score_override: dict[str, float] = field(default_factory=dict)
+    limit: int | None = None
 
 
 @dataclass(frozen=True)
@@ -227,6 +228,19 @@ class RetrievalResult:
     truncated: bool = False
 
 
+class RerankAdapter:
+    """Optional rerank adapter protocol over already-fused candidates."""
+
+    def rerank(
+        self,
+        *,
+        records: Sequence[MemoryRecord],
+        request: RetrievalRequest,
+        limit: int,
+    ) -> list[tuple[str, float]]:
+        raise NotImplementedError
+
+
 class VectorAdapter:
     """Optional vector adapter protocol."""
 
@@ -240,6 +254,41 @@ class VectorAdapter:
         metric: str,
     ) -> list[tuple[str, float]]:
         raise NotImplementedError
+
+
+def _rrf_scores(
+    component_map: dict[str, list[ScoreComponent]],
+    *,
+    rank_constant: int = 60,
+) -> dict[str, float]:
+    scores = {record_id: 0.0 for record_id in component_map}
+    kinds = sorted(
+        {
+            component.kind
+            for components in component_map.values()
+            for component in components
+            if component.kind != "rerank"
+        }
+    )
+    for kind in kinds:
+        ranked = sorted(
+            (
+                (record_id, component.weighted_score)
+                for record_id, components in component_map.items()
+                for component in components
+                if component.kind == kind
+            ),
+            key=lambda item: (-item[1], item[0]),
+        )
+        for rank, (record_id, _) in enumerate(ranked, start=1):
+            scores[record_id] = scores.get(record_id, 0.0) + 1.0 / (
+                rank_constant + rank
+            )
+    for record_id, components in component_map.items():
+        rerank_scores = [c.weighted_score for c in components if c.kind == "rerank"]
+        if rerank_scores:
+            scores[record_id] = max(rerank_scores) + scores.get(record_id, 0.0)
+    return scores
 
 
 def _recency_score(updated_at: str, *, now_iso: str, half_life_days: float) -> float:
@@ -260,6 +309,7 @@ def assemble_retrieval(
     request: RetrievalRequest,
     *,
     vector_adapter: VectorAdapter | None = None,
+    rerank_adapter: RerankAdapter | None = None,
     now_iso: str = "",
 ) -> RetrievalResult:
     """Execute the hybrid retrieval pipeline in canonical stage order."""
@@ -416,6 +466,28 @@ def assemble_retrieval(
             )
 
     if request.rerank is not None:
+        if rerank_adapter is not None:
+            limit = request.rerank.limit or request.limit
+            ranked_records = [
+                record_map[record_id]
+                for record_id in sorted(record_map)
+                if record_id in record_map
+            ]
+            for record_id, score in rerank_adapter.rerank(
+                records=ranked_records,
+                request=request,
+                limit=limit,
+            ):
+                if record_id not in record_map:
+                    continue
+                component_map.setdefault(record_id, []).append(
+                    ScoreComponent(
+                        kind="rerank",
+                        raw_score=float(score),
+                        weight=1.0,
+                        detail={"source": "adapter"},
+                    )
+                )
         for record_id, override_score in request.rerank.score_override.items():
             if record_id not in record_map:
                 continue
@@ -427,10 +499,11 @@ def assemble_retrieval(
                     detail={"source": "caller_supplied"},
                 )
             )
+    rrf_scores = _rrf_scores(component_map)
     explanations: list[RetrievalExplanation] = []
     for record_id, record in record_map.items():
         components = component_map.get(record_id, [])
-        final = sum(c.weighted_score for c in components)
+        final = rrf_scores.get(record_id, 0.0)
         explanations.append(
             RetrievalExplanation(
                 record_id=record_id,
@@ -438,7 +511,11 @@ def assemble_retrieval(
                 final_score=float(final),
                 source_record_ids=[record_id],
                 via_relation_ids=list(via_relations.get(record_id, [])),
-                provenance={"scope": record.scope, "source": str(record.source)},
+                provenance={
+                    "scope": record.scope,
+                    "source": str(record.source),
+                    "fusion": "rrf",
+                },
             )
         )
     # Deterministic ordering: final_score desc, then record_id asc.
@@ -466,6 +543,7 @@ __all__ = [
     "GraphStageOptions",
     "KeywordStageOptions",
     "RecencyStageOptions",
+    "RerankAdapter",
     "RerankStageOptions",
     "RetrievalExplanation",
     "RetrievalHit",

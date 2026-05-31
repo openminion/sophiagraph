@@ -27,6 +27,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.trust`
 - `sophiagraph.temporal`
 - `sophiagraph.contracts`
+- `sophiagraph.deletion`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -72,6 +73,13 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.portability`
 - `sophiagraph.trust`
 - `sophiagraph.coerce_temporal_dt`
+- `sophiagraph.DeletionCascadeResult`
+- `sophiagraph.ErasureAuditEntry`
+- `sophiagraph.ErasureAuditExport`
+- `sophiagraph.TombstoneResult`
+- `sophiagraph.adapters.McpMemoryRequest`
+- `sophiagraph.adapters.McpMemoryResponse`
+- `sophiagraph.adapters.SophiaGraphMcpAdapter`
 
 ## Versioning posture
 
@@ -112,6 +120,9 @@ Public-contract confidence should be enforced by tests that cover:
 10. deterministic saved-view evaluation,
 11. document-block storage/search behavior,
 12. schema discovery and async facade import/use.
+13. bitemporal `as_of` / `valid_at` / `believed_at` record queries,
+14. provable deletion tombstone and erasure-audit export behavior,
+15. provider-free MCP adapter CRUD/search smoke behavior.
 
 ## Internal compatibility shims
 
