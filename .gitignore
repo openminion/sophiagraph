@@ -5,3 +5,6 @@ __pycache__/
 build/
 dist/
 .venv/
+.pypirc
+.pypirc.local
+.env.release
