@@ -122,11 +122,17 @@ class SophiaGraphStore(Protocol):
 
     def get_outgoing_links(
         self, record_id: str, *, limit: int | None = None
-    ) -> list[StructuralLink]: ...
+    ) -> list[StructuralLink]:
+        return self.list_links(
+            LinkQueryOptions(record_id=record_id, direction="out", limit=limit)
+        )
 
     def get_backlinks(
         self, record_id: str, *, limit: int | None = None
-    ) -> list[StructuralLink]: ...
+    ) -> list[StructuralLink]:
+        return self.list_links(
+            LinkQueryOptions(record_id=record_id, direction="in", limit=limit)
+        )
 
     def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot: ...
 
