@@ -270,9 +270,8 @@ store = create_sqlite_store("/tmp/sophiagraph-demo")
 store.backup("/tmp/sophiagraph-demo-backup.sqlite3")
 ```
 
-New durable tables should follow the cross-table migration convention in the
-docs workspace:
-`docs/discussions/sophiagraph-cross-table-migration-convention-2026-05-23.md`.
+New durable tables should keep migrations deterministic, idempotent, and
+compatible with existing package stores.
 
 ## Changefeed and Delta Sync
 
@@ -486,14 +485,11 @@ Supported import roots:
 
 ## OpenMinion submission integration
 
-OpenMinion feeds typed, provenance-rich activity into Sophiagraph through the
-direct-SDK path defined in
-[`openminion/src/openminion/modules/memory/submissions/`](../openminion/src/openminion/modules/memory/submissions/).
-The `SubmissionEnvelope` shape is pinned by
+OpenMinion feeds typed, provenance-rich activity into Sophiagraph through a
+direct-SDK submission path. The `SubmissionEnvelope` shape is pinned by
 `SUBMISSION_ENVELOPE_SCHEMA_VERSION = "openminion_sophiagraph_submission.v1"`
 so future MCP or REST transports can route the same payload without renaming
-fields. Detailed contract lives at
-[`docs/specs/sophiagraph-openminion-submission-pipeline-spec.md`](../docs/specs/sophiagraph-openminion-submission-pipeline-spec.md).
+fields.
 
 The direct-SDK path is the default OpenMinion integration; `sophiagraph-server`
 service transports are opt-in for external clients or non-Python hosts.
