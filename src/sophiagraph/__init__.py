@@ -4,6 +4,12 @@ __version__ = "0.0.1"
 
 from sophiagraph.audit import events as audit
 from sophiagraph.contracts import types as contracts
+from sophiagraph.deletion import (
+    DeletionCascadeResult,
+    ErasureAuditEntry,
+    ErasureAuditExport,
+    TombstoneResult,
+)
 from sophiagraph.models import (
     ArtifactRef,
     CandidateReview,
@@ -104,7 +110,10 @@ __all__ = [
     "CandidateReview",
     "ConsolidationJob",
     "ConsolidationRunSummary",
+    "DeletionCascadeResult",
     "EmbeddingListOptions",
+    "ErasureAuditEntry",
+    "ErasureAuditExport",
     "ExplicitLinkResolver",
     "GraphCommonNeighbors",
     "GraphComponent",
@@ -142,6 +151,7 @@ __all__ = [
     "SophiaGraphSqliteStore",
     "StructuralLink",
     "StructuralSearchQuery",
+    "TombstoneResult",
     "VaultDiagnostic",
     "VaultExportOptions",
     "VaultExportResult",

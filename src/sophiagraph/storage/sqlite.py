@@ -12,6 +12,11 @@ from uuid import uuid4
 
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.contracts.errors import InvalidArgumentError, NotFoundError
+from sophiagraph.deletion import (
+    DeletionCascadeResult,
+    ErasureAuditEntry,
+    ErasureAuditExport,
+)
 from sophiagraph.integrity import populate_integrity_hash
 from sophiagraph.models import (
     MemoryBlock,
@@ -48,6 +53,8 @@ from sophiagraph.query import (
     RecordOrder,
     SearchQueryOptions,
     StructuralSearchQuery,
+    has_bitemporal_filter,
+    record_matches_bitemporal,
 )
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.record_lifecycle import (
@@ -102,9 +109,7 @@ class SophiaGraphSqliteStore(
     ) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        # Operator-config flag (default off = backward-compat). When
-        # enabled, ``put_record`` stamps an integrity hash on every
-        # record at write time via ``populate_integrity_hash``.
+        # Integrity hashing stays opt-in for backward compatibility.
         self._integrity_hash_enabled = integrity_hash_enabled
         self._ensure_schema()
 
@@ -240,6 +245,7 @@ class SophiaGraphSqliteStore(
         payload: dict[str, Any],
         namespace: MemoryNamespace,
         schema_identifiers: dict[str, str],
+        operation: str = "put",
     ) -> None:
         self._insert_change_event(
             conn,
@@ -247,7 +253,7 @@ class SophiaGraphSqliteStore(
                 event_id=f"chg-{uuid4()}",
                 object_type=object_type,  # type: ignore[arg-type]
                 object_id=object_id,
-                operation="put",
+                operation=operation,  # type: ignore[arg-type]
                 changed_at=utc_now_iso(),
                 payload=payload,
                 namespace=namespace,
@@ -374,7 +380,8 @@ class SophiaGraphSqliteStore(
         if options.tiers:
             clauses.append("tier IN ({})".format(",".join("?" for _ in options.tiers)))
             params.extend(options.tiers)
-        if not options.include_invalidated:
+        temporal_filter = has_bitemporal_filter(options)
+        if not options.include_invalidated and not temporal_filter:
             clauses.append("(valid_to IS NULL OR valid_to > ?)")
             params.append(utc_now_iso())
         namespace_sql, namespace_params = namespace_filter_sql(options.namespaces)
@@ -387,6 +394,9 @@ class SophiaGraphSqliteStore(
         limit_sql = ""
         sql_limit = options.limit
         sql_offset = options.offset
+        if temporal_filter:
+            sql_limit = None
+            sql_offset = None
         if sql_limit is not None:
             limit_sql += " LIMIT ?"
             params.append(int(sql_limit))
@@ -403,6 +413,16 @@ class SophiaGraphSqliteStore(
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
         records = [self._record_from_row(row) for row in rows]
+        if temporal_filter:
+            records = [
+                record
+                for record in records
+                if record_matches_bitemporal(record, options)
+            ]
+            if options.offset is not None:
+                records = records[int(options.offset) :]
+            if options.limit is not None:
+                records = records[: int(options.limit)]
         return records
 
     def search_records(self, options: SearchQueryOptions) -> list[MemoryRecord]:
@@ -416,6 +436,10 @@ class SophiaGraphSqliteStore(
                 offset=None,
                 order_by=RecordOrder.UPDATED_AT_DESC,
                 namespaces=options.namespaces,
+                as_of=options.as_of,
+                valid_at=options.valid_at,
+                effective_during=options.effective_during,
+                believed_at=options.believed_at,
             )
         )
         matches = [
@@ -684,20 +708,6 @@ class SophiaGraphSqliteStore(
             )
             for row in rows
         ]
-
-    def get_outgoing_links(
-        self, record_id: str, *, limit: int | None = None
-    ) -> list[StructuralLink]:
-        return self.list_links(
-            LinkQueryOptions(record_id=record_id, direction="out", limit=limit)
-        )
-
-    def get_backlinks(
-        self, record_id: str, *, limit: int | None = None
-    ) -> list[StructuralLink]:
-        return self.list_links(
-            LinkQueryOptions(record_id=record_id, direction="in", limit=limit)
-        )
 
     def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot:
         return build_local_graph(
@@ -1307,6 +1317,147 @@ class SophiaGraphSqliteStore(
                 (record_id, vector_space),
             )
             return cursor.rowcount > 0
+
+    def tombstone_record(
+        self,
+        record_id: str,
+        *,
+        deleted_at: str,
+        reason: str,
+    ) -> MemoryRecord:
+        record = self.get_record(record_id)
+        if record is None:
+            raise NotFoundError(f"record not found: {record_id}")
+        tombstone = replace(
+            record,
+            is_deleted=True,
+            deleted_at=deleted_at,
+            deleted_reason=reason,
+            valid_to=record.valid_to or deleted_at,
+            updated_at=deleted_at,
+        )
+        with self._write_connection() as conn:
+            self._put_record_payload(conn, tombstone)
+            self._emit_change(
+                conn,
+                object_type="record",
+                object_id=record_id,
+                payload={
+                    "record_id": record_id,
+                    "deleted_at": deleted_at,
+                    "reason": reason,
+                },
+                namespace=tombstone.effective_namespace,
+                schema_identifiers={"node_label": str(tombstone.type)},
+                operation="delete",
+            )
+        return tombstone
+
+    def cascade_tombstones(
+        self,
+        record_id: str,
+        *,
+        deleted_at: str,
+        reason: str,
+    ) -> DeletionCascadeResult:
+        tombstone = self.tombstone_record(
+            record_id,
+            deleted_at=deleted_at,
+            reason=reason,
+        )
+        removed_embedding_keys = [
+            f"{embedding.record_id}:{embedding.vector_space}"
+            for embedding in self.list_embeddings(
+                EmbeddingListOptions(record_id=record_id)
+            )
+        ]
+        with self._write_connection() as conn:
+            relation_rows = conn.execute(
+                """
+                SELECT relation_id FROM sophiagraph_relations
+                 WHERE source_record_id = ? OR target_record_id = ?
+                """,
+                (record_id, record_id),
+            ).fetchall()
+            relation_ids = [str(row["relation_id"]) for row in relation_rows]
+            conn.execute(
+                """
+                DELETE FROM sophiagraph_relations
+                 WHERE source_record_id = ? OR target_record_id = ?
+                """,
+                (record_id, record_id),
+            )
+            link_rows = conn.execute(
+                """
+                SELECT link_id FROM sophiagraph_links
+                 WHERE source_record_id = ? OR target_record_id = ?
+                """,
+                (record_id, record_id),
+            ).fetchall()
+            link_ids = [str(row["link_id"]) for row in link_rows]
+            conn.execute(
+                """
+                DELETE FROM sophiagraph_links
+                 WHERE source_record_id = ? OR target_record_id = ?
+                """,
+                (record_id, record_id),
+            )
+            block_rows = conn.execute(
+                "SELECT block_id FROM sophiagraph_blocks WHERE record_id = ?",
+                (record_id,),
+            ).fetchall()
+            block_ids = [str(row["block_id"]) for row in block_rows]
+            conn.execute(
+                "DELETE FROM sophiagraph_blocks WHERE record_id = ?",
+                (record_id,),
+            )
+            conn.execute(
+                "DELETE FROM sophiagraph_embeddings WHERE record_id = ?",
+                (record_id,),
+            )
+        return DeletionCascadeResult(
+            root_record_id=record_id,
+            tombstoned_record_ids=[tombstone.id],
+            removed_relation_ids=relation_ids,
+            removed_link_ids=link_ids,
+            removed_block_ids=block_ids,
+            removed_embedding_keys=removed_embedding_keys,
+        )
+
+    def erasure_audit_export(
+        self,
+        *,
+        record_id: str | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+    ) -> ErasureAuditExport:
+        with self._connect() as conn:
+            clauses = ["is_deleted = 1"]
+            params: list[Any] = []
+            if record_id is not None:
+                clauses.append("id = ?")
+                params.append(record_id)
+            namespace_sql, namespace_params = namespace_filter_sql(namespaces)
+            if namespace_sql:
+                clauses.append(namespace_sql)
+                params.extend(namespace_params)
+            rows = conn.execute(
+                "SELECT payload_json FROM sophiagraph_records WHERE "
+                + " AND ".join(clauses),
+                params,
+            ).fetchall()
+        records = [self._record_from_row(row) for row in rows]
+        return ErasureAuditExport(
+            entries=[
+                ErasureAuditEntry(
+                    record_id=record.id,
+                    namespace=record.effective_namespace,
+                    deleted_at=record.deleted_at or record.updated_at,
+                    reason=record.deleted_reason or "",
+                    cascaded=bool(record.meta.get("cascade_deleted", False)),
+                )
+                for record in records
+            ]
+        )
 
     def history(
         self,

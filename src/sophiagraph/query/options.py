@@ -32,6 +32,10 @@ class ListQueryOptions:
     offset: int | None = None
     order_by: RecordOrder | None = None
     namespaces: list["MemoryNamespace"] | None = None
+    as_of: str | None = None
+    valid_at: str | None = None
+    effective_during: tuple[str, str] | None = None
+    believed_at: str | None = None
 
 
 @dataclass(slots=True)
@@ -44,6 +48,10 @@ class SearchQueryOptions:
     include_invalidated: bool = False
     limit: int | None = None
     namespaces: list["MemoryNamespace"] | None = None
+    as_of: str | None = None
+    valid_at: str | None = None
+    effective_during: tuple[str, str] | None = None
+    believed_at: str | None = None
 
 
 @dataclass(slots=True)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
+from sophiagraph.deletion import DeletionCascadeResult, ErasureAuditExport
 from sophiagraph.models import (
     Contradiction,
     Decision,
@@ -122,11 +123,17 @@ class SophiaGraphStore(Protocol):
 
     def get_outgoing_links(
         self, record_id: str, *, limit: int | None = None
-    ) -> list[StructuralLink]: ...
+    ) -> list[StructuralLink]:
+        return self.list_links(
+            LinkQueryOptions(record_id=record_id, direction="out", limit=limit)
+        )
 
     def get_backlinks(
         self, record_id: str, *, limit: int | None = None
-    ) -> list[StructuralLink]: ...
+    ) -> list[StructuralLink]:
+        return self.list_links(
+            LinkQueryOptions(record_id=record_id, direction="in", limit=limit)
+        )
 
     def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot: ...
 
@@ -415,6 +422,29 @@ class SophiaGraphStore(Protocol):
     ) -> list[MemoryEmbedding]: ...
 
     def delete_embedding(self, record_id: str, vector_space: str) -> bool: ...
+
+    def tombstone_record(
+        self,
+        record_id: str,
+        *,
+        deleted_at: str,
+        reason: str,
+    ) -> MemoryRecord: ...
+
+    def cascade_tombstones(
+        self,
+        record_id: str,
+        *,
+        deleted_at: str,
+        reason: str,
+    ) -> DeletionCascadeResult: ...
+
+    def erasure_audit_export(
+        self,
+        *,
+        record_id: str | None = None,
+        namespaces: list[MemoryNamespace] | None = None,
+    ) -> ErasureAuditExport: ...
 
     def history(
         self,
