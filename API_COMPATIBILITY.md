@@ -66,6 +66,18 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.GraphPath`
 - `sophiagraph.GraphComponent`
 - `sophiagraph.StructuralSearchQuery`
+- `sophiagraph.KnowledgeExplorerRequest`
+- `sophiagraph.KnowledgeExplorerResult`
+- `sophiagraph.KnowledgeExplorerFilters`
+- `sophiagraph.KnowledgeHit`
+- `sophiagraph.KnowledgeFacet`
+- `sophiagraph.KnowledgeNavigationAction`
+- `sophiagraph.KnowledgeQueryPlan`
+- `sophiagraph.KnowledgeQueryPlanStage`
+- `sophiagraph.UnlinkedMentionCandidate`
+- `sophiagraph.SavedExplorerView`
+- `sophiagraph.explore_knowledge(...)`
+- `sophiagraph.evaluate_saved_explorer_view(...)`
 - `sophiagraph.shortest_path(...)`
 - `sophiagraph.path_evidence(...)`
 - `sophiagraph.connected_components(...)`
@@ -166,6 +178,8 @@ Public-contract confidence should be enforced by tests that cover:
 18. shared-block attachment/mirror/audit primitives,
 19. optional graph-backend adapter contracts,
 20. structural inspection reports and explicit repair candidates.
+21. graph/search explorer packets with backlinks, facets, paths, navigation
+    actions, and mechanical query-plan evidence.
 
 ## Internal compatibility shims
 
