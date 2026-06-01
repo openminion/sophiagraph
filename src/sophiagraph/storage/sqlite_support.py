@@ -10,7 +10,7 @@ from sophiagraph.models import KnowledgeDocumentBlock, MemoryNamespace, MemoryRe
 from sophiagraph.portability.codec import json_dumps
 from sophiagraph.query import StructuralSearchQuery
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_CONNECT_TIMEOUT_SECONDS = SQLITE_BUSY_TIMEOUT_MS / 1000
 SQLITE_JOURNAL_MODE = "wal"
@@ -550,6 +550,23 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             ON sophiagraph_fact_convergence_links(episode_id);
         CREATE INDEX IF NOT EXISTS idx_sophiagraph_fact_conv_links_namespace
             ON sophiagraph_fact_convergence_links(
+                tenant_id, org_id, user_id, agent_id, session_id,
+                conversation_id, project_id, graph_id
+            );
+
+        CREATE TABLE IF NOT EXISTS sophiagraph_aux_objects (
+            object_kind TEXT NOT NULL,
+            object_id TEXT NOT NULL,
+            tenant_id TEXT, org_id TEXT, user_id TEXT, agent_id TEXT,
+            session_id TEXT, conversation_id TEXT, project_id TEXT, graph_id TEXT,
+            updated_at TEXT,
+            payload_json TEXT NOT NULL,
+            PRIMARY KEY(object_kind, object_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_aux_objects_kind
+            ON sophiagraph_aux_objects(object_kind, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_aux_objects_namespace
+            ON sophiagraph_aux_objects(
                 tenant_id, org_id, user_id, agent_id, session_id,
                 conversation_id, project_id, graph_id
             );

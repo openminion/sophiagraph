@@ -28,6 +28,12 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.temporal`
 - `sophiagraph.contracts`
 - `sophiagraph.deletion`
+- `sophiagraph.sync`
+- `sophiagraph.freshness`
+- `sophiagraph.connectors`
+- `sophiagraph.shared_blocks`
+- `sophiagraph.graph_backends`
+- `sophiagraph.inspection`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -60,6 +66,18 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.GraphPath`
 - `sophiagraph.GraphComponent`
 - `sophiagraph.StructuralSearchQuery`
+- `sophiagraph.KnowledgeExplorerRequest`
+- `sophiagraph.KnowledgeExplorerResult`
+- `sophiagraph.KnowledgeExplorerFilters`
+- `sophiagraph.KnowledgeHit`
+- `sophiagraph.KnowledgeFacet`
+- `sophiagraph.KnowledgeNavigationAction`
+- `sophiagraph.KnowledgeQueryPlan`
+- `sophiagraph.KnowledgeQueryPlanStage`
+- `sophiagraph.UnlinkedMentionCandidate`
+- `sophiagraph.SavedExplorerView`
+- `sophiagraph.explore_knowledge(...)`
+- `sophiagraph.evaluate_saved_explorer_view(...)`
 - `sophiagraph.shortest_path(...)`
 - `sophiagraph.path_evidence(...)`
 - `sophiagraph.connected_components(...)`
@@ -77,6 +95,38 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.ErasureAuditEntry`
 - `sophiagraph.ErasureAuditExport`
 - `sophiagraph.TombstoneResult`
+- `sophiagraph.LocalSyncRequest`
+- `sophiagraph.LocalSyncResult`
+- `sophiagraph.SyncConflictRecord`
+- `sophiagraph.SyncResolution`
+- `sophiagraph.detect_sync_conflict(...)`
+- `sophiagraph.resolve_sync_conflict(...)`
+- `sophiagraph.FreshnessCursor`
+- `sophiagraph.FreshnessLedgerEntry`
+- `sophiagraph.ReplayDecision`
+- `sophiagraph.decide_replay(...)`
+- `sophiagraph.SourceRegistryEntry`
+- `sophiagraph.SourceIngestEnvelope`
+- `sophiagraph.SourceIngestResult`
+- `sophiagraph.decide_source_ingest(...)`
+- `sophiagraph.update_source_after_ingest(...)`
+- `sophiagraph.SharedBlockAttachment`
+- `sophiagraph.SharedBlockMirror`
+- `sophiagraph.SharedBlockEditConflict`
+- `sophiagraph.SharedBlockUsageEvent`
+- `sophiagraph.mark_mirror_stale_if_needed(...)`
+- `sophiagraph.create_shared_block_conflict(...)`
+- `sophiagraph.GraphBackendCapabilities`
+- `sophiagraph.GraphBackendQuery`
+- `sophiagraph.GraphBackendResult`
+- `sophiagraph.GraphExportBatch`
+- `sophiagraph.FakeGraphBackendAdapter`
+- `sophiagraph.build_graph_export_batch(...)`
+- `sophiagraph.InspectionReport`
+- `sophiagraph.InspectionFinding`
+- `sophiagraph.RepairCandidate`
+- `sophiagraph.build_inspection_report(...)`
+- `sophiagraph.apply_repair_candidate(...)`
 - `sophiagraph.adapters.McpMemoryRequest`
 - `sophiagraph.adapters.McpMemoryResponse`
 - `sophiagraph.adapters.SophiaGraphMcpAdapter`
@@ -123,6 +173,13 @@ Public-contract confidence should be enforced by tests that cover:
 13. bitemporal `as_of` / `valid_at` / `believed_at` record queries,
 14. provable deletion tombstone and erasure-audit export behavior,
 15. provider-free MCP adapter CRUD/search smoke behavior.
+16. local-first sync conflict DTOs and explicit resolution helpers,
+17. freshness ledger and connector idempotency contracts,
+18. shared-block attachment/mirror/audit primitives,
+19. optional graph-backend adapter contracts,
+20. structural inspection reports and explicit repair candidates.
+21. graph/search explorer packets with backlinks, facets, paths, navigation
+    actions, and mechanical query-plan evidence.
 
 ## Internal compatibility shims
 

@@ -91,6 +91,16 @@ that is actually true.
   `list_canvas_boards` / `delete_canvas_board` with deterministic
   changefeed emission; explicit caller-supplied relation-type policy
   for the optional canvas-edge → graph-relation mapping
+- local-first sync conflict DTOs, freshness ledger entries, and
+  provider-neutral connector ingestion envelopes for idempotent replay
+- shared memory-block attachment, mirror freshness, edit-conflict, and
+  usage-audit primitives on top of the v1 memory-block store
+- optional graph-backend adapter contracts with explicit export batches,
+  capability discovery, normalized query results, and a provider-free fake
+  adapter for conformance tests
+- structural inspection reports and explicit repair candidates for unresolved
+  links, orphan records, duplicate aliases, stale facts, broken source
+  references, and open conflict queues
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 
@@ -120,6 +130,9 @@ This package does **not** provide:
 - provider/model routing
 - session orchestration
 - automatic link, tag, relation, entity, or summary inference from prose
+- automatic file sync conflict resolution, connector payload interpretation,
+  shared-block reconciliation, Text2Cypher generation, or semantic repair
+  suggestions from prose
 - implicit imports back into any host framework
 - HTTP webhook delivery, scheduled job execution, or hosted admin UI
   (those belong to `sophiagraph-server` or the host runtime)
