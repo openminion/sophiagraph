@@ -98,3 +98,52 @@ def test_fake_backend_reports_unsupported_shortest_path_without_provider_sdk() -
     assert unsupported.unsupported_reason == "shortest_path unsupported by backend"
     assert neighbors.rows[0].node_ids == ["rec-b"]
     assert backend.capabilities().supports("neighbors")
+
+
+def test_fake_backend_negotiates_pattern_query_support() -> None:
+    batch = build_graph_export_batch(
+        batch_id="batch-1",
+        records=[
+            _record("rec-a", "A"),
+            _record("rec-b", "B"),
+            _record("rec-c", "C"),
+        ],
+        relations=[
+            MemoryRelation(
+                relation_id="rel-a-b",
+                source_record_id="rec-a",
+                target_record_id="rec-b",
+                relation_type="supports",
+                created_at="2026-05-31T00:00:00+00:00",
+            ),
+            MemoryRelation(
+                relation_id="rel-b-c",
+                source_record_id="rec-b",
+                target_record_id="rec-c",
+                relation_type="supports",
+                created_at="2026-05-31T00:00:00+00:00",
+            ),
+        ],
+    )
+    unsupported = FakeGraphBackendAdapter()
+    supported = FakeGraphBackendAdapter(support_pattern_query=True)
+    unsupported.upsert_batch(batch)
+    supported.upsert_batch(batch)
+    query = GraphBackendQuery(
+        query_id="q-pattern",
+        kind="pattern",
+        pattern_query={
+            "seed_record_ids": ["rec-a"],
+            "relation_types": ["supports"],
+            "max_hops": 2,
+        },
+    )
+
+    assert unsupported.query(query).unsupported_reason == (
+        "pattern_query unsupported by backend"
+    )
+    assert supported.capabilities().supports("pattern_query")
+    result = supported.query(query)
+    assert result.unsupported_reason is None
+    assert result.rows[0].node_ids == ["rec-a", "rec-b", "rec-c"]
+    assert result.rows[0].edge_ids == ["rel-a-b", "rel-b-c"]

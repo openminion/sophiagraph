@@ -12,7 +12,6 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace, MemoryRecord, SophiaGraphChangeEvent
 from sophiagraph.query.algorithms import (
     GraphPath,
-    GraphDegreeMetric,
     all_simple_paths,
     degree_metrics,
 )
@@ -41,12 +40,18 @@ def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}:{uuid5(NAMESPACE_URL, '|'.join(parts))}"
 
 
+def _namespace_key(namespace: MemoryNamespace) -> str:
+    return "|".join(
+        f"{key}={value}" for key, value in sorted(namespace.as_dict().items())
+    )
+
+
 def _normalize_namespace_parts(
     namespaces: list[MemoryNamespace] | None,
 ) -> tuple[str, ...]:
     if not namespaces:
         return ()
-    return tuple(sorted(namespace.as_qualified_key() for namespace in namespaces))
+    return tuple(sorted(_namespace_key(namespace) for namespace in namespaces))
 
 
 def _community_namespace(
@@ -467,17 +472,20 @@ def detect_communities(
         groups = groups[: options.max_communities]
     communities: list[GraphCommunity] = []
     memberships: list[GraphCommunityMembership] = []
-    degree_map = {
-        metric.record_id: metric
-        for metric in degree_metrics(snapshot, normalized=False)
+    filtered_degrees = {
+        record_id: len(neighbors) for record_id, neighbors in adjacency.items()
     }
     for members in groups:
-        edge_ids = _community_edge_ids(snapshot, set(members))
-        seed_record_id = _community_seed_record_id(members, degree_map)
+        edge_ids = _community_edge_ids(
+            snapshot,
+            set(members),
+            relation_types=options.relation_types,
+        )
+        seed_record_id = _community_seed_record_id(members, filtered_degrees)
         community_id = _stable_id(
             "community",
             options.algorithm,
-            namespace.as_qualified_key(),
+            _namespace_key(namespace),
             *members,
         )
         score = float(len(edge_ids)) / float(max(1, len(members) - 1))
@@ -497,13 +505,18 @@ def detect_communities(
             sorted(
                 members,
                 key=lambda item: (
-                    -(degree_map.get(item).degree_total if degree_map.get(item) else 0),
+                    -filtered_degrees.get(item, 0),
                     item,
                 ),
             ),
             start=1,
         ):
-            evidence_ids = _membership_edge_ids(snapshot, record_id, set(members))
+            evidence_ids = _membership_edge_ids(
+                snapshot,
+                record_id,
+                set(members),
+                relation_types=options.relation_types,
+            )
             memberships.append(
                 GraphCommunityMembership(
                     record_id=record_id,
@@ -942,11 +955,18 @@ def _label_propagation_groups(
     ]
 
 
-def _community_edge_ids(snapshot: GraphSnapshot, member_ids: set[str]) -> list[str]:
+def _community_edge_ids(
+    snapshot: GraphSnapshot,
+    member_ids: set[str],
+    *,
+    relation_types: list[str] | None,
+) -> list[str]:
+    allowed = set(relation_types or [])
     edge_ids = [
         edge.edge_id
         for edge in snapshot.edges
         if edge.target_record_id is not None
+        and (not allowed or edge.relation_type in allowed)
         and edge.source_record_id in member_ids
         and edge.target_record_id in member_ids
     ]
@@ -955,12 +975,12 @@ def _community_edge_ids(snapshot: GraphSnapshot, member_ids: set[str]) -> list[s
 
 def _community_seed_record_id(
     members: list[str],
-    degree_map: Mapping[str, GraphDegreeMetric],
+    degree_map: Mapping[str, int],
 ) -> str:
     return sorted(
         members,
         key=lambda item: (
-            -(degree_map.get(item).degree_total if degree_map.get(item) else 0),
+            -degree_map.get(item, 0),
             item,
         ),
     )[0]
@@ -970,12 +990,16 @@ def _membership_edge_ids(
     snapshot: GraphSnapshot,
     record_id: str,
     member_ids: set[str],
+    *,
+    relation_types: list[str] | None,
 ) -> list[str]:
+    allowed = set(relation_types or [])
     return sorted(
         {
             edge.edge_id
             for edge in snapshot.edges
             if edge.target_record_id is not None
+            and (not allowed or edge.relation_type in allowed)
             and (
                 (
                     edge.source_record_id == record_id

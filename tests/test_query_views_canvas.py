@@ -188,7 +188,7 @@ def test_saved_view_evaluator_supports_or_and_link_predicates() -> None:
     assert [row.record_id for row in result.rows] == ["rec-1"]
 
 
-def test_saved_view_evaluator_rejects_type_errors_and_formulas() -> None:
+def test_saved_view_evaluator_rejects_type_errors_and_unsafe_formulas() -> None:
     record = MemoryRecord(
         id="rec-1",
         scope="agent:agent",
@@ -198,7 +198,14 @@ def test_saved_view_evaluator_rejects_type_errors_and_formulas() -> None:
         created_at="2026-05-23T00:00:00+00:00",
         updated_at="2026-05-23T00:00:00+00:00",
         namespace=_namespace(),
-        meta={"properties": {"status": "active"}},
+        meta={
+            "properties": {
+                "status": "active",
+                "score": 4,
+                "weight": 3,
+                "updated_cutoff": "2026-05-22T00:00:00+00:00",
+            }
+        },
     )
 
     with pytest.raises(InvalidArgumentError, match="in filters require"):
@@ -210,11 +217,46 @@ def test_saved_view_evaluator_rejects_type_errors_and_formulas() -> None:
                 filters=SavedViewFilter("status", "in", "active"),
             ),
         )
-    with pytest.raises(InvalidArgumentError, match="formula"):
+    result = evaluate_saved_view(
+        [record],
+        SavedViewDefinition(
+            view_id="formula",
+            name="Formula",
+            projected_properties=["formula"],
+            formula="score * weight + len(status)",
+        ),
+    )
+    timestamp_result = evaluate_saved_view(
+        [record],
+        SavedViewDefinition(
+            view_id="timestamp-formula",
+            name="Timestamp Formula",
+            projected_properties=["formula"],
+            formula="updated > updated_cutoff",
+        ),
+    )
+
+    assert result.rows[0].properties["formula"] == 18
+    assert timestamp_result.rows[0].properties["formula"] is True
+    for formula in (
+        "__import__('os').system('echo bad')",
+        "status.upper()",
+        "missing + 1",
+    ):
+        with pytest.raises(InvalidArgumentError, match="formula|unknown"):
+            evaluate_saved_view(
+                [record],
+                SavedViewDefinition(
+                    view_id=f"bad-{formula}",
+                    name="Bad",
+                    formula=formula,
+                ),
+            )
+    with pytest.raises(InvalidArgumentError, match="invalid formula syntax"):
         evaluate_saved_view(
             [record],
             SavedViewDefinition(
-                view_id="formula",
+                view_id="bad-syntax",
                 name="Formula",
                 formula="status = active",
             ),

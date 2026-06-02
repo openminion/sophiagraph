@@ -207,6 +207,32 @@ def test_explorer_packet_combines_search_graph_links_paths_and_facets(store) -> 
     assert any(action.action == "inspect_path" for action in result.navigation)
 
 
+def test_explorer_packet_can_include_structural_communities(store) -> None:
+    _seed_graph(store)
+
+    result = explore_knowledge(
+        store,
+        KnowledgeExplorerRequest(
+            scopes=["agent:agent-a"],
+            namespaces=[_namespace()],
+            query="Refresh",
+            root_record_id="auth",
+            include_communities=True,
+            include_query_plan=True,
+            limit=10,
+        ),
+    )
+
+    assert result.communities
+    assert result.source_sets
+    assert result.layout_hints
+    assert any(facet.field == "community" for facet in result.facets)
+    assert any(action.action == "open_community" for action in result.navigation)
+    assert any(action.action == "filter_community" for action in result.navigation)
+    assert result.query_plan is not None
+    assert "communities" in {stage.stage for stage in result.query_plan.stages}
+
+
 def test_explorer_filters_facets_and_namespace_isolation(store) -> None:
     _seed_graph(store)
     other_ns = _namespace("agent-b")
