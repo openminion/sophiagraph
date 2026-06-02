@@ -180,6 +180,14 @@ Installed-console-script smoke:
 sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
 ```
 
+## Package-local docs and release
+
+- `docs/README.md` summarizes the package-local docs contract.
+- `API_COMPATIBILITY.md` records the supported public import roots and
+  top-level export policy.
+- `RELEASING.md` records the package-local release and PyPI publish flow.
+- `scripts/release_check.py` is the canonical release smoke entrypoint.
+
 ## External Consumer Quickstart
 
 Minimal standalone flow for another framework or service:
