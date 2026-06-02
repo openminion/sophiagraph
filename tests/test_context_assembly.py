@@ -166,6 +166,7 @@ def test_context_item_kinds_enum_is_closed() -> None:
         "record",
         "memory_block",
         "fact",
+        "community",
         "raw_episode",
         "graph_path",
         "summary_reference",

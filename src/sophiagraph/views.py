@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Literal
 
 from sophiagraph.contracts.errors import InvalidArgumentError
@@ -263,6 +265,191 @@ def _summary_value(rows: list[SavedViewRow], summary: SavedViewSummary) -> Any:
     raise InvalidArgumentError(f"unsupported summary metric: {summary.metric!r}")
 
 
+_ALLOWED_FUNCTIONS = {"len"}
+
+
+def _normalize_formula_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _normalize_formula_value(item) for key, item in value.items()}
+    if isinstance(value, list | tuple | set):
+        return [_normalize_formula_value(item) for item in value]
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return value
+    return value
+
+
+class _FormulaValidator(ast.NodeVisitor):
+    _ALLOWED_NODES = (
+        ast.Expression,
+        ast.BinOp,
+        ast.UnaryOp,
+        ast.Compare,
+        ast.BoolOp,
+        ast.IfExp,
+        ast.Name,
+        ast.Constant,
+        ast.Subscript,
+        ast.Load,
+        ast.List,
+        ast.Tuple,
+        ast.Dict,
+        ast.keyword,
+        ast.Call,
+        ast.Add,
+        ast.Sub,
+        ast.Mult,
+        ast.Div,
+        ast.FloorDiv,
+        ast.Mod,
+        ast.Pow,
+        ast.USub,
+        ast.UAdd,
+        ast.Not,
+        ast.And,
+        ast.Or,
+        ast.Eq,
+        ast.NotEq,
+        ast.Lt,
+        ast.LtE,
+        ast.Gt,
+        ast.GtE,
+        ast.In,
+        ast.NotIn,
+    )
+
+    def __init__(self, allowed_names: set[str]) -> None:
+        self._allowed_names = allowed_names
+
+    def generic_visit(self, node: ast.AST) -> None:
+        if not isinstance(node, self._ALLOWED_NODES):
+            raise InvalidArgumentError(
+                f"unsupported formula syntax: {node.__class__.__name__}"
+            )
+        super().generic_visit(node)
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if node.id not in self._allowed_names and node.id not in _ALLOWED_FUNCTIONS:
+            raise InvalidArgumentError(f"unknown formula field: {node.id!r}")
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        raise InvalidArgumentError("attribute access is not allowed in formulas")
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if (
+            not isinstance(node.func, ast.Name)
+            or node.func.id not in _ALLOWED_FUNCTIONS
+        ):
+            raise InvalidArgumentError("formula calls must use allowlisted helpers")
+        for keyword in node.keywords:
+            if keyword.arg is None:
+                raise InvalidArgumentError("formula star-args are not allowed")
+        self.generic_visit(node)
+
+
+def _evaluate_formula_expression(
+    formula: str,
+    properties: dict[str, Any],
+) -> Any:
+    try:
+        tree = ast.parse(formula, mode="eval")
+    except SyntaxError as exc:
+        raise InvalidArgumentError("invalid formula syntax") from exc
+    _FormulaValidator(set(properties)).visit(tree)
+    normalized = {
+        key: _normalize_formula_value(value) for key, value in properties.items()
+    }
+
+    def _eval(node: ast.AST) -> Any:
+        if isinstance(node, ast.Expression):
+            return _eval(node.body)
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.Name):
+            return normalized[node.id]
+        if isinstance(node, ast.List):
+            return [_eval(item) for item in node.elts]
+        if isinstance(node, ast.Tuple):
+            return tuple(_eval(item) for item in node.elts)
+        if isinstance(node, ast.Dict):
+            return {
+                _eval(key): _eval(value) for key, value in zip(node.keys, node.values)
+            }
+        if isinstance(node, ast.Subscript):
+            container = _eval(node.value)
+            if isinstance(node.slice, ast.Slice):
+                raise InvalidArgumentError("slice access is not allowed in formulas")
+            return container[_eval(node.slice)]
+        if isinstance(node, ast.UnaryOp):
+            operand = _eval(node.operand)
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.UAdd):
+                return +operand
+            if isinstance(node.op, ast.Not):
+                return not operand
+        if isinstance(node, ast.BinOp):
+            left = _eval(node.left)
+            right = _eval(node.right)
+            if isinstance(node.op, ast.Add):
+                return left + right
+            if isinstance(node.op, ast.Sub):
+                return left - right
+            if isinstance(node.op, ast.Mult):
+                return left * right
+            if isinstance(node.op, ast.Div):
+                return left / right
+            if isinstance(node.op, ast.FloorDiv):
+                return left // right
+            if isinstance(node.op, ast.Mod):
+                return left % right
+            if isinstance(node.op, ast.Pow):
+                return left**right
+        if isinstance(node, ast.BoolOp):
+            values = [_eval(value) for value in node.values]
+            if isinstance(node.op, ast.And):
+                return all(values)
+            if isinstance(node.op, ast.Or):
+                return any(values)
+        if isinstance(node, ast.Compare):
+            left = _eval(node.left)
+            for operator, comparator in zip(node.ops, node.comparators):
+                right = _eval(comparator)
+                matched = {
+                    ast.Eq: left == right,
+                    ast.NotEq: left != right,
+                    ast.Lt: left < right,
+                    ast.LtE: left <= right,
+                    ast.Gt: left > right,
+                    ast.GtE: left >= right,
+                    ast.In: left in right,
+                    ast.NotIn: left not in right,
+                }.get(type(operator))
+                if matched is None:
+                    raise InvalidArgumentError("unsupported comparison operator")
+                if not matched:
+                    return False
+                left = right
+            return True
+        if isinstance(node, ast.IfExp):
+            return _eval(node.body if _eval(node.test) else node.orelse)
+        if isinstance(node, ast.Call):
+            assert isinstance(node.func, ast.Name)
+            args = [_eval(arg) for arg in node.args]
+            if node.func.id == "len":
+                if len(args) != 1:
+                    raise InvalidArgumentError("len() formulas require one argument")
+                return len(args[0])
+        raise InvalidArgumentError("unsupported formula syntax")
+
+    try:
+        return _eval(tree)
+    except (KeyError, TypeError, ValueError, ZeroDivisionError) as exc:
+        raise InvalidArgumentError("formula evaluation failed") from exc
+
+
 def evaluate_saved_view(
     records: list[MemoryRecord],
     definition: SavedViewDefinition,
@@ -270,14 +457,18 @@ def evaluate_saved_view(
     link_context: dict[str, dict[str, list[str]]] | None = None,
 ) -> SavedViewResult:
     """Evaluate a saved view over already-selected records."""
-    if definition.formula:
-        raise InvalidArgumentError("saved view formula syntax is not supported")
     link_context = link_context or {}
     rows: list[SavedViewRow] = []
     for record in records:
         properties = _record_properties(record)
         if not _filter_matches(record.id, properties, definition.filters, link_context):
             continue
+        if definition.formula:
+            properties = dict(properties)
+            properties["formula"] = _evaluate_formula_expression(
+                definition.formula,
+                properties,
+            )
         selected = (
             properties
             if not definition.projected_properties

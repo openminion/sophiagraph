@@ -17,6 +17,16 @@ from sophiagraph.query.algorithms import (
     common_neighbors,
     shortest_path,
 )
+from sophiagraph.query.community import (
+    CommunityDetectionOptions,
+    CommunitySourceSet,
+    GraphCommunity,
+    GraphLayoutHint,
+    detect_communities,
+    layout_hints_for_snapshot,
+    query_communities,
+    CommunityQueryOptions,
+)
 from sophiagraph.query.graph import (
     GraphSnapshot,
     GraphSnapshotOptions,
@@ -31,6 +41,7 @@ FacetField = Literal[
     "tier",
     "source",
     "tag",
+    "community",
     "relation_type",
     "link_kind",
     "orphan",
@@ -43,6 +54,8 @@ NavigationActionKind = Literal[
     "inspect_path",
     "open_common_neighbor",
     "open_orphan",
+    "open_community",
+    "filter_community",
     "apply_repair_candidate",
 ]
 MentionMatchKind = Literal["title", "alias", "path", "heading", "block_id"]
@@ -54,6 +67,7 @@ QueryPlanStageName = Literal[
     "backlinks",
     "outgoing_links",
     "paths",
+    "communities",
     "facets",
     "unlinked_mentions",
 ]
@@ -258,6 +272,7 @@ class KnowledgeExplorerRequest:
     include_unlinked_mentions: bool = False
     include_paths: bool = True
     include_facets: bool = True
+    include_communities: bool = False
     include_query_plan: bool = True
     depth: int = 1
     limit: int = 20
@@ -292,6 +307,9 @@ class KnowledgeExplorerResult:
     unlinked_mentions: list[UnlinkedMentionCandidate] = field(default_factory=list)
     paths: list[GraphPath] = field(default_factory=list)
     common_neighbors: list[GraphCommonNeighbors] = field(default_factory=list)
+    communities: list[GraphCommunity] = field(default_factory=list)
+    source_sets: list[CommunitySourceSet] = field(default_factory=list)
+    layout_hints: list[GraphLayoutHint] = field(default_factory=list)
     facets: list[KnowledgeFacet] = field(default_factory=list)
     navigation: list[KnowledgeNavigationAction] = field(default_factory=list)
     query_plan: KnowledgeQueryPlan | None = None
@@ -437,10 +455,57 @@ def explore_knowledge(
                 common.append(neighbors)
         plan.append(_stage("paths", len(hits), len(paths), started, {}))
 
+    communities: list[GraphCommunity] = []
+    source_sets: list[CommunitySourceSet] = []
+    layout_hints: list[GraphLayoutHint] = []
+    if request.include_communities:
+        started = perf_counter()
+        global_snapshot = store.get_graph_snapshot(
+            GraphSnapshotOptions(
+                scopes=request.scopes,
+                namespaces=request.namespaces,
+                relation_types=request.filters.relation_types,
+                include_orphans=request.filters.include_orphans,
+            )
+        )
+        communities, _memberships = detect_communities(
+            global_snapshot,
+            CommunityDetectionOptions(
+                scopes=request.scopes,
+                namespaces=request.namespaces,
+                relation_types=request.filters.relation_types,
+            ),
+        )
+        source_sets = query_communities(
+            store,
+            CommunityQueryOptions(
+                detection=CommunityDetectionOptions(
+                    scopes=request.scopes,
+                    namespaces=request.namespaces,
+                    relation_types=request.filters.relation_types,
+                ),
+                query=request.query,
+                include_records=False,
+                include_paths=False,
+                limit=request.limit,
+            ),
+        ).source_sets
+        layout_hints = layout_hints_for_snapshot(global_snapshot, communities)
+        plan.append(
+            _stage(
+                "communities", len(global_snapshot.nodes), len(communities), started, {}
+            )
+        )
+
     facets: list[KnowledgeFacet] = []
     if request.include_facets:
         started = perf_counter()
-        facets = _facets(filtered, graph, backlinks + outgoing_links)
+        facets = _facets(
+            filtered,
+            graph,
+            backlinks + outgoing_links,
+            communities=communities,
+        )
         plan.append(_stage("facets", len(filtered), len(facets), started, {}))
 
     mentions: list[UnlinkedMentionCandidate] = []
@@ -469,6 +534,7 @@ def explore_knowledge(
         paths=paths,
         common=common,
         graph=graph,
+        communities=communities,
         mentions=mentions,
     )
     warnings = [graph_warning] if graph_warning else []
@@ -480,6 +546,9 @@ def explore_knowledge(
         unlinked_mentions=mentions,
         paths=paths,
         common_neighbors=common,
+        communities=communities,
+        source_sets=source_sets,
+        layout_hints=layout_hints,
         facets=facets,
         navigation=navigation,
         query_plan=KnowledgeQueryPlan(plan) if request.include_query_plan else None,
@@ -672,6 +741,8 @@ def _facets(
     records: list[MemoryRecord],
     graph: GraphSnapshot | None,
     links: list[StructuralLink],
+    *,
+    communities: list[GraphCommunity],
 ) -> list[KnowledgeFacet]:
     counters: dict[FacetField, Counter[str]] = {
         "scope": Counter(),
@@ -679,6 +750,7 @@ def _facets(
         "tier": Counter(),
         "source": Counter(),
         "tag": Counter(),
+        "community": Counter(),
         "orphan": Counter(),
         "relation_type": Counter(),
         "link_kind": Counter(),
@@ -693,6 +765,8 @@ def _facets(
     if graph is not None:
         for node in graph.nodes:
             counters["orphan"][str(bool(node.orphan)).lower()] += 1
+    for community in communities:
+        counters["community"][community.community_id] += len(community.record_ids)
     for link in links:
         counters["link_kind"][link.link_kind] += 1
         if link.relation_type:
@@ -801,6 +875,7 @@ def _navigation(
     paths: list[GraphPath],
     common: list[GraphCommonNeighbors],
     graph: GraphSnapshot | None,
+    communities: list[GraphCommunity],
     mentions: list[UnlinkedMentionCandidate],
 ) -> list[KnowledgeNavigationAction]:
     actions: list[KnowledgeNavigationAction] = []
@@ -866,6 +941,21 @@ def _navigation(
                         label=node.title or node.record_id,
                     )
                 )
+    for community in communities:
+        actions.append(
+            KnowledgeNavigationAction(
+                action="open_community",
+                record_id=community.seed_record_id or community.record_ids[0],
+                label=f"Open community ({len(community.record_ids)})",
+            )
+        )
+        actions.append(
+            KnowledgeNavigationAction(
+                action="filter_community",
+                record_id=community.seed_record_id or community.record_ids[0],
+                label=f"Filter community ({len(community.record_ids)})",
+            )
+        )
     for mention in mentions:
         actions.append(
             KnowledgeNavigationAction(
@@ -919,6 +1009,8 @@ __all__ = [
     "KnowledgeExplorerStore",
     "KnowledgeFacet",
     "KnowledgeHit",
+    "GraphCommunity",
+    "GraphLayoutHint",
     "KnowledgeNavigationAction",
     "KnowledgeQueryPlan",
     "KnowledgeQueryPlanStage",
