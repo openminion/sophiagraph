@@ -20,8 +20,9 @@ GraphBackendFeature = Literal[
     "neighbors",
     "shortest_path",
     "property_filter",
+    "pattern_query",
 ]
-GraphBackendQueryKind = Literal["neighbors", "shortest_path", "schema"]
+GraphBackendQueryKind = Literal["neighbors", "shortest_path", "schema", "pattern"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +42,7 @@ class GraphBackendCapabilities:
                 "neighbors",
                 "shortest_path",
                 "property_filter",
+                "pattern_query",
             }:
                 raise InvalidArgumentError(f"invalid backend feature: {feature!r}")
         if self.max_batch_size is not None and self.max_batch_size <= 0:
@@ -107,16 +109,19 @@ class GraphBackendQuery:
     target_node_id: str | None = None
     relation_types: list[str] | None = None
     limit: int | None = None
+    pattern_query: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if not self.query_id:
             raise InvalidArgumentError("query_id is required")
-        if self.kind not in {"neighbors", "shortest_path", "schema"}:
+        if self.kind not in {"neighbors", "shortest_path", "schema", "pattern"}:
             raise InvalidArgumentError(f"invalid query kind: {self.kind!r}")
         if self.kind in {"neighbors", "shortest_path"} and not self.start_node_id:
             raise InvalidArgumentError("graph query requires start_node_id")
         if self.kind == "shortest_path" and not self.target_node_id:
             raise InvalidArgumentError("shortest_path query requires target_node_id")
+        if self.kind == "pattern" and not self.pattern_query:
+            raise InvalidArgumentError("pattern queries require pattern_query payload")
         if self.limit is not None and self.limit <= 0:
             raise InvalidArgumentError("limit must be positive")
 
@@ -213,7 +218,12 @@ def build_graph_export_batch(
 
 
 class FakeGraphBackendAdapter:
-    def __init__(self, *, support_shortest_path: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        support_shortest_path: bool = False,
+        support_pattern_query: bool = False,
+    ) -> None:
         features: list[GraphBackendFeature] = [
             "schema_export",
             "batch_upsert",
@@ -222,6 +232,8 @@ class FakeGraphBackendAdapter:
         ]
         if support_shortest_path:
             features.append("shortest_path")
+        if support_pattern_query:
+            features.append("pattern_query")
         self._capabilities = GraphBackendCapabilities(
             backend_name="fake",
             supported_features=features,
@@ -243,6 +255,12 @@ class FakeGraphBackendAdapter:
                 backend_name=self._capabilities.backend_name,
                 unsupported_reason="shortest_path unsupported by backend",
             )
+        if query.kind == "pattern" and not self._capabilities.supports("pattern_query"):
+            return GraphBackendResult(
+                query_id=query.query_id,
+                backend_name=self._capabilities.backend_name,
+                unsupported_reason="pattern_query unsupported by backend",
+            )
         if self._batch is None:
             return GraphBackendResult(
                 query_id=query.query_id,
@@ -260,6 +278,52 @@ class FakeGraphBackendAdapter:
                         }
                     )
                 ],
+            )
+        if query.kind == "pattern":
+            payload = query.pattern_query or {}
+            seeds = [str(item) for item in payload.get("seed_record_ids", [])]
+            relation_types = {
+                str(item) for item in payload.get("relation_types", []) if str(item)
+            }
+            max_hops = int(payload.get("max_hops", 1))
+            edges = list(self._batch.edges)
+            rows: list[GraphBackendResultRow] = []
+            for seed in seeds:
+                current = seed
+                current_edge_ids: list[str] = []
+                current_node_ids = [seed]
+                hops = 0
+                while hops < max_hops:
+                    next_edge = next(
+                        (
+                            edge
+                            for edge in edges
+                            if edge.source_node_id == current
+                            and (
+                                not relation_types
+                                or edge.relation_type in relation_types
+                            )
+                        ),
+                        None,
+                    )
+                    if next_edge is None:
+                        break
+                    current_edge_ids.append(next_edge.edge_id)
+                    current_node_ids.append(next_edge.target_node_id)
+                    current = next_edge.target_node_id
+                    hops += 1
+                if len(current_node_ids) > 1:
+                    rows.append(
+                        GraphBackendResultRow(
+                            node_ids=current_node_ids,
+                            edge_ids=current_edge_ids,
+                            properties={"query_kind": "pattern"},
+                        )
+                    )
+            return GraphBackendResult(
+                query_id=query.query_id,
+                backend_name=self._capabilities.backend_name,
+                rows=rows,
             )
         neighbors = [
             edge

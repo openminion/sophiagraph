@@ -7,6 +7,7 @@ from typing import Any, Callable, Final, Literal, Mapping, Sequence
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
+from sophiagraph.query.community import CommunityQueryResult
 
 
 RetrievalMode = Literal[
@@ -35,6 +36,7 @@ ContextItemKind = Literal[
     "record",
     "memory_block",
     "fact",
+    "community",
     "raw_episode",
     "graph_path",
     "summary_reference",
@@ -47,6 +49,7 @@ CONTEXT_ITEM_KINDS: Final[frozenset[str]] = frozenset(
         "record",
         "memory_block",
         "fact",
+        "community",
         "raw_episode",
         "graph_path",
         "summary_reference",
@@ -319,6 +322,10 @@ SummaryReferenceProvider = Callable[[Sequence[str]], Sequence[Mapping[str, Any]]
 """Caller-supplied global summary reference fetcher."""
 
 
+CommunityQueryProvider = Callable[[ContextRequest], CommunityQueryResult]
+"""Caller-supplied structural community/global packet fetcher."""
+
+
 def _record_to_item(
     record,
     *,
@@ -385,6 +392,96 @@ def _apply_budget(
         for item in overflow
     ]
     return kept, omitted
+
+
+def _community_item_payloads(
+    result: CommunityQueryResult,
+) -> tuple[list[ContextItem], list[OmittedDiagnostic]]:
+    items: list[ContextItem] = []
+    for community in result.communities:
+        items.append(
+            ContextItem(
+                item_id=community.community_id,
+                kind="community",
+                payload={
+                    "community_id": community.community_id,
+                    "record_ids": list(community.record_ids),
+                    "edge_ids": list(community.edge_ids),
+                    "seed_record_id": community.seed_record_id,
+                    "algorithm": community.algorithm,
+                    "score": community.score,
+                    "summary_reference_ids": list(result.summary_reference_ids),
+                },
+                scores=[
+                    ItemScore(
+                        source="community_query",
+                        value=max(community.score, 1.0),
+                        detail={"size": len(community.record_ids)},
+                    )
+                ],
+                provenance={
+                    "community_id": community.community_id,
+                    "namespace": community.namespace.as_dict(),
+                    "source_set_ids": [
+                        source_set.source_set_id
+                        for source_set in result.source_sets
+                        if source_set.community_id == community.community_id
+                    ],
+                    "summary_reference_ids": list(result.summary_reference_ids),
+                },
+                via_paths=[
+                    GraphPathEvidence(
+                        nodes=list(path.record_ids),
+                        edges=list(path.edge_ids),
+                        relation_types=[
+                            str(relation_type)
+                            for relation_type in path.relation_types
+                            if relation_type is not None
+                        ],
+                    )
+                    for path in result.paths
+                    if community.seed_record_id in path.record_ids
+                ],
+            )
+        )
+    omitted = [
+        OmittedDiagnostic(
+            item_id=f"community:{diagnostic.reason}",
+            kind="community",
+            reason="adapter_omitted",
+            detail={
+                "community_reason": diagnostic.reason,
+                "count": diagnostic.count,
+                "details": dict(diagnostic.details),
+            },
+        )
+        for diagnostic in result.omitted
+    ]
+    return items, omitted
+
+
+def _merge_community_evidence(
+    package: ContextPackage,
+    result: CommunityQueryResult | None,
+    *,
+    max_items: int,
+) -> ContextPackage:
+    if result is None:
+        return package
+    community_items, community_omitted = _community_item_payloads(result)
+    merged_items = list(package.items) + community_items
+    bounded_items, budget_omitted = _apply_budget(merged_items, max_items=max_items)
+    request_provenance = dict(package.request_provenance)
+    request_provenance["community_query_attached"] = True
+    request_provenance["community_count"] = len(result.communities)
+    return ContextPackage(
+        mode=package.mode,
+        items=bounded_items,
+        omitted=list(package.omitted) + community_omitted + budget_omitted,
+        namespaces_applied=package.namespaces_applied,
+        request_provenance=request_provenance,
+        drift_steps_recorded=list(package.drift_steps_recorded),
+    )
 
 
 def _assemble_local_graph(store, request: ContextRequest) -> ContextPackage:
@@ -839,35 +936,48 @@ def assemble_context(
     vector_score_lookup: VectorScoreLookup | None = None,
     fact_lookup: FactLookup | None = None,
     summary_provider: SummaryReferenceProvider | None = None,
+    community_query_provider: CommunityQueryProvider | None = None,
 ) -> ContextPackage:
     """Build the public context package for ``request``."""
 
+    package: ContextPackage
     if request.mode == "local_graph":
-        return _assemble_local_graph(store, request)
-    if request.mode == "structural_search":
-        return _assemble_structural_search(store, request)
-    if request.mode == "temporal_fact":
-        return _assemble_temporal_fact(store, request)
-    if request.mode == "hybrid":
-        return _assemble_hybrid(
+        package = _assemble_local_graph(store, request)
+    elif request.mode == "structural_search":
+        package = _assemble_structural_search(store, request)
+    elif request.mode == "temporal_fact":
+        package = _assemble_temporal_fact(store, request)
+    elif request.mode == "hybrid":
+        package = _assemble_hybrid(
             store,
             request,
             vector_score_lookup=vector_score_lookup,
             fact_lookup=fact_lookup,
         )
-    if request.mode == "global":
-        return _assemble_global(
+    elif request.mode == "global":
+        package = _assemble_global(
             store,
             request,
             summary_provider=summary_provider,
         )
-    if request.mode == "drift":
-        return _assemble_drift(
+    elif request.mode == "drift":
+        package = _assemble_drift(
             store,
             request,
             summary_provider=summary_provider,
         )
-    raise InvalidArgumentError(f"mode {request.mode!r} not handled by assembler")
+    else:
+        raise InvalidArgumentError(f"mode {request.mode!r} not handled by assembler")
+    community_result = (
+        community_query_provider(request)
+        if community_query_provider is not None
+        else None
+    )
+    return _merge_community_evidence(
+        package,
+        community_result,
+        max_items=request.budget.max_items,
+    )
 
 
 __all__ = [
@@ -876,6 +986,7 @@ __all__ = [
     "ContextItem",
     "ContextItemKind",
     "ContextPackage",
+    "CommunityQueryProvider",
     "ContextRequest",
     "DriftMode",
     "DriftStepInput",
