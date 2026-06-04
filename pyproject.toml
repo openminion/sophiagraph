@@ -29,6 +29,9 @@ Repository = "https://github.com/openminion/sophiagraph"
 Download = "https://pypi.org/project/sophiagraph/"
 
 [project.optional-dependencies]
+kuzu = [
+  "kuzu>=0.11,<1",
+]
 dev = [
   "build>=1,<2",
   "pytest>=8,<9",

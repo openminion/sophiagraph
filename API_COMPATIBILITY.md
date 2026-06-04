@@ -121,6 +121,7 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.GraphBackendResult`
 - `sophiagraph.GraphExportBatch`
 - `sophiagraph.FakeGraphBackendAdapter`
+- `sophiagraph.KuzuGraphBackendAdapter`
 - `sophiagraph.build_graph_export_batch(...)`
 - `sophiagraph.InspectionReport`
 - `sophiagraph.InspectionFinding`

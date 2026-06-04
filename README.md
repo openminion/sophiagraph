@@ -96,8 +96,9 @@ that is actually true.
 - shared memory-block attachment, mirror freshness, edit-conflict, and
   usage-audit primitives on top of the v1 memory-block store
 - optional graph-backend adapter contracts with explicit export batches,
-  capability discovery, normalized query results, and a provider-free fake
-  adapter for conformance tests
+  capability discovery, normalized query results, a provider-free fake
+  adapter for conformance tests, and an optional `KuzuGraphBackendAdapter`
+  for local graph-backed query execution
 - structural inspection reports and explicit repair candidates for unresolved
   links, orphan records, duplicate aliases, stale facts, broken source
   references, and open conflict queues
@@ -151,6 +152,12 @@ Editable install during local development:
 python3.11 -m pip install -e .
 ```
 
+Optional Kuzu backend support:
+
+```bash
+python3.11 -m pip install -e '.[kuzu]'
+```
+
 Wheel build:
 
 ```bash
@@ -179,6 +186,54 @@ Installed-console-script smoke:
 ```bash
 sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
 ```
+
+## Optional Graph Backend
+
+Use SQLite or the in-memory store as the canonical SophiaGraph record store.
+Reach for the optional Kuzu backend when you want the provider-neutral export
+batch plus a local graph adapter that can answer normalized `neighbors`,
+`shortest_path`, `property_filter`, and `schema` queries.
+
+```python
+from sophiagraph import (
+    GraphBackendQuery,
+    KuzuGraphBackendAdapter,
+    MemoryNamespace,
+    MemoryRecord,
+    build_graph_export_batch,
+)
+
+namespace = MemoryNamespace(agent_id="demo", graph_id="main")
+records = [
+    MemoryRecord(
+        id="rec-a",
+        scope="agent:demo",
+        type="fact",
+        key="a",
+        title="A",
+        content={"text": "A"},
+        created_at="2026-06-03T00:00:00+00:00",
+        updated_at="2026-06-03T00:00:00+00:00",
+        namespace=namespace,
+        meta={"properties": {"kind": "test"}},
+    ),
+]
+batch = build_graph_export_batch(batch_id="demo", records=records)
+backend = KuzuGraphBackendAdapter("/tmp/sophiagraph-demo.kuzu")
+backend.upsert_batch(batch)
+result = backend.query(
+    GraphBackendQuery(
+        query_id="q-schema",
+        kind="schema",
+    )
+)
+```
+
+The Kuzu adapter is still structural-only:
+
+- callers pass typed backend DTOs, never freeform Cypher,
+- labels, relation types, namespaces, and properties stay caller-supplied,
+- unsupported features return typed `unsupported_reason` values.
 
 ## Package-local docs and release
 

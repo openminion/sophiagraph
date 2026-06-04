@@ -78,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
                     "-c",
                     (
                         "from sophiagraph import VaultFilePayload, all_simple_paths, "
-                        "EmbeddingListOptions, MemoryEmbedding, "
+                        "EmbeddingListOptions, KuzuGraphBackendAdapter, MemoryEmbedding, "
                         "import_vault_files, retrieval_path_evidence"
                     ),
                 ],

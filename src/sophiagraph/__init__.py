@@ -29,6 +29,7 @@ from sophiagraph.graph_backends import (
     GraphBackendQuery,
     GraphBackendResult,
     GraphExportBatch,
+    KuzuGraphBackendAdapter,
     build_graph_export_batch,
 )
 from sophiagraph.inspection import (
@@ -243,6 +244,7 @@ __all__ = [
     "KnowledgeQueryPlanStage",
     "InspectionFinding",
     "InspectionReport",
+    "KuzuGraphBackendAdapter",
     "LifecycleDecision",
     "LifecyclePhase",
     "LifecyclePolicy",
