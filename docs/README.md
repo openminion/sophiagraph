@@ -17,8 +17,10 @@ Package-local code/docs boundaries:
 1. `README.md` is the public package contract and install surface.
 2. `API_COMPATIBILITY.md` records the supported public import roots and
    top-level export policy.
-3. `RELEASING.md` records the package-local release and PyPI publish flow.
-4. `scripts/release_check.py` is the canonical package release smoke entrypoint.
+3. `src/sophiagraph/README.md` explains the source-tree owner map and
+   public-vs-repo-local boundary.
+4. `RELEASING.md` records the package-local release and PyPI publish flow.
+5. `scripts/release_check.py` is the canonical package release smoke entrypoint.
 
 Repository-local but not package API:
 

@@ -209,6 +209,8 @@ sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
   backend-conformance harness.
 - `docs/reference/ui-contracts.md` records the package-owned UI boundary
   contract.
+- `src/sophiagraph/README.md` explains the source-tree module layout and
+  public-vs-repo-local boundary.
 - `API_COMPATIBILITY.md` records the supported public import roots and
   top-level export policy.
 - `RELEASING.md` records the package-local release and PyPI publish flow.

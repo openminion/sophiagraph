@@ -20,6 +20,21 @@ def _run(cmd: list[str], *, cwd: Path, extra_env: dict[str, str] | None = None) 
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
 
 
+def _assert_package_docs_shape(root: Path) -> None:
+    required_paths = [
+        root / "docs" / "README.md",
+        root / "docs" / "reference" / "certification-readiness-matrix.md",
+        root / "docs" / "reference" / "vector-conformance.md",
+        root / "docs" / "reference" / "ui-contracts.md",
+        root / "src" / "sophiagraph" / "README.md",
+    ]
+    missing = [
+        str(path.relative_to(root)) for path in required_paths if not path.exists()
+    ]
+    if missing:
+        raise RuntimeError(f"package docs/layout drifted: missing {missing!r}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run sophiagraph release checks")
     parser.add_argument(
@@ -31,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root = Path(__file__).resolve().parents[1]
+    _assert_package_docs_shape(root)
     shutil.rmtree(root / "build", ignore_errors=True)
     shutil.rmtree(root / "dist", ignore_errors=True)
     for egg_info in root.glob("src/*.egg-info"):
@@ -79,7 +95,8 @@ def main(argv: list[str] | None = None) -> int:
                     (
                         "from sophiagraph import VaultFilePayload, all_simple_paths, "
                         "EmbeddingListOptions, KuzuGraphBackendAdapter, MemoryEmbedding, "
-                        "import_vault_files, retrieval_path_evidence"
+                        "import_vault_files, retrieval_path_evidence; "
+                        "from sophiagraph.ui import build_ui_screen_manifest"
                     ),
                 ],
                 cwd=root,
