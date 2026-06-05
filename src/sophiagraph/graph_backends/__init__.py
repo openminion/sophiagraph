@@ -15,6 +15,7 @@ from .base import (
 )
 from .fake import FakeGraphBackendAdapter
 from .kuzu import KuzuGraphBackendAdapter
+from .neo4j import Neo4jGraphBackendAdapter
 
 __all__ = [
     "FakeGraphBackendAdapter",
@@ -29,5 +30,6 @@ __all__ = [
     "GraphExportEdge",
     "GraphExportNode",
     "KuzuGraphBackendAdapter",
+    "Neo4jGraphBackendAdapter",
     "build_graph_export_batch",
 ]

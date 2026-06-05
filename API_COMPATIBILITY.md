@@ -34,6 +34,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.shared_blocks`
 - `sophiagraph.graph_backends`
 - `sophiagraph.inspection`
+- `sophiagraph.ui`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -122,7 +123,21 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.GraphExportBatch`
 - `sophiagraph.FakeGraphBackendAdapter`
 - `sophiagraph.KuzuGraphBackendAdapter`
+- `sophiagraph.Neo4jGraphBackendAdapter`
 - `sophiagraph.build_graph_export_batch(...)`
+- `sophiagraph.StructuralGraphQueryRequest`
+- `sophiagraph.StructuralGraphQueryResult`
+- `sophiagraph.StructuralGraphPlannerStage`
+- `sophiagraph.execute_structural_graph_query(...)`
+- `sophiagraph.structural_graph_query_to_backend_query(...)`
+- `sophiagraph.structural_result_to_knowledge_plan(...)`
+- `sophiagraph.SyncRunRequest`
+- `sophiagraph.ConnectorReplayRequest`
+- `sophiagraph.FreshnessReindexRequest`
+- `sophiagraph.RepairFollowUpRequest`
+- `sophiagraph.OperationalFollowUpAction`
+- `sophiagraph.OperationalRunReport`
+- `sophiagraph.execute_operational_run(...)`
 - `sophiagraph.InspectionReport`
 - `sophiagraph.InspectionFinding`
 - `sophiagraph.RepairCandidate`
@@ -177,10 +192,13 @@ Public-contract confidence should be enforced by tests that cover:
 16. local-first sync conflict DTOs and explicit resolution helpers,
 17. freshness ledger and connector idempotency contracts,
 18. shared-block attachment/mirror/audit primitives,
+19. structural graph query planner evidence and backend-envelope mapping,
+20. operational sync/replay/reindex/repair run envelopes over public imports.
 19. optional graph-backend adapter contracts,
 20. structural inspection reports and explicit repair candidates.
 21. graph/search explorer packets with backlinks, facets, paths, navigation
     actions, and mechanical query-plan evidence.
+22. optional concrete graph backend adapters for Kuzu and Neo4j.
 
 ## Internal compatibility shims
 

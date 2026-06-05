@@ -92,9 +92,6 @@ def store(request, tmp_path: Path):
     return SophiaGraphSqliteStore(tmp_path / "sg.sqlite3")
 
 
-# SMBL-02 — persistence + portability + namespace isolation
-
-
 def test_put_get_round_trip(store) -> None:
     block = _identity_block()
     block_id = store.put_memory_block(block)
@@ -229,9 +226,6 @@ def test_changefeed_emits_memory_block_events(store) -> None:
         "agent_identity",
         "active_mission",
     }
-
-
-# SMBL-03 — edit semantics + denial via typed error
 
 
 def test_read_only_update_denied_with_typed_error(store) -> None:
