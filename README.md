@@ -71,7 +71,7 @@ that is actually true.
 - a package-local in-memory backend for tests and ephemeral consumers
 - a standalone smoke entrypoint for publish/install validation
 - a typed vector-similarity metric registry (`cosine`, `L2`, `dot`) and a
-  backend-agnostic conformance harness (see [docs/vector-conformance.md](docs/vector-conformance.md))
+  backend-agnostic conformance harness (see [docs/reference/vector-conformance.md](docs/reference/vector-conformance.md))
 - typed governance + observability event DTOs (write attempt/accepted,
   retrieval, export, policy denial, lifecycle action, webhook delivery
   attempt, retrieval explanation, quality eval signal) and deterministic
@@ -199,6 +199,20 @@ Installed-console-script smoke:
 ```bash
 sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
 ```
+
+## Package-local docs and release
+
+- `docs/README.md` summarizes the package-local docs contract.
+- `docs/reference/certification-readiness-matrix.md` records standalone and
+  OpenMinion proof coverage for the public package surface.
+- `docs/reference/vector-conformance.md` records the vector registry and
+  backend-conformance harness.
+- `docs/reference/ui-contracts.md` records the package-owned UI boundary
+  contract.
+- `API_COMPATIBILITY.md` records the supported public import roots and
+  top-level export policy.
+- `RELEASING.md` records the package-local release and PyPI publish flow.
+- `scripts/release_check.py` is the canonical release smoke entrypoint.
 
 ## Optional Graph Backend
 

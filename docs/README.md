@@ -3,12 +3,14 @@
 This package-local docs directory is reserved for standalone `sophiagraph`
 documentation and public release references.
 
-Package-local reusable docs:
+Package-local reference docs:
 
-- `docs/certification-readiness-matrix.md` records the current standalone and
-  integration proof targets for the public package surface.
-- `docs/vector-conformance.md` records the package-owned vector metric and
-  conformance harness expectations.
+- `docs/reference/certification-readiness-matrix.md` records the current
+  standalone and integration proof targets for the public package surface.
+- `docs/reference/vector-conformance.md` records the package-owned vector
+  metric and conformance harness expectations.
+- `docs/reference/ui-contracts.md` records the package-owned `sophiagraph.ui`
+  boundary for future visual/runtime surfaces.
 
 Package-local code/docs boundaries:
 
@@ -18,7 +20,7 @@ Package-local code/docs boundaries:
 3. `RELEASING.md` records the package-local release and PyPI publish flow.
 4. `scripts/release_check.py` is the canonical package release smoke entrypoint.
 
-Repository-local but not wheel-shipped:
+Repository-local but not package API:
 
 1. Host-framework orchestration, admin UI, schedulers, and webhook delivery are
    owned outside the standalone package.
