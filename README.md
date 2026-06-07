@@ -72,6 +72,9 @@ that is actually true.
 - a standalone smoke entrypoint for publish/install validation
 - a typed vector-similarity metric registry (`cosine`, `L2`, `dot`) and a
   backend-agnostic conformance harness (see [docs/reference/vector-conformance.md](docs/reference/vector-conformance.md))
+- typed embedding lifecycle helpers for active-model registries,
+  stale-embedding detection, resumable re-embed plans, and orphan
+  `external_vector_id` enumeration without provider SDK imports in core
 - typed governance + observability event DTOs (write attempt/accepted,
   retrieval, export, policy denial, lifecycle action, webhook delivery
   attempt, retrieval explanation, quality eval signal) and deterministic
@@ -143,6 +146,8 @@ This package does **not** provide:
 - semantic policy decisions inferred from freeform model output (policy
   hooks must return typed `PolicyDecision` instances with closed-enum
   reason codes)
+- direct embedding-provider calls, automatic re-embedding, or model-selection
+  recommendations (hosts own provider execution and scheduling)
 
 The current visual explorer contract lives in `sophiagraph.ui`. Browser-facing
 runtime transport is still expected to route through `sophiagraph-server` over
@@ -170,6 +175,10 @@ Optional Neo4j backend support:
 ```bash
 python3.11 -m pip install -e '.[neo4j]'
 ```
+
+Embedding lifecycle helpers are package-local and require no extra dependency.
+Hosts provide the provider callback and vector-store operations; SophiaGraph
+only emits typed findings, plans, registries, and orphan IDs.
 
 Wheel build:
 
