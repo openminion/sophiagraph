@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from sophiagraph.models import MemoryBlock, MemoryCandidate, MemoryNamespace
+from sophiagraph.models import (
+    ActiveEmbeddingModelSet,
+    MemoryBlock,
+    MemoryCandidate,
+    MemoryNamespace,
+)
 from sophiagraph.portability.codec import (
     build_manifest,
     candidate_from_dict,
@@ -34,6 +39,7 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
     _links: dict[str, Any]
     _blocks: dict[str, Any]
     _memory_blocks: dict[str, MemoryBlock]
+    _active_model_sets: dict[tuple[str, str], ActiveEmbeddingModelSet]
     _candidates: dict[str, Any]
     _transitions: dict[str, Any]
 
@@ -81,6 +87,12 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
                 namespaces=options.namespaces,
                 limit=options.limit,
             )
+        active_embedding_model_sets: list[ActiveEmbeddingModelSet] = []
+        if options.include_embedding_lifecycle:
+            active_embedding_model_sets = self.list_active_model_sets(
+                namespaces=options.namespaces,
+                limit=options.limit,
+            )
         snapshot = MemoryBundleSnapshot(
             manifest={},
             records=records,
@@ -90,6 +102,7 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
             provenance_traces=[],
             memory_blocks=memory_blocks,
             ontologies=ontologies,
+            active_embedding_model_sets=active_embedding_model_sets,
         )
         return replace(snapshot, manifest=build_manifest(snapshot=snapshot))
 
@@ -137,6 +150,9 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
             elif event.object_type == "memory_block":
                 memory_block = memory_block_from_dict(event.payload)
                 self._memory_blocks[memory_block.block_id] = memory_block
+            elif event.object_type == "active_embedding_model_set":
+                model_set = ActiveEmbeddingModelSet.from_dict(event.payload)
+                self._active_model_sets[model_set.key] = model_set
             elif event.object_type == "entity":
                 from sophiagraph.storage.graph_helpers import entity_from_dict
 

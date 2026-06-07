@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from sophiagraph.contracts.provenance import TurnProvenanceTrace
 from sophiagraph.models import (
+    ActiveEmbeddingModelSet,
     MemoryBlock,
     MemoryNamespace,
     MemoryCandidate,
@@ -32,6 +33,8 @@ class MemoryBundleExportOptions:
     include_memory_blocks: bool = False
     # Opt in when ontology definitions are part of the migration set.
     include_ontologies: bool = False
+    # Opt in when embedding lifecycle registry rows are part of the migration set.
+    include_embedding_lifecycle: bool = False
     namespaces: list[MemoryNamespace] | None = None
 
 
@@ -58,6 +61,10 @@ class MemoryBundleSnapshot:
     memory_blocks: list[MemoryBlock] = field(default_factory=list)
     # Ontologies travel as an optional bundle section.
     ontologies: list[OntologyDefinition] = field(default_factory=list)
+    # Active embedding registries travel as an optional bundle section.
+    active_embedding_model_sets: list[ActiveEmbeddingModelSet] = field(
+        default_factory=list
+    )
 
 
 @dataclass(frozen=True)
@@ -74,6 +81,7 @@ class MemoryBundleImportResult:
     imported_provenance_traces: int = 0
     imported_memory_blocks: int = 0
     imported_ontologies: int = 0
+    imported_active_embedding_model_sets: int = 0
     skipped_records: int = 0
     skipped_sections: list[str] = field(default_factory=list)
     conflicts: list[dict[str, Any]] = field(default_factory=list)

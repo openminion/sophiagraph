@@ -13,6 +13,7 @@ from typing import Any
 from sophiagraph.contracts.provenance import TurnProvenanceTrace
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.models import (
+    ActiveEmbeddingModelSet,
     ArtifactRef,
     CandidateReview,
     MemoryBlock,
@@ -310,6 +311,7 @@ def build_manifest(
         "provenance_traces": len(snapshot.provenance_traces),
         "memory_blocks": len(snapshot.memory_blocks),
         "ontologies": len(snapshot.ontologies),
+        "active_embedding_model_sets": len(snapshot.active_embedding_model_sets),
     }
     manifest["sections"] = {
         "records": True,
@@ -319,6 +321,7 @@ def build_manifest(
         "provenance_traces": bool(snapshot.provenance_traces),
         "memory_blocks": bool(snapshot.memory_blocks),
         "ontologies": bool(snapshot.ontologies),
+        "active_embedding_model_sets": bool(snapshot.active_embedding_model_sets),
     }
     manifest["artifacts_included"] = False
     manifest.setdefault("files", {})
@@ -394,6 +397,28 @@ def _hydrate_ontologies(data: bytes):
     return result
 
 
+def _serialize_active_embedding_model_sets(
+    model_sets: list[ActiveEmbeddingModelSet],
+) -> bytes:
+    payload = "\n".join(json_dumps(model_set.to_dict()) for model_set in model_sets)
+    if payload:
+        payload += "\n"
+    return payload.encode("utf-8")
+
+
+def _hydrate_active_embedding_model_sets(data: bytes) -> list[ActiveEmbeddingModelSet]:
+    lines = [line.strip() for line in data.decode("utf-8").splitlines() if line.strip()]
+    result: list[ActiveEmbeddingModelSet] = []
+    for line in lines:
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise InvalidArgumentError(
+                "bundle active_embedding_model_set row must decode to an object"
+            )
+        result.append(ActiveEmbeddingModelSet.from_dict(payload))
+    return result
+
+
 def _serialize_provenance_traces(traces: list[TurnProvenanceTrace]) -> bytes:
     """Serialize provenance traces as JSONL via the contract `to_dict()` helper."""
 
@@ -436,6 +461,10 @@ def write_bundle_snapshot(snapshot: MemoryBundleSnapshot, out_path: str | Path) 
         files["memory_blocks.jsonl"] = _serialize_memory_blocks(snapshot.memory_blocks)
     if snapshot.ontologies:
         files["ontologies.jsonl"] = _serialize_ontologies(snapshot.ontologies)
+    if snapshot.active_embedding_model_sets:
+        files["embedding_lifecycle.jsonl"] = _serialize_active_embedding_model_sets(
+            snapshot.active_embedding_model_sets
+        )
 
     manifest = build_manifest(snapshot=snapshot, files=files)
     manifest_bytes = json_dumps(manifest, indent=2).encode("utf-8")
@@ -494,6 +523,9 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
     provenance_traces = _hydrate_provenance_traces(members.get("provenance.jsonl", b""))
     memory_blocks = _hydrate_memory_blocks(members.get("memory_blocks.jsonl", b""))
     ontologies = _hydrate_ontologies(members.get("ontologies.jsonl", b""))
+    active_embedding_model_sets = _hydrate_active_embedding_model_sets(
+        members.get("embedding_lifecycle.jsonl", b"")
+    )
     return MemoryBundleSnapshot(
         manifest=manifest,
         records=records,
@@ -503,6 +535,7 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
         provenance_traces=provenance_traces,
         memory_blocks=memory_blocks,
         ontologies=ontologies,
+        active_embedding_model_sets=active_embedding_model_sets,
     )
 
 

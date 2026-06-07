@@ -10,6 +10,11 @@ from sophiagraph.connectors import (
     decide_source_ingest,
     update_source_after_ingest,
 )
+from sophiagraph.embedding_lifecycle import (
+    build_reembed_plan,
+    detect_stale_embeddings,
+    list_orphan_external_vector_ids,
+)
 from sophiagraph.contracts import types as contracts
 from sophiagraph.deletion import (
     DeletionCascadeResult,
@@ -64,6 +69,7 @@ from sophiagraph.models import (
     KnowledgeDocumentBlock,
     LinkResolution,
     LinkResolutionCandidate,
+    ActiveEmbeddingModelSet,
     MemoryBlock,
     MemoryCandidate,
     MemoryEmbedding,
@@ -74,8 +80,13 @@ from sophiagraph.models import (
     MemoryRelation,
     MemoryScope,
     MemoryTierTransition,
+    ReembedBatch,
+    ReembedCursor,
+    ReembedPlan,
     RetrievalFilters,
+    StaleEmbeddingFinding,
     StructuralLink,
+    VectorSpaceModelDescriptor,
 )
 from sophiagraph.portability import codec as portability
 from sophiagraph.query import (
@@ -220,6 +231,7 @@ __all__ = [
     "DEFAULT_DB_FILENAME",
     "AsyncSophiaGraphStore",
     "ArtifactRef",
+    "ActiveEmbeddingModelSet",
     "CandidateListOptions",
     "CandidateReview",
     "CommunityAlgorithm",
@@ -299,6 +311,9 @@ __all__ = [
     "PromotionPredicate",
     "PromotionPredicateKind",
     "RecordOrder",
+    "ReembedBatch",
+    "ReembedCursor",
+    "ReembedPlan",
     "ReplayDecision",
     "RepairCandidate",
     "RetrievalFilters",
@@ -336,6 +351,8 @@ __all__ = [
     "SyncResolution",
     "TombstoneResult",
     "UnlinkedMentionCandidate",
+    "StaleEmbeddingFinding",
+    "VectorSpaceModelDescriptor",
     "VaultDiagnostic",
     "VaultExportOptions",
     "VaultExportResult",
@@ -356,6 +373,7 @@ __all__ = [
     "build_community_snapshot",
     "build_graph_export_batch",
     "build_inspection_report",
+    "build_reembed_plan",
     "build_vault_manifest",
     "community_snapshot_status",
     "common_neighbors",
@@ -368,6 +386,7 @@ __all__ = [
     "decide_replay",
     "decide_source_ingest",
     "derive_default_policy",
+    "detect_stale_embeddings",
     "detect_sync_conflict",
     "connected_components",
     "degree_centrality",
@@ -382,6 +401,7 @@ __all__ = [
     "export_vault_files",
     "import_vault_files",
     "layout_hints_for_snapshot",
+    "list_orphan_external_vector_ids",
     "mark_mirror_stale_if_needed",
     "orphan_clusters",
     "path_evidence",

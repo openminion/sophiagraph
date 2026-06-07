@@ -18,6 +18,7 @@ from sophiagraph.deletion import (
 )
 from sophiagraph.integrity import populate_integrity_hash
 from sophiagraph.models import (
+    ActiveEmbeddingModelSet,
     MemoryBlock,
     MemoryCandidate,
     MemoryEmbedding,
@@ -31,6 +32,7 @@ from sophiagraph.models import (
     StructuralLink,
     default_change_namespace,
 )
+from sophiagraph.models.embedding_lifecycle import namespace_key
 from sophiagraph.portability.codec import record_from_dict
 from sophiagraph.query import (
     CandidateListOptions,
@@ -86,6 +88,8 @@ class SophiaGraphMemoryStore(
         self._candidates: dict[str, MemoryCandidate] = {}
         self._transitions: dict[str, MemoryTierTransition] = {}
         self._embeddings: dict[tuple[str, str], MemoryEmbedding] = {}
+        self._active_model_sets: dict[tuple[str, str], ActiveEmbeddingModelSet] = {}
+        self._orphan_external_vector_ids: dict[tuple[str, str], str] = {}
         # SEFT-02 / SEPM-02 — entity/fact/episode rows.
         self._entities: dict[str, Any] = {}
         self._entity_aliases: dict[str, Any] = {}
@@ -716,12 +720,37 @@ class SophiaGraphMemoryStore(
         )
         return transition.transition_id
 
+    def _mark_external_vector_active(self, embedding: MemoryEmbedding) -> None:
+        if not embedding.external_vector_id:
+            return
+        orphan_key = (namespace_key(embedding.namespace), embedding.external_vector_id)
+        self._orphan_external_vector_ids.pop(orphan_key, None)
+
+    def _maybe_mark_external_vector_orphan(self, embedding: MemoryEmbedding) -> None:
+        if not embedding.external_vector_id:
+            return
+        still_referenced = any(
+            candidate.external_vector_id == embedding.external_vector_id
+            and candidate.namespace == embedding.namespace
+            for candidate in self._embeddings.values()
+        )
+        if still_referenced:
+            return
+        orphan_key = (namespace_key(embedding.namespace), embedding.external_vector_id)
+        self._orphan_external_vector_ids[orphan_key] = embedding.updated_at
+
     def put_embedding(self, embedding: MemoryEmbedding) -> str:
         key = (embedding.record_id, embedding.vector_space)
         existing = self._embeddings.get(key)
         if existing is not None and existing.dimension != embedding.dimension:
             raise InvalidArgumentError("embedding dimension cannot change for key")
         self._embeddings[key] = embedding
+        if (
+            existing is not None
+            and existing.external_vector_id != embedding.external_vector_id
+        ):
+            self._maybe_mark_external_vector_orphan(existing)
+        self._mark_external_vector_active(embedding)
         return embedding.key
 
     def get_embedding(
@@ -770,7 +799,80 @@ class SophiaGraphMemoryStore(
         return embeddings
 
     def delete_embedding(self, record_id: str, vector_space: str) -> bool:
-        return self._embeddings.pop((record_id, vector_space), None) is not None
+        embedding = self._embeddings.pop((record_id, vector_space), None)
+        if embedding is None:
+            return False
+        self._maybe_mark_external_vector_orphan(embedding)
+        return True
+
+    def put_active_model_set(self, model_set: ActiveEmbeddingModelSet) -> str:
+        self._active_model_sets[model_set.key] = model_set
+        self._emit_change(
+            object_type="active_embedding_model_set",
+            object_id=f"{model_set.key[0]}:{model_set.vector_space}",
+            payload=model_set.to_dict(),
+            namespace=model_set.namespace,
+            schema_identifiers={"node_label": "active_embedding_model_set"},
+        )
+        return f"{model_set.key[0]}:{model_set.vector_space}"
+
+    def get_active_model_set(
+        self,
+        *,
+        namespace: MemoryNamespace,
+        vector_space: str,
+    ) -> ActiveEmbeddingModelSet | None:
+        return self._active_model_sets.get((namespace_key(namespace), vector_space))
+
+    def list_active_model_sets(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        vector_space: str | None = None,
+        limit: int | None = None,
+    ) -> list[ActiveEmbeddingModelSet]:
+        model_sets = list(self._active_model_sets.values())
+        if namespaces:
+            model_sets = [
+                model_set
+                for model_set in model_sets
+                if any(
+                    model_set.namespace.matches(namespace) for namespace in namespaces
+                )
+            ]
+        if vector_space is not None:
+            model_sets = [
+                model_set
+                for model_set in model_sets
+                if model_set.vector_space == vector_space
+            ]
+        model_sets.sort(
+            key=lambda model_set: (
+                namespace_key(model_set.namespace),
+                model_set.vector_space,
+            )
+        )
+        if limit is not None:
+            model_sets = model_sets[: int(limit)]
+        return model_sets
+
+    def list_orphan_external_vector_ids(
+        self,
+        *,
+        namespace: MemoryNamespace,
+        since: str | None = None,
+    ) -> list[tuple[str, str]]:
+        prefix = namespace_key(namespace)
+        pairs = [
+            (external_vector_id, last_seen_at)
+            for (
+                namespace_id,
+                external_vector_id,
+            ), last_seen_at in self._orphan_external_vector_ids.items()
+            if namespace_id == prefix and (since is None or last_seen_at >= since)
+        ]
+        pairs.sort(key=lambda item: (item[1], item[0]))
+        return pairs
 
     def tombstone_record(
         self,

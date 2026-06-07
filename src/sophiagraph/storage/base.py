@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from sophiagraph.contracts.types import MEMORY_CONTRACT_VERSION
 from sophiagraph.deletion import DeletionCascadeResult, ErasureAuditExport
 from sophiagraph.models import (
+    ActiveEmbeddingModelSet,
     Contradiction,
     Decision,
     Entity,
@@ -525,6 +526,30 @@ class SophiaGraphStore(Protocol):
     ) -> list[MemoryEmbedding]: ...
 
     def delete_embedding(self, record_id: str, vector_space: str) -> bool: ...
+
+    def put_active_model_set(self, model_set: ActiveEmbeddingModelSet) -> str: ...
+
+    def get_active_model_set(
+        self,
+        *,
+        namespace: MemoryNamespace,
+        vector_space: str,
+    ) -> ActiveEmbeddingModelSet | None: ...
+
+    def list_active_model_sets(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        vector_space: str | None = None,
+        limit: int | None = None,
+    ) -> list[ActiveEmbeddingModelSet]: ...
+
+    def list_orphan_external_vector_ids(
+        self,
+        *,
+        namespace: MemoryNamespace,
+        since: str | None = None,
+    ) -> list[tuple[str, str]]: ...
 
     def tombstone_record(
         self,

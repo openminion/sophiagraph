@@ -53,6 +53,11 @@ def import_snapshot_into_store(
             imported_tier_transitions=len(snapshot.tier_transitions)
             if options.trust_mode == "direct"
             else 0,
+            imported_active_embedding_model_sets=len(
+                snapshot.active_embedding_model_sets
+            )
+            if options.trust_mode == "direct"
+            else 0,
             skipped_records=skipped_records,
             skipped_sections=[],
             rewrites=rewrites,
@@ -124,6 +129,10 @@ def import_snapshot_into_store(
     for ontology in snapshot.ontologies:
         store.put_ontology(ontology)
         imported_ontologies += 1
+    imported_active_embedding_model_sets = 0
+    for model_set in snapshot.active_embedding_model_sets:
+        store.put_active_model_set(model_set)
+        imported_active_embedding_model_sets += 1
     return MemoryBundleImportResult(
         applied=True,
         trust_mode=options.trust_mode,
@@ -136,6 +145,7 @@ def import_snapshot_into_store(
         imported_tier_transitions=imported_tier_transitions,
         imported_memory_blocks=imported_memory_blocks,
         imported_ontologies=imported_ontologies,
+        imported_active_embedding_model_sets=imported_active_embedding_model_sets,
         skipped_records=skipped_records,
         skipped_sections=skipped_sections,
         rewrites=rewrites,
