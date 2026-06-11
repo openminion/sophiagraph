@@ -14,6 +14,7 @@ def test_sophiagraph_package_imports() -> None:
     import sophiagraph.storage
     import sophiagraph.temporal
     import sophiagraph.trust
+    import sophiagraph.ui
 
     assert sophiagraph.__version__ == "0.0.1"
     assert callable(sophiagraph.create_sqlite_store)
@@ -21,6 +22,7 @@ def test_sophiagraph_package_imports() -> None:
     assert sophiagraph.MemoryNamespace(agent_id="codex").agent_id == "codex"
     assert sophiagraph.MemoryRecord.__name__ == "MemoryRecord"
     assert sophiagraph.ListQueryOptions.__name__ == "ListQueryOptions"
+    assert sophiagraph.ui.UiTransportBoundary.__name__ == "UiTransportBoundary"
 
 
 def test_top_level_public_api_and_version_metadata_are_stable() -> None:

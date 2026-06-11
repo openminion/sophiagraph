@@ -9,6 +9,18 @@ from .factory import (
     default_db_path,
 )
 from .memory import SophiaGraphMemoryStore
+from .operations import (
+    acquire_write_lease,
+    compact_store,
+    coordinated_backup,
+    create_backup,
+    create_retention_snapshot,
+    list_retention_snapshots,
+    release_write_lease,
+    restore_backup,
+    verify_backup,
+    verify_retention_snapshot,
+)
 from .sqlite import SophiaGraphSqliteStore
 
 __all__ = [
@@ -17,8 +29,18 @@ __all__ = [
     "SophiaGraphMemoryStore",
     "SophiaGraphSqliteStore",
     "SophiaGraphStore",
+    "acquire_write_lease",
     "async_store",
+    "compact_store",
+    "coordinated_backup",
+    "create_backup",
     "create_memory_store",
+    "create_retention_snapshot",
     "create_sqlite_store",
     "default_db_path",
+    "list_retention_snapshots",
+    "release_write_lease",
+    "restore_backup",
+    "verify_backup",
+    "verify_retention_snapshot",
 ]

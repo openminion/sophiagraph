@@ -18,6 +18,7 @@ from sophiagraph.deletion import (
 )
 from sophiagraph.integrity import populate_integrity_hash
 from sophiagraph.models import (
+    ActiveEmbeddingModelSet,
     MemoryBlock,
     MemoryCandidate,
     MemoryEmbedding,
@@ -25,6 +26,7 @@ from sophiagraph.models import (
     MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
+    RetentionSnapshot,
     MemoryTierTransition,
     MemoryType,
     RelationDirection,
@@ -32,6 +34,7 @@ from sophiagraph.models import (
     default_change_namespace,
     memory_embedding_from_dict,
 )
+from sophiagraph.models.embedding_lifecycle import namespace_key
 from sophiagraph.portability.codec import (
     candidate_from_dict,
     json_dumps,
@@ -1113,6 +1116,121 @@ class SophiaGraphSqliteStore(
             )
         return transition.transition_id
 
+    def _mark_external_vector_active(
+        self,
+        conn: sqlite3.Connection,
+        embedding: MemoryEmbedding,
+    ) -> None:
+        if not embedding.external_vector_id:
+            return
+        conn.execute(
+            """
+            DELETE FROM sophiagraph_orphan_external_vector_ids
+             WHERE namespace_key = ? AND external_vector_id = ?
+            """,
+            (namespace_key(embedding.namespace), embedding.external_vector_id),
+        )
+
+    def _maybe_mark_external_vector_orphan(
+        self,
+        conn: sqlite3.Connection,
+        embedding: MemoryEmbedding,
+    ) -> None:
+        if not embedding.external_vector_id:
+            return
+        row = conn.execute(
+            """
+            SELECT 1 FROM sophiagraph_embeddings
+             WHERE external_vector_id = ?
+               AND tenant_id IS ?
+               AND org_id IS ?
+               AND user_id IS ?
+               AND agent_id IS ?
+               AND session_id IS ?
+               AND conversation_id IS ?
+               AND project_id IS ?
+               AND graph_id IS ?
+             LIMIT 1
+            """,
+            (
+                embedding.external_vector_id,
+                embedding.namespace.tenant_id,
+                embedding.namespace.org_id,
+                embedding.namespace.user_id,
+                embedding.namespace.agent_id,
+                embedding.namespace.session_id,
+                embedding.namespace.conversation_id,
+                embedding.namespace.project_id,
+                embedding.namespace.graph_id,
+            ),
+        ).fetchone()
+        if row is not None:
+            return
+        values = embedding.namespace.as_dict()
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO sophiagraph_orphan_external_vector_ids(
+                namespace_key, external_vector_id, tenant_id, org_id, user_id, agent_id,
+                session_id, conversation_id, project_id, graph_id, last_seen_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                namespace_key(embedding.namespace),
+                embedding.external_vector_id,
+                values.get("tenant_id"),
+                values.get("org_id"),
+                values.get("user_id"),
+                values.get("agent_id"),
+                values.get("session_id"),
+                values.get("conversation_id"),
+                values.get("project_id"),
+                values.get("graph_id"),
+                embedding.updated_at,
+            ),
+        )
+
+    def _persist_active_model_set(
+        self,
+        conn: sqlite3.Connection,
+        model_set: ActiveEmbeddingModelSet,
+        *,
+        emit_change: bool = True,
+    ) -> str:
+        values = model_set.namespace.as_dict()
+        ns_key = namespace_key(model_set.namespace)
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO sophiagraph_active_embedding_model_sets(
+                namespace_key, vector_space, tenant_id, org_id, user_id, agent_id,
+                session_id, conversation_id, project_id, graph_id, updated_at, payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ns_key,
+                model_set.vector_space,
+                values.get("tenant_id"),
+                values.get("org_id"),
+                values.get("user_id"),
+                values.get("agent_id"),
+                values.get("session_id"),
+                values.get("conversation_id"),
+                values.get("project_id"),
+                values.get("graph_id"),
+                model_set.updated_at,
+                json_dumps(model_set.to_dict()),
+            ),
+        )
+        if emit_change:
+            self._emit_change(
+                conn,
+                object_type="active_embedding_model_set",
+                object_id=f"{ns_key}:{model_set.vector_space}",
+                payload=model_set.to_dict(),
+                namespace=model_set.namespace,
+                schema_identifiers={"node_label": "active_embedding_model_set"},
+            )
+        return f"{ns_key}:{model_set.vector_space}"
+
     def put_embedding(self, embedding: MemoryEmbedding) -> str:
         existing = self.get_embedding(
             embedding.record_id,
@@ -1152,6 +1270,12 @@ class SophiaGraphSqliteStore(
                     json_dumps(payload),
                 ),
             )
+            if (
+                existing is not None
+                and existing.external_vector_id != embedding.external_vector_id
+            ):
+                self._maybe_mark_external_vector_orphan(conn, existing)
+            self._mark_external_vector_active(conn, embedding)
         return embedding.key
 
     def get_embedding(
@@ -1206,6 +1330,9 @@ class SophiaGraphSqliteStore(
         return embeddings
 
     def delete_embedding(self, record_id: str, vector_space: str) -> bool:
+        existing = self.get_embedding(record_id, vector_space, include_vector=True)
+        if existing is None:
+            return False
         with self._write_connection() as conn:
             cursor = conn.execute(
                 """
@@ -1214,7 +1341,81 @@ class SophiaGraphSqliteStore(
                 """,
                 (record_id, vector_space),
             )
-            return cursor.rowcount > 0
+            deleted = cursor.rowcount > 0
+            if deleted:
+                self._maybe_mark_external_vector_orphan(conn, existing)
+            return deleted
+
+    def put_active_model_set(self, model_set: ActiveEmbeddingModelSet) -> str:
+        with self._write_connection() as conn:
+            return self._persist_active_model_set(conn, model_set)
+
+    def get_active_model_set(
+        self,
+        *,
+        namespace: MemoryNamespace,
+        vector_space: str,
+    ) -> ActiveEmbeddingModelSet | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json
+                  FROM sophiagraph_active_embedding_model_sets
+                 WHERE namespace_key = ? AND vector_space = ?
+                """,
+                (namespace_key(namespace), vector_space),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = row_json(row)
+        return ActiveEmbeddingModelSet.from_dict(payload)
+
+    def list_active_model_sets(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        vector_space: str | None = None,
+        limit: int | None = None,
+    ) -> list[ActiveEmbeddingModelSet]:
+        clauses = ["1=1"]
+        params: list[Any] = []
+        if vector_space is not None:
+            clauses.append("vector_space = ?")
+            params.append(vector_space)
+        namespace_sql, namespace_params = namespace_filter_sql(namespaces)
+        if namespace_sql:
+            clauses.append(namespace_sql)
+            params.extend(namespace_params)
+        query = (
+            "SELECT payload_json FROM sophiagraph_active_embedding_model_sets WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY namespace_key ASC, vector_space ASC"
+        )
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(int(limit))
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [ActiveEmbeddingModelSet.from_dict(row_json(row)) for row in rows]
+
+    def list_orphan_external_vector_ids(
+        self,
+        *,
+        namespace: MemoryNamespace,
+        since: str | None = None,
+    ) -> list[tuple[str, str]]:
+        query = (
+            "SELECT external_vector_id, last_seen_at "
+            "FROM sophiagraph_orphan_external_vector_ids WHERE namespace_key = ?"
+        )
+        params: list[Any] = [namespace_key(namespace)]
+        if since is not None:
+            query += " AND last_seen_at >= ?"
+            params.append(since)
+        query += " ORDER BY last_seen_at ASC, external_vector_id ASC"
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [(str(row[0]), str(row[1])) for row in rows]
 
     def tombstone_record(
         self,
@@ -1373,6 +1574,51 @@ class SophiaGraphSqliteStore(
                 (scope, type, key),
             ).fetchall()
         return [self._record_from_row(row) for row in rows]
+
+    def put_retention_snapshot(self, snapshot: RetentionSnapshot) -> str:
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="retention_snapshot",
+                object_id=f"{namespace_key(snapshot.namespace)}:{snapshot.name}",
+                namespace=snapshot.namespace,
+                updated_at=snapshot.created_at,
+                payload=snapshot.to_dict(),
+            )
+            self._emit_change(
+                conn,
+                object_type="retention_snapshot",
+                object_id=snapshot.snapshot_id,
+                payload=snapshot.to_dict(),
+                namespace=snapshot.namespace,
+                schema_identifiers={"node_label": "retention_snapshot"},
+            )
+        return snapshot.snapshot_id
+
+    def get_retention_snapshot(
+        self,
+        *,
+        name: str,
+        namespace: MemoryNamespace,
+    ) -> RetentionSnapshot | None:
+        payload = self._get_aux_object(
+            "retention_snapshot",
+            f"{namespace_key(namespace)}:{name}",
+        )
+        return None if payload is None else RetentionSnapshot.from_dict(payload)
+
+    def list_retention_snapshots(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        limit: int | None = None,
+    ) -> list[RetentionSnapshot]:
+        payloads = self._list_aux_objects(
+            "retention_snapshot",
+            namespaces=namespaces,
+            limit=limit,
+        )
+        return [RetentionSnapshot.from_dict(payload) for payload in payloads]
 
     def record_count(self) -> int:
         with self._connect() as conn:

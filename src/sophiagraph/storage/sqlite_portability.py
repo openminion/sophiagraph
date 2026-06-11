@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 from typing import Any
 
 from sophiagraph.models import (
+    ActiveEmbeddingModelSet,
     MemoryBlock,
     MemoryCandidate,
     MemoryNamespace,
@@ -255,6 +256,16 @@ class SqlitePortabilityMixin(SnapshotImportExportDeltaMixin):
                 namespaces=options.namespaces,
                 limit=options.limit,
             )
+        active_embedding_model_sets: list[ActiveEmbeddingModelSet] = []
+        if options.include_embedding_lifecycle:
+            active_embedding_model_sets = self.list_active_model_sets(
+                namespaces=options.namespaces,
+                limit=options.limit,
+            )
+        retention_snapshots = self.list_retention_snapshots(
+            namespaces=options.namespaces,
+            limit=options.limit,
+        )
         snapshot = MemoryBundleSnapshot(
             manifest={},
             records=records,
@@ -264,6 +275,8 @@ class SqlitePortabilityMixin(SnapshotImportExportDeltaMixin):
             provenance_traces=[],
             memory_blocks=memory_blocks,
             ontologies=ontologies,
+            active_embedding_model_sets=active_embedding_model_sets,
+            retention_snapshots=retention_snapshots,
         )
         return replace(snapshot, manifest=build_manifest(snapshot=snapshot))
 
@@ -400,6 +413,13 @@ class SqlitePortabilityMixin(SnapshotImportExportDeltaMixin):
                     # columns + structural fields stay in sync. Pass the live
                     # ``conn`` so the delta runs inside the open transaction.
                     self._persist_memory_block(conn, block, operation="delta_import")
+                elif event.object_type == "active_embedding_model_set":
+                    model_set = ActiveEmbeddingModelSet.from_dict(event.payload)
+                    self._persist_active_model_set(
+                        conn,
+                        model_set,
+                        emit_change=False,
+                    )
                 elif event.object_type in {
                     "entity",
                     "entity_alias",

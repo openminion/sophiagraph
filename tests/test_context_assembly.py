@@ -14,10 +14,13 @@ from sophiagraph.models import (
     MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
+    StructuralLink,
 )
 from sophiagraph.models.entity_fact import EntityFactProvenance
 from sophiagraph.query import (
     CONTEXT_ITEM_KINDS,
+    CommunityDetectionOptions,
+    CommunityQueryOptions,
     ContextBudget,
     ContextItem,
     ContextRequest,
@@ -31,6 +34,7 @@ from sophiagraph.query import (
     StructuralSearchMode,
     TemporalFactMode,
     assemble_context,
+    query_communities,
 )
 
 
@@ -249,6 +253,61 @@ def test_local_graph_assembly_with_neighbor(store) -> None:
     neighbor = next(i for i in package.items if i.item_id == "rec-2")
     assert neighbor.via_paths
     assert neighbor.via_paths[0].nodes == ["rec-1", "rec-2"]
+
+
+def test_global_context_can_include_structural_community_evidence(store) -> None:
+    store.put_relation(
+        MemoryRelation(
+            relation_id="rel-1",
+            source_record_id="rec-1",
+            target_record_id="rec-2",
+            relation_type="related_to",
+            created_at="2026-05-29T10:00:00+00:00",
+        )
+    )
+    store.put_link(
+        StructuralLink(
+            link_id="link-1",
+            source_record_id="rec-1",
+            target_record_id="rec-2",
+            raw_target="rec-2",
+            link_kind="wikilink",
+            resolution_status="resolved",
+            relation_type="related_to",
+            namespace=_ns(),
+            created_at="2026-05-29T10:00:00+00:00",
+        )
+    )
+
+    def community_provider(_request: ContextRequest):
+        return query_communities(
+            store,
+            CommunityQueryOptions(
+                detection=CommunityDetectionOptions(
+                    scopes=["agent:alpha"],
+                    namespaces=[_ns()],
+                ),
+                include_summary_refs=True,
+                summary_reference_ids=["caller-summary"],
+            ),
+        )
+
+    package = assemble_context(
+        store,
+        ContextRequest(
+            scopes=["agent:alpha"],
+            mode="global",
+            global_mode=GlobalMode(summary_record_ids=["rec-1"]),
+            budget=ContextBudget(max_items=10),
+        ),
+        community_query_provider=community_provider,
+    )
+
+    community_items = [item for item in package.items if item.kind == "community"]
+    assert community_items
+    assert package.request_provenance["community_query_attached"] is True
+    assert community_items[0].payload["summary_reference_ids"] == ["caller-summary"]
+    assert community_items[0].provenance["source_set_ids"]
 
 
 def test_budget_truncation_emits_diagnostics(store) -> None:

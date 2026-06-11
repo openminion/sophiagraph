@@ -80,9 +80,6 @@ def _session_pin(
     )
 
 
-# SMBL-04 — assembly behavior
-
-
 def test_render_order_matches_frozen_priority() -> None:
     pkg = assemble_block_context(
         [_session_pin(), _mission(), _identity()],
@@ -149,9 +146,6 @@ def test_no_silent_drops_truncated_paths_recorded() -> None:
         assert block.token_cost >= 0
 
 
-# SMBL-05 FM-1 — budget exceeded audit event
-
-
 def test_budget_exceeded_emits_typed_audit_event() -> None:
     events: list[MemoryAuditEvent] = []
     pkg = assemble_block_context(
@@ -183,9 +177,6 @@ def test_under_budget_emits_no_budget_event() -> None:
     assert not [
         event for event in events if event.event_type == MEMORY_BLOCKS_BUDGET_EXCEEDED
     ]
-
-
-# SMBL-05 FM-2 — stale-but-still-pinned block
 
 
 def test_stale_block_renders_with_marker_and_counts_against_budget() -> None:
@@ -230,9 +221,6 @@ def test_stale_event_fires_once_per_session() -> None:
         event for event in events if event.event_type == MEMORY_BLOCK_STALE_SURFACED
     ]
     assert len(stale_events) == 1
-
-
-# SMBL-05 FM-3 — structural / caller-supplied disagreement
 
 
 def test_claim_key_polarity_disagreement_records_event() -> None:

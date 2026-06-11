@@ -165,7 +165,7 @@ class TestNamespaceOwnerGrounding:
         assert block.owner_namespace.session_id == "s-1"
 
     def test_no_floating_namespace_alias_exported_from_models(self) -> None:
-        """SMBL-01 forbids a parallel namespace alias."""
+        """The models surface should not expose a parallel namespace alias."""
 
         from sophiagraph import models
 
@@ -173,12 +173,9 @@ class TestNamespaceOwnerGrounding:
         assert not hasattr(models, "BlockNamespaceRef")
 
 
-# Audit/error code central-ownership (SMBL-01 owns all six codes).
-
-
 class TestTypedCodeOwnership:
     def test_all_six_codes_are_centrally_owned(self) -> None:
-        """SMBL-03 + SMBL-05 will reuse these; centralize once, reuse everywhere."""
+        """Error and audit codes should stay centralized and reusable."""
 
         # Error classes
         assert (

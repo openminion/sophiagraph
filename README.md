@@ -71,7 +71,10 @@ that is actually true.
 - a package-local in-memory backend for tests and ephemeral consumers
 - a standalone smoke entrypoint for publish/install validation
 - a typed vector-similarity metric registry (`cosine`, `L2`, `dot`) and a
-  backend-agnostic conformance harness (see [docs/vector-conformance.md](docs/vector-conformance.md))
+  backend-agnostic conformance harness (see [docs/reference/vector-conformance.md](docs/reference/vector-conformance.md))
+- typed embedding lifecycle helpers for active-model registries,
+  stale-embedding detection, resumable re-embed plans, and orphan
+  `external_vector_id` enumeration without provider SDK imports in core
 - typed governance + observability event DTOs (write attempt/accepted,
   retrieval, export, policy denial, lifecycle action, webhook delivery
   attempt, retrieval explanation, quality eval signal) and deterministic
@@ -96,11 +99,15 @@ that is actually true.
 - shared memory-block attachment, mirror freshness, edit-conflict, and
   usage-audit primitives on top of the v1 memory-block store
 - optional graph-backend adapter contracts with explicit export batches,
-  capability discovery, normalized query results, and a provider-free fake
-  adapter for conformance tests
+  capability discovery, normalized query results, a provider-free fake
+  adapter for conformance tests, and an optional `KuzuGraphBackendAdapter`
+  for local graph-backed query execution
 - structural inspection reports and explicit repair candidates for unresolved
   links, orphan records, duplicate aliases, stale facts, broken source
   references, and open conflict queues
+- package-owned UI boundary contracts in `sophiagraph.ui` for the future
+  visual explorer, record detail, graph, operations, repair, timeline, and
+  schema screens without requiring a second package yet
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 
@@ -139,6 +146,12 @@ This package does **not** provide:
 - semantic policy decisions inferred from freeform model output (policy
   hooks must return typed `PolicyDecision` instances with closed-enum
   reason codes)
+- direct embedding-provider calls, automatic re-embedding, or model-selection
+  recommendations (hosts own provider execution and scheduling)
+
+The current visual explorer contract lives in `sophiagraph.ui`. Browser-facing
+runtime transport is still expected to route through `sophiagraph-server` over
+the REST design pinned by SSSF-02 rather than private in-process imports.
 
 Host frameworks remain the orchestrators. `sophiagraph` owns reusable durable
 wisdom graph primitives and the standalone durable engine.
@@ -150,6 +163,22 @@ Editable install during local development:
 ```bash
 python3.11 -m pip install -e .
 ```
+
+Optional Kuzu backend support:
+
+```bash
+python3.11 -m pip install -e '.[kuzu]'
+```
+
+Optional Neo4j backend support:
+
+```bash
+python3.11 -m pip install -e '.[neo4j]'
+```
+
+Embedding lifecycle helpers are package-local and require no extra dependency.
+Hosts provide the provider callback and vector-store operations; SophiaGraph
+only emits typed findings, plans, registries, and orphan IDs.
 
 Wheel build:
 
@@ -179,6 +208,180 @@ Installed-console-script smoke:
 ```bash
 sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
 ```
+
+## Package-local docs and release
+
+- `docs/README.md` summarizes the package-local docs contract.
+- `docs/reference/certification-readiness-matrix.md` records standalone and
+  OpenMinion proof coverage for the public package surface.
+- `docs/reference/vector-conformance.md` records the vector registry and
+  backend-conformance harness.
+- `docs/reference/ui-contracts.md` records the package-owned UI boundary
+  contract.
+- `src/sophiagraph/README.md` explains the source-tree module layout and
+  public-vs-repo-local boundary.
+- `API_COMPATIBILITY.md` records the supported public import roots and
+  top-level export policy.
+- `RELEASING.md` records the package-local release and PyPI publish flow.
+- `scripts/release_check.py` is the canonical release smoke entrypoint.
+
+## Optional Graph Backend
+
+Use SQLite or the in-memory store as the canonical SophiaGraph record store.
+Reach for the optional Kuzu or Neo4j backends when you want the
+provider-neutral export batch plus a graph adapter that can answer normalized
+`neighbors`, `shortest_path`, `property_filter`, and `schema` queries.
+
+```python
+from sophiagraph import (
+    GraphBackendQuery,
+    KuzuGraphBackendAdapter,
+    Neo4jGraphBackendAdapter,
+    MemoryNamespace,
+    MemoryRecord,
+    build_graph_export_batch,
+)
+
+namespace = MemoryNamespace(agent_id="demo", graph_id="main")
+records = [
+    MemoryRecord(
+        id="rec-a",
+        scope="agent:demo",
+        type="fact",
+        key="a",
+        title="A",
+        content={"text": "A"},
+        created_at="2026-06-03T00:00:00+00:00",
+        updated_at="2026-06-03T00:00:00+00:00",
+        namespace=namespace,
+        meta={"properties": {"kind": "test"}},
+    ),
+]
+batch = build_graph_export_batch(batch_id="demo", records=records)
+backend = KuzuGraphBackendAdapter("/tmp/sophiagraph-demo.kuzu")
+backend.upsert_batch(batch)
+result = backend.query(
+    GraphBackendQuery(
+        query_id="q-schema",
+        kind="schema",
+    )
+)
+```
+
+For Neo4j-backed usage, swap the adapter construction:
+
+```python
+backend = Neo4jGraphBackendAdapter(
+    "neo4j://localhost:7687",
+    auth=("neo4j", "password"),
+)
+```
+
+The concrete backend adapters are still structural-only:
+
+- callers pass typed backend DTOs, never freeform Cypher,
+- labels, relation types, namespaces, and properties stay caller-supplied,
+- unsupported features return typed `unsupported_reason` values.
+
+## Structural Graph Query
+
+Use the higher-level structural query envelope when you want one typed entry
+point over bounded pattern traversal and namespace-wide community packets,
+while keeping planner evidence deterministic and structural-only:
+
+```python
+from sophiagraph import (
+    GraphPatternNodePredicate,
+    MemoryNamespace,
+    StructuralGraphQueryRequest,
+    execute_structural_graph_query,
+    structural_result_to_knowledge_plan,
+)
+
+namespace = MemoryNamespace(agent_id="demo", graph_id="main")
+result = execute_structural_graph_query(
+    store,
+    StructuralGraphQueryRequest(
+        query_id="q-pattern",
+        mode="pattern",
+        scopes=["agent:demo"],
+        namespaces=[namespace],
+        seed_record_ids=["rec-a"],
+        node_predicates=[GraphPatternNodePredicate("kind", "eq", "test")],
+        relation_types=["supports"],
+        max_hops=2,
+    ),
+)
+plan = structural_result_to_knowledge_plan(result)
+```
+
+This layer stays structural:
+
+- no natural-language query parsing,
+- no generated community labels or summaries,
+- no provider-specific public query types.
+
+## Operational Envelopes
+
+Use the operational run envelope when you want one public, package-local
+surface over sync conflicts, connector replay, freshness-driven reindex, and
+inspection follow-up:
+
+```python
+from sophiagraph import (
+    ConnectorReplayRequest,
+    FreshnessLedgerEntry,
+    SourceIngestEnvelope,
+    SourceRegistryEntry,
+    execute_operational_run,
+)
+
+source = SourceRegistryEntry(
+    source_id="connector:fake",
+    source_type="test_fake",
+    namespace=namespace,
+    display_name="Fake source",
+    permission_scope="read_only",
+)
+freshness = FreshnessLedgerEntry.create(
+    namespace=namespace,
+    source_kind="connector",
+    source_id=source.source_id,
+    status="fresh",
+    cursor="cursor-1",
+    content_hash="hash-1",
+)
+envelope = SourceIngestEnvelope.create(
+    source_id=source.source_id,
+    namespace=source.namespace,
+    payload_kind="document",
+    payload={"id": "doc-1"},
+    cursor="cursor-2",
+    content_hash="hash-2",
+)
+report = execute_operational_run(
+    ConnectorReplayRequest(
+        run_id="replay-1",
+        source=source,
+        envelope=envelope,
+        existing_freshness=freshness,
+    )
+)
+```
+
+Reports stay explicit:
+
+- replay decisions remain typed,
+- follow-up actions are structural and source-scoped,
+- scheduler ownership stays outside `sophiagraph` core.
+
+## Package-local docs and release
+
+- `docs/README.md` summarizes the package-local docs contract.
+- `API_COMPATIBILITY.md` records the supported public import roots and
+  top-level export policy.
+- `RELEASING.md` records the package-local release and PyPI publish flow.
+- `scripts/release_check.py` is the canonical release smoke entrypoint.
 
 ## External Consumer Quickstart
 

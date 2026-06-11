@@ -1,4 +1,4 @@
-"""Coverage for retained competitive-improvement surfaces."""
+"""Cross-surface tests for retrieval, deletion, and MCP adapter contracts."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ from sophiagraph.query import (
 
 
 def _ns() -> MemoryNamespace:
-    return MemoryNamespace(agent_id="competitive")
+    return MemoryNamespace(agent_id="contract")
 
 
 def _record(
@@ -42,7 +42,7 @@ def _record(
 ) -> MemoryRecord:
     return MemoryRecord(
         id=record_id,
-        scope="agent:competitive",
+        scope="agent:contract",
         type="fact",
         content=content,
         created_at=created_at,
@@ -80,13 +80,13 @@ def test_bitemporal_valid_at_and_believed_at(store) -> None:
 
     january = store.list_records(
         ListQueryOptions(
-            scopes=["agent:competitive"],
+            scopes=["agent:contract"],
             valid_at="2026-02-01T00:00:00+00:00",
         )
     )
     april = store.list_records(
         ListQueryOptions(
-            scopes=["agent:competitive"],
+            scopes=["agent:contract"],
             believed_at="2026-04-01T00:00:00+00:00",
         )
     )
@@ -113,7 +113,7 @@ def test_bitemporal_search_includes_superseded_record(store) -> None:
     result = store.search_records(
         SearchQueryOptions(
             query="May",
-            scopes=["agent:competitive"],
+            scopes=["agent:contract"],
             as_of="2026-04-01T00:00:00+00:00",
         )
     )
@@ -149,7 +149,7 @@ def test_hybrid_retrieval_uses_rrf_and_rerank_adapter(store) -> None:
     result = assemble_retrieval(
         store,
         RetrievalRequest(
-            scopes=["agent:competitive"],
+            scopes=["agent:contract"],
             keyword=KeywordStageOptions(query="alpha"),
             vector=VectorStageOptions(query_embedding=[0.1, 0.2], vector_space="test"),
             rerank=RerankStageOptions(),
@@ -209,7 +209,7 @@ def test_mcp_adapter_crud_search_without_openminion_import(store) -> None:
     search = adapter.handle(
         McpMemoryRequest(
             operation="search",
-            payload={"query": "searchable", "scopes": ["agent:competitive"]},
+            payload={"query": "searchable", "scopes": ["agent:contract"]},
         )
     )
     delete = adapter.handle(

@@ -417,17 +417,23 @@ def _evaluate_formula_expression(
             left = _eval(node.left)
             for operator, comparator in zip(node.ops, node.comparators):
                 right = _eval(comparator)
-                matched = {
-                    ast.Eq: left == right,
-                    ast.NotEq: left != right,
-                    ast.Lt: left < right,
-                    ast.LtE: left <= right,
-                    ast.Gt: left > right,
-                    ast.GtE: left >= right,
-                    ast.In: left in right,
-                    ast.NotIn: left not in right,
-                }.get(type(operator))
-                if matched is None:
+                if isinstance(operator, ast.Eq):
+                    matched = left == right
+                elif isinstance(operator, ast.NotEq):
+                    matched = left != right
+                elif isinstance(operator, ast.Lt):
+                    matched = left < right
+                elif isinstance(operator, ast.LtE):
+                    matched = left <= right
+                elif isinstance(operator, ast.Gt):
+                    matched = left > right
+                elif isinstance(operator, ast.GtE):
+                    matched = left >= right
+                elif isinstance(operator, ast.In):
+                    matched = left in right
+                elif isinstance(operator, ast.NotIn):
+                    matched = left not in right
+                else:
                     raise InvalidArgumentError("unsupported comparison operator")
                 if not matched:
                     return False
