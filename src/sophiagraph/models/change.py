@@ -43,6 +43,7 @@ ChangeObjectType = Literal[
     "shared_block_conflict",
     "shared_block_usage",
     "active_embedding_model_set",
+    "retention_snapshot",
 ]
 ChangeOperation = Literal["put", "delete", "import"]
 
@@ -105,6 +106,7 @@ class SophiaGraphChangeEvent:
             "shared_block_conflict",
             "shared_block_usage",
             "active_embedding_model_set",
+            "retention_snapshot",
         }:
             raise InvalidArgumentError(f"invalid object_type: {self.object_type!r}")
         if self.operation not in {"put", "delete", "import"}:

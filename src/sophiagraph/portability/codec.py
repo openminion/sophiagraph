@@ -21,6 +21,7 @@ from sophiagraph.models import (
     MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
+    RetentionSnapshot,
     SophiaGraphChangeEvent,
     MemoryTierTransition,
     coerce_candidate_status,
@@ -312,6 +313,7 @@ def build_manifest(
         "memory_blocks": len(snapshot.memory_blocks),
         "ontologies": len(snapshot.ontologies),
         "active_embedding_model_sets": len(snapshot.active_embedding_model_sets),
+        "retention_snapshots": len(snapshot.retention_snapshots),
     }
     manifest["sections"] = {
         "records": True,
@@ -322,6 +324,7 @@ def build_manifest(
         "memory_blocks": bool(snapshot.memory_blocks),
         "ontologies": bool(snapshot.ontologies),
         "active_embedding_model_sets": bool(snapshot.active_embedding_model_sets),
+        "retention_snapshots": bool(snapshot.retention_snapshots),
     }
     manifest["artifacts_included"] = False
     manifest.setdefault("files", {})
@@ -419,6 +422,26 @@ def _hydrate_active_embedding_model_sets(data: bytes) -> list[ActiveEmbeddingMod
     return result
 
 
+def _serialize_retention_snapshots(snapshots: list[RetentionSnapshot]) -> bytes:
+    payload = "\n".join(json_dumps(snapshot.to_dict()) for snapshot in snapshots)
+    if payload:
+        payload += "\n"
+    return payload.encode("utf-8")
+
+
+def _hydrate_retention_snapshots(data: bytes) -> list[RetentionSnapshot]:
+    lines = [line.strip() for line in data.decode("utf-8").splitlines() if line.strip()]
+    result: list[RetentionSnapshot] = []
+    for line in lines:
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise InvalidArgumentError(
+                "bundle retention_snapshot row must decode to an object"
+            )
+        result.append(RetentionSnapshot.from_dict(payload))
+    return result
+
+
 def _serialize_provenance_traces(traces: list[TurnProvenanceTrace]) -> bytes:
     """Serialize provenance traces as JSONL via the contract `to_dict()` helper."""
 
@@ -464,6 +487,10 @@ def write_bundle_snapshot(snapshot: MemoryBundleSnapshot, out_path: str | Path) 
     if snapshot.active_embedding_model_sets:
         files["embedding_lifecycle.jsonl"] = _serialize_active_embedding_model_sets(
             snapshot.active_embedding_model_sets
+        )
+    if snapshot.retention_snapshots:
+        files["retention_snapshots.jsonl"] = _serialize_retention_snapshots(
+            snapshot.retention_snapshots
         )
 
     manifest = build_manifest(snapshot=snapshot, files=files)
@@ -526,6 +553,9 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
     active_embedding_model_sets = _hydrate_active_embedding_model_sets(
         members.get("embedding_lifecycle.jsonl", b"")
     )
+    retention_snapshots = _hydrate_retention_snapshots(
+        members.get("retention_snapshots.jsonl", b"")
+    )
     return MemoryBundleSnapshot(
         manifest=manifest,
         records=records,
@@ -536,6 +566,7 @@ def read_bundle_snapshot(bundle_path: str | Path) -> MemoryBundleSnapshot:
         memory_blocks=memory_blocks,
         ontologies=ontologies,
         active_embedding_model_sets=active_embedding_model_sets,
+        retention_snapshots=retention_snapshots,
     )
 
 

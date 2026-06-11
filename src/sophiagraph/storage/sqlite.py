@@ -26,6 +26,7 @@ from sophiagraph.models import (
     MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
+    RetentionSnapshot,
     MemoryTierTransition,
     MemoryType,
     RelationDirection,
@@ -1573,6 +1574,51 @@ class SophiaGraphSqliteStore(
                 (scope, type, key),
             ).fetchall()
         return [self._record_from_row(row) for row in rows]
+
+    def put_retention_snapshot(self, snapshot: RetentionSnapshot) -> str:
+        with self._write_connection() as conn:
+            self._put_aux_object(
+                conn,
+                object_kind="retention_snapshot",
+                object_id=f"{namespace_key(snapshot.namespace)}:{snapshot.name}",
+                namespace=snapshot.namespace,
+                updated_at=snapshot.created_at,
+                payload=snapshot.to_dict(),
+            )
+            self._emit_change(
+                conn,
+                object_type="retention_snapshot",
+                object_id=snapshot.snapshot_id,
+                payload=snapshot.to_dict(),
+                namespace=snapshot.namespace,
+                schema_identifiers={"node_label": "retention_snapshot"},
+            )
+        return snapshot.snapshot_id
+
+    def get_retention_snapshot(
+        self,
+        *,
+        name: str,
+        namespace: MemoryNamespace,
+    ) -> RetentionSnapshot | None:
+        payload = self._get_aux_object(
+            "retention_snapshot",
+            f"{namespace_key(namespace)}:{name}",
+        )
+        return None if payload is None else RetentionSnapshot.from_dict(payload)
+
+    def list_retention_snapshots(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        limit: int | None = None,
+    ) -> list[RetentionSnapshot]:
+        payloads = self._list_aux_objects(
+            "retention_snapshot",
+            namespaces=namespaces,
+            limit=limit,
+        )
+        return [RetentionSnapshot.from_dict(payload) for payload in payloads]
 
     def record_count(self) -> int:
         with self._connect() as conn:

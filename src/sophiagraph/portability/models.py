@@ -13,6 +13,7 @@ from sophiagraph.models import (
     MemoryCandidate,
     MemoryRecord,
     MemoryRelation,
+    RetentionSnapshot,
     MemoryTierTransition,
     OntologyDefinition,
     SophiaGraphChangeEvent,
@@ -27,13 +28,9 @@ class MemoryBundleExportOptions:
     include_candidates: bool = False
     include_relations: bool = True
     include_tier_history: bool = False
-    # Optional in-memory retrieval provenance for portability snapshots.
     include_provenance: bool = False
-    # Opt in when memory blocks are part of the migration set.
     include_memory_blocks: bool = False
-    # Opt in when ontology definitions are part of the migration set.
     include_ontologies: bool = False
-    # Opt in when embedding lifecycle registry rows are part of the migration set.
     include_embedding_lifecycle: bool = False
     namespaces: list[MemoryNamespace] | None = None
 
@@ -55,16 +52,13 @@ class MemoryBundleSnapshot:
     candidates: list[MemoryCandidate] = field(default_factory=list)
     relations: list[MemoryRelation] = field(default_factory=list)
     tier_transitions: list[MemoryTierTransition] = field(default_factory=list)
-    # Empty unless export explicitly includes provenance traces.
     provenance_traces: list[TurnProvenanceTrace] = field(default_factory=list)
-    # Stored DTOs carry all schema-valid modes; callers own activation.
     memory_blocks: list[MemoryBlock] = field(default_factory=list)
-    # Ontologies travel as an optional bundle section.
     ontologies: list[OntologyDefinition] = field(default_factory=list)
-    # Active embedding registries travel as an optional bundle section.
     active_embedding_model_sets: list[ActiveEmbeddingModelSet] = field(
         default_factory=list
     )
+    retention_snapshots: list[RetentionSnapshot] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -82,6 +76,7 @@ class MemoryBundleImportResult:
     imported_memory_blocks: int = 0
     imported_ontologies: int = 0
     imported_active_embedding_model_sets: int = 0
+    imported_retention_snapshots: int = 0
     skipped_records: int = 0
     skipped_sections: list[str] = field(default_factory=list)
     conflicts: list[dict[str, Any]] = field(default_factory=list)

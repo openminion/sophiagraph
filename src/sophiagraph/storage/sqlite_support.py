@@ -10,7 +10,7 @@ from sophiagraph.models import KnowledgeDocumentBlock, MemoryNamespace, MemoryRe
 from sophiagraph.portability.codec import json_dumps
 from sophiagraph.query import StructuralSearchQuery
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_CONNECT_TIMEOUT_SECONDS = SQLITE_BUSY_TIMEOUT_MS / 1000
 SQLITE_JOURNAL_MODE = "wal"
@@ -611,6 +611,16 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
                 tenant_id, org_id, user_id, agent_id, session_id,
                 conversation_id, project_id, graph_id
             );
+
+        CREATE TABLE IF NOT EXISTS sophiagraph_write_leases (
+            resource_id TEXT PRIMARY KEY,
+            lease_id TEXT NOT NULL,
+            owner TEXT NOT NULL,
+            acquired_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            ttl_seconds INTEGER NOT NULL,
+            heartbeat_seconds INTEGER NOT NULL
+        );
         """
     )
     ensure_fts_schema(conn)

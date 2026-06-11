@@ -58,6 +58,9 @@ def import_snapshot_into_store(
             )
             if options.trust_mode == "direct"
             else 0,
+            imported_retention_snapshots=len(snapshot.retention_snapshots)
+            if options.trust_mode == "direct"
+            else 0,
             skipped_records=skipped_records,
             skipped_sections=[],
             rewrites=rewrites,
@@ -133,6 +136,10 @@ def import_snapshot_into_store(
     for model_set in snapshot.active_embedding_model_sets:
         store.put_active_model_set(model_set)
         imported_active_embedding_model_sets += 1
+    imported_retention_snapshots = 0
+    for snapshot_item in snapshot.retention_snapshots:
+        store.put_retention_snapshot(snapshot_item)
+        imported_retention_snapshots += 1
     return MemoryBundleImportResult(
         applied=True,
         trust_mode=options.trust_mode,
@@ -146,6 +153,7 @@ def import_snapshot_into_store(
         imported_memory_blocks=imported_memory_blocks,
         imported_ontologies=imported_ontologies,
         imported_active_embedding_model_sets=imported_active_embedding_model_sets,
+        imported_retention_snapshots=imported_retention_snapshots,
         skipped_records=skipped_records,
         skipped_sections=skipped_sections,
         rewrites=rewrites,

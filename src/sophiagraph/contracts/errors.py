@@ -47,6 +47,22 @@ class MigrationRequiredError(MemctlError):
     code = "MIGRATION_REQUIRED"
 
 
+class BackupIntegrityError(MemctlError):
+    code = "BACKUP_INTEGRITY_FAILED"
+
+
+class WriteLeaseExpiredError(MemctlError):
+    code = "WRITE_LEASE_EXPIRED"
+
+
+class WriteLeaseNotHeldError(MemctlError):
+    code = "WRITE_LEASE_NOT_HELD"
+
+
+class SnapshotNameConflictError(MemctlError):
+    code = "SNAPSHOT_NAME_CONFLICT"
+
+
 class MemoryBlockClassNotEligibleError(MemctlError):
     """Block creation rejected because the class is not on the allowlist."""
 

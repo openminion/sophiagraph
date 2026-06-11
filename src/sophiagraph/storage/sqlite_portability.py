@@ -262,6 +262,10 @@ class SqlitePortabilityMixin(SnapshotImportExportDeltaMixin):
                 namespaces=options.namespaces,
                 limit=options.limit,
             )
+        retention_snapshots = self.list_retention_snapshots(
+            namespaces=options.namespaces,
+            limit=options.limit,
+        )
         snapshot = MemoryBundleSnapshot(
             manifest={},
             records=records,
@@ -272,6 +276,7 @@ class SqlitePortabilityMixin(SnapshotImportExportDeltaMixin):
             memory_blocks=memory_blocks,
             ontologies=ontologies,
             active_embedding_model_sets=active_embedding_model_sets,
+            retention_snapshots=retention_snapshots,
         )
         return replace(snapshot, manifest=build_manifest(snapshot=snapshot))
 

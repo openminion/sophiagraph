@@ -27,6 +27,7 @@ from sophiagraph.models import (
     Outcome,
     Procedure,
     RawEpisode,
+    RetentionSnapshot,
     RelationDirection,
     MemoryNamespace,
     MemoryTierTransition,
@@ -580,6 +581,22 @@ class SophiaGraphStore(Protocol):
         type: MemoryType,
         key: str,
     ) -> list[MemoryRecord]: ...
+
+    def put_retention_snapshot(self, snapshot: RetentionSnapshot) -> str: ...
+
+    def get_retention_snapshot(
+        self,
+        *,
+        name: str,
+        namespace: MemoryNamespace,
+    ) -> RetentionSnapshot | None: ...
+
+    def list_retention_snapshots(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        limit: int | None = None,
+    ) -> list[RetentionSnapshot]: ...
 
     def export_snapshot(
         self,

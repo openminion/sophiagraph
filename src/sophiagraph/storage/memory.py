@@ -26,6 +26,7 @@ from sophiagraph.models import (
     MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
+    RetentionSnapshot,
     MemoryTierTransition,
     MemoryType,
     RelationDirection,
@@ -90,6 +91,7 @@ class SophiaGraphMemoryStore(
         self._embeddings: dict[tuple[str, str], MemoryEmbedding] = {}
         self._active_model_sets: dict[tuple[str, str], ActiveEmbeddingModelSet] = {}
         self._orphan_external_vector_ids: dict[tuple[str, str], str] = {}
+        self._retention_snapshots: dict[tuple[str, str], RetentionSnapshot] = {}
         # SEFT-02 / SEPM-02 — entity/fact/episode rows.
         self._entities: dict[str, Any] = {}
         self._entity_aliases: dict[str, Any] = {}
@@ -994,6 +996,52 @@ class SophiaGraphMemoryStore(
         ]
         records.sort(key=lambda record: record.updated_at, reverse=True)
         return records
+
+    def put_retention_snapshot(self, snapshot: RetentionSnapshot) -> str:
+        key = (namespace_key(snapshot.namespace), snapshot.name)
+        self._retention_snapshots[key] = snapshot
+        self._emit_change(
+            object_type="retention_snapshot",
+            object_id=snapshot.snapshot_id,
+            payload=snapshot.to_dict(),
+            namespace=snapshot.namespace,
+            schema_identifiers={"node_label": "retention_snapshot"},
+        )
+        return snapshot.snapshot_id
+
+    def get_retention_snapshot(
+        self,
+        *,
+        name: str,
+        namespace: MemoryNamespace,
+    ) -> RetentionSnapshot | None:
+        return self._retention_snapshots.get((namespace_key(namespace), name))
+
+    def list_retention_snapshots(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        limit: int | None = None,
+    ) -> list[RetentionSnapshot]:
+        rows = list(self._retention_snapshots.values())
+        if namespaces:
+            rows = [
+                snapshot
+                for snapshot in rows
+                if any(
+                    snapshot.namespace.matches(namespace) for namespace in namespaces
+                )
+            ]
+        rows.sort(
+            key=lambda snapshot: (
+                namespace_key(snapshot.namespace),
+                snapshot.name,
+                snapshot.created_at,
+            )
+        )
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
 
     def record_count(self) -> int:
         return len(self._records)
