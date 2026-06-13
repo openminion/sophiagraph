@@ -8,6 +8,7 @@ def test_sophiagraph_package_imports() -> None:
     import sophiagraph
     import sophiagraph.audit
     import sophiagraph.contracts
+    import sophiagraph.human
     import sophiagraph.models
     import sophiagraph.portability
     import sophiagraph.query
@@ -22,6 +23,7 @@ def test_sophiagraph_package_imports() -> None:
     assert sophiagraph.MemoryNamespace(agent_id="codex").agent_id == "codex"
     assert sophiagraph.MemoryRecord.__name__ == "MemoryRecord"
     assert sophiagraph.ListQueryOptions.__name__ == "ListQueryOptions"
+    assert sophiagraph.human.HumanWorkspaceSnapshot.__name__ == "HumanWorkspaceSnapshot"
     assert sophiagraph.ui.UiTransportBoundary.__name__ == "UiTransportBoundary"
 
 
@@ -35,6 +37,7 @@ def test_top_level_public_api_and_version_metadata_are_stable() -> None:
         "MemoryNamespace",
         "SophiaGraphMemoryStore",
         "SophiaGraphSqliteStore",
+        "HumanWorkspaceSnapshot",
         "VaultFilePayload",
         "all_simple_paths",
         "retrieval_path_evidence",

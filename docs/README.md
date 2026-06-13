@@ -9,6 +9,8 @@ Package-local reference docs:
   standalone and integration proof targets for the public package surface.
 - `docs/reference/vector-conformance.md` records the package-owned vector
   metric and conformance harness expectations.
+- `docs/reference/human-management.md` records the package-owned human
+  note/import/source management surface.
 - `docs/reference/ui-contracts.md` records the package-owned `sophiagraph.ui`
   boundary for future visual/runtime surfaces.
 
@@ -28,3 +30,8 @@ Repository-local but not package API:
    owned outside the standalone package.
 2. Root-repo roadmap, tracker, and design docs remain under the workspace
    `docs/` tree rather than this package-local docs directory.
+
+The public package surface now includes not only durable-memory/query/storage
+substrate APIs but also a package-owned human-management layer for note CRUD,
+import dry-runs, source/freshness inspection, and a deterministic local
+workbench packet/HTML preview.

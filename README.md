@@ -105,6 +105,9 @@ that is actually true.
 - structural inspection reports and explicit repair candidates for unresolved
   links, orphan records, duplicate aliases, stale facts, broken source
   references, and open conflict queues
+- package-owned human-management helpers for note CRUD, vault-import dry-runs,
+  source/freshness inspection, and deterministic local workbench packets/HTML
+  previews
 - package-owned UI boundary contracts in `sophiagraph.ui` for the future
   visual explorer, record detail, graph, operations, repair, timeline, and
   schema screens without requiring a second package yet
@@ -216,6 +219,8 @@ sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
   OpenMinion proof coverage for the public package surface.
 - `docs/reference/vector-conformance.md` records the vector registry and
   backend-conformance harness.
+- `docs/reference/human-management.md` records the package-owned human
+  note/import/source management surface.
 - `docs/reference/ui-contracts.md` records the package-owned UI boundary
   contract.
 - `src/sophiagraph/README.md` explains the source-tree module layout and

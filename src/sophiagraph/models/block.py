@@ -15,16 +15,12 @@ from sophiagraph.models.namespace import MemoryNamespace
 
 MemoryBlockMode = Literal["read_only", "pinned", "shared", "writable"]
 
-# Only these modes may be created or activated as live blocks.
 MEMORY_BLOCK_V1_MODES: Final[frozenset[str]] = frozenset({"read_only", "pinned"})
-
-# Deferred-but-schema-valid modes round-trip through stored DTOs.
 MEMORY_BLOCK_DEFERRED_MODES: Final[frozenset[str]] = frozenset({"shared", "writable"})
 
 
 MemoryBlockClass = Literal["agent_identity", "active_mission", "session_pin"]
 
-# Default-deny class allowlist for live block creation.
 MEMORY_BLOCK_V1_CLASS_ALLOWLIST: Final[frozenset[str]] = frozenset(
     {"agent_identity", "active_mission", "session_pin"}
 )
@@ -48,8 +44,6 @@ class MemoryBlock:
     stale_after: str | None = None
 
     def __post_init__(self) -> None:
-        # Structural validation only; activation constraints live in
-        # ``validate_block_for_creation`` so portable data can hydrate.
         if not self.block_id:
             raise InvalidArgumentError("block_id is required")
         if not isinstance(self.class_name, str) or not self.class_name:
@@ -102,7 +96,6 @@ def validate_block_for_creation(block: MemoryBlock) -> None:
                 "deferred": sorted(MEMORY_BLOCK_DEFERRED_MODES),
             },
         )
-    # Defense in depth for callers that bypass the DTO constructor.
     if block.mode not in MEMORY_BLOCK_V1_MODES:
         raise MemoryBlockModeInvalidError(
             f"memory-block mode {block.mode!r} is not a recognized literal",

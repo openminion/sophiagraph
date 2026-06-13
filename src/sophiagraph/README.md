@@ -25,9 +25,11 @@ inspection, and `sophiagraph.ui`.
    governance boundaries.
 5. `adapters/`, `connectors.py`, `sync.py`, and `freshness.py` own package-side
    connector and replay helpers.
-6. `graph_backends/` owns optional graph-adapter contracts and concrete local
+6. `human.py` owns package-local note/import/source management helpers over the
+   canonical store and import surfaces.
+7. `graph_backends/` owns optional graph-adapter contracts and concrete local
    backends.
-7. `ui/` owns typed UI contracts only; runtime/browser implementation belongs
+8. `ui/` owns typed UI contracts only; runtime/browser implementation belongs
    outside the package.
 
 ## Repo-local but not public API
