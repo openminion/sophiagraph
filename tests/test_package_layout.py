@@ -19,6 +19,8 @@ def test_docs_reference_surface_contains_expected_package_refs() -> None:
 
     expected = {
         "certification-readiness-matrix.md",
+        "retrieval-boundary.md",
+        "standalone-claim-alignment.md",
         "ui-contracts.md",
         "vector-conformance.md",
     }

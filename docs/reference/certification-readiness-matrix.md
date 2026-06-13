@@ -41,9 +41,12 @@ certification and blocks release.
 | Vault sync + round-trip (SGVSR) | `sophiagraph/tests/test_vault_sync.py` | `openminion/tests/memory/test_sophiagraph_vault_direct_library.py` |
 | Temporal context graph convergence (SGTKG) | `sophiagraph/tests/test_temporal_convergence.py` | `openminion/tests/memory/test_sophiagraph_temporal_convergence.py` |
 | Context assembly + retrieval modes (SGCARM) | `sophiagraph/tests/test_context_assembly.py` | `openminion/tests/memory/test_sophiagraph_context_assembly.py` |
+| Hybrid retrieval staging + explanations | `sophiagraph/tests/test_hybrid_retrieval.py` | `openminion/tests/memory/test_sophiagraph_context_assembly.py` |
 | Custom ontology + categories (SOCC) | `sophiagraph/tests/test_ontology_and_categories.py`, `sophiagraph/tests/test_ontology_examples.py` | `openminion/tests/memory/test_sophiagraph_ontology_binding.py` |
 | Governance + observability hooks (SGGOV) | `sophiagraph/tests/test_governance_observability.py` | `openminion/tests/memory/test_sophiagraph_governance_and_lifecycle.py` |
 | Background lifecycle engine (SLCE) | `sophiagraph/tests/test_lifecycle_policy.py`, `sophiagraph/tests/test_lifecycle_policy_storage.py` | `openminion/tests/memory/test_sophiagraph_governance_and_lifecycle.py` |
+| Local sync + freshness replay | `sophiagraph/tests/test_local_sync_and_freshness.py` | n/a |
+| Human note/import/source management | `sophiagraph/tests/test_human_management.py` | n/a |
 | Graph algorithms (SGGA) | `sophiagraph/tests/test_obsidian_links_and_graph.py` | n/a |
 | Memory blocks v1 (SMBL) | `sophiagraph/tests/test_memory_block_*.py` | covered by submissions tests |
 | Embedding hooks | `sophiagraph/tests/test_embedding_hooks.py`, `sophiagraph/tests/test_vector_conformance.py` | n/a |

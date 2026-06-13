@@ -7,6 +7,10 @@ Package-local reference docs:
 
 - `docs/reference/certification-readiness-matrix.md` records the current
   standalone and integration proof targets for the public package surface.
+- `docs/reference/standalone-claim-alignment.md` maps public standalone claims
+  to the concrete package surfaces and proof that ship today.
+- `docs/reference/retrieval-boundary.md` records the canonical package vs host
+  retrieval ownership split.
 - `docs/reference/vector-conformance.md` records the package-owned vector
   metric and conformance harness expectations.
 - `docs/reference/human-management.md` records the package-owned human
