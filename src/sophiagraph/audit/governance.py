@@ -39,13 +39,14 @@ GOVERNANCE_EVENT_KINDS: Final[frozenset[str]] = frozenset(
 
 PolicySurface = Literal[
     "write",
+    "retrieval",
     "export",
     "retention",
     "deletion",
 ]
 
 POLICY_SURFACES: Final[frozenset[str]] = frozenset(
-    {"write", "export", "retention", "deletion"}
+    {"write", "retrieval", "export", "retention", "deletion"}
 )
 
 PolicyDecisionAction = Literal["allow", "deny"]
