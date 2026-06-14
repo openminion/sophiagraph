@@ -59,7 +59,7 @@ that is actually true.
 - query DTOs
 - portability bundle models and codec helpers
 - audit-event schemas
-- trust and temporal primitives
+- typed trust/policy primitives and temporal freshness/lifecycle helpers
 - typed namespace DTOs for explicit tenant/user/agent/session isolation
 - directed relation APIs with explicit incoming/outgoing/bidirectional lookup
 - Obsidian-style structural document/link DTOs, Markdown/frontmatter adapter,
@@ -105,6 +105,9 @@ that is actually true.
 - structural inspection reports and explicit repair candidates for unresolved
   links, orphan records, duplicate aliases, stale facts, broken source
   references, and open conflict queues
+- package-owned human-management helpers for note CRUD, vault-import dry-runs,
+  source/freshness inspection, and deterministic local workbench packets/HTML
+  previews
 - package-owned UI boundary contracts in `sophiagraph.ui` for the future
   visual explorer, record detail, graph, operations, repair, timeline, and
   schema screens without requiring a second package yet
@@ -214,8 +217,14 @@ sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
 - `docs/README.md` summarizes the package-local docs contract.
 - `docs/reference/certification-readiness-matrix.md` records standalone and
   OpenMinion proof coverage for the public package surface.
+- `docs/reference/standalone-claim-alignment.md` maps public standalone claims
+  to the concrete package surfaces and proof that ship today.
+- `docs/reference/retrieval-boundary.md` records the canonical package vs host
+  retrieval ownership split.
 - `docs/reference/vector-conformance.md` records the vector registry and
   backend-conformance harness.
+- `docs/reference/human-management.md` records the package-owned human
+  note/import/source management surface.
 - `docs/reference/ui-contracts.md` records the package-owned UI boundary
   contract.
 - `src/sophiagraph/README.md` explains the source-tree module layout and
@@ -642,10 +651,15 @@ record = await async_facade.get_record("rec-1")
 
 ## Search and SQLite Connections
 
-Current structural search uses deterministic matching with SQLite FTS5
-candidate narrowing for record and block text when FTS5 is available. It is not
-yet a vector-backed or reranked retrieval engine. The hybrid retrieval roadmap
-owns the future vector/rerank design.
+Sophiagraph already owns a typed retrieval substrate over approved graph state.
+Today that includes deterministic keyword search, optional vector-stage fusion,
+graph expansion, recency weighting, trust weighting, explicit rerank inputs,
+and explanation payloads for why a hit surfaced.
+
+Hosts still own provider execution and orchestration. The package accepts
+caller-supplied vector or rerank adapters and typed score inputs; it does not
+call embedding providers directly, schedule automatic re-embedding, or decide
+when retrieval should run in a user turn.
 
 `SophiaGraphSqliteStore` opens a short-lived SQLite connection per method call.
 That keeps alpha behavior simple and avoids hidden shared connection state. A

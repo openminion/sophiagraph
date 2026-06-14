@@ -7,10 +7,16 @@ from pathlib import Path
 import pytest
 
 from sophiagraph import (
+    FreshnessLedgerEntry,
     SophiaGraphMemoryStore,
     SophiaGraphSqliteStore,
+    VaultFilePayload,
+    VaultImportOptions,
     apply_decision_to_record_meta,
+    decide_replay,
     evaluate_policy,
+    import_vault_files,
+    plan_human_vault_import,
 )
 from sophiagraph.audit import (
     PolicyDecision,
@@ -30,6 +36,7 @@ from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.query import (
     ContextRequest,
     LocalGraphMode,
+    ListQueryOptions,
 )
 from sophiagraph.storage.ontology_validator import validate_record_for_ontology
 
@@ -173,6 +180,30 @@ def test_cert_duplicate_replay_is_idempotent_on_lifecycle_decision(store) -> Non
     assert once == twice
 
 
+def test_cert_freshness_replay_is_typed_and_idempotent(store) -> None:
+    entry = FreshnessLedgerEntry.create(
+        namespace=cert_namespace(),
+        source_kind="connector",
+        source_id="connector:cert",
+        status="fresh",
+        cursor="cur-1",
+        content_hash="hash-1",
+        updated_at=utc_now_iso(),
+        record_ids=["cert-rec-0"],
+    )
+    store.put_freshness_entry(entry)
+    store.put_freshness_entry(entry)
+
+    same = decide_replay(entry, incoming_cursor="cur-1", incoming_hash="hash-1")
+    changed = decide_replay(entry, incoming_cursor="cur-2", incoming_hash="hash-2")
+
+    assert same.decision == "skip_unchanged"
+    assert changed.decision == "ingest_changed"
+    assert store.list_freshness_entries(
+        source_kind="connector", source_id="connector:cert"
+    ) == [entry]
+
+
 def test_cert_unsupported_retrieval_mode_raises() -> None:
     with pytest.raises(InvalidArgumentError):
         ContextRequest(
@@ -253,3 +284,31 @@ def test_cert_write_accepted_event_shape() -> None:
     audit = evt.to_memory_audit_event()
     assert audit.event_type == "memory.write_accepted"
     assert audit.target_id == "cert-rec-0"
+
+
+def test_cert_human_import_dry_run_is_explicit_and_non_destructive(store) -> None:
+    options = VaultImportOptions(
+        vault_id="vault-cert",
+        namespace=cert_namespace(),
+        scope="agent:notes",
+        imported_at=utc_now_iso(),
+    )
+    import_vault_files(
+        store,
+        [VaultFilePayload(path="notes/alpha.md", content="# Alpha\n\nAlpha body\n")],
+        options,
+    )
+
+    plan = plan_human_vault_import(
+        store,
+        [VaultFilePayload(path="notes/alpha.md", content="# Alpha\n\nChanged\n")],
+        options,
+    )
+
+    assert plan.updated_count == 1
+    assert plan.created_count == 0
+    listed = store.list_records(
+        ListQueryOptions(scopes=["agent:notes"], namespaces=[cert_namespace()])
+    )
+    assert len(listed) == 1
+    assert listed[0].content["text"] == "# Alpha\n\nAlpha body\n"

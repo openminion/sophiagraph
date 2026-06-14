@@ -55,7 +55,13 @@ def test_governance_event_kinds_is_a_closed_set() -> None:
 
 
 def test_policy_surfaces_is_a_closed_set() -> None:
-    assert POLICY_SURFACES == {"write", "export", "retention", "deletion"}
+    assert POLICY_SURFACES == {
+        "write",
+        "retrieval",
+        "export",
+        "retention",
+        "deletion",
+    }
 
 
 def test_policy_decision_actions_is_a_closed_set() -> None:

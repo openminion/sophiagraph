@@ -39,13 +39,14 @@ GOVERNANCE_EVENT_KINDS: Final[frozenset[str]] = frozenset(
 
 PolicySurface = Literal[
     "write",
+    "retrieval",
     "export",
     "retention",
     "deletion",
 ]
 
 POLICY_SURFACES: Final[frozenset[str]] = frozenset(
-    {"write", "export", "retention", "deletion"}
+    {"write", "retrieval", "export", "retention", "deletion"}
 )
 
 PolicyDecisionAction = Literal["allow", "deny"]
@@ -245,8 +246,6 @@ class RetrievalExplanation:
                 )
 
 
-# Quality eval signal.
-
 QualityEvalSignalKind = Literal[
     "explicit_user_correction",
     "validation_passed",
@@ -354,9 +353,6 @@ class ExportEvent:
         )
 
 
-# Policy denial.
-
-
 @dataclass(frozen=True)
 class PolicyDenialEvent:
     """Recorded when a policy hook denies a write/export/retention/deletion."""
@@ -404,8 +400,6 @@ class PolicyDenialEvent:
             },
         )
 
-
-# Lifecycle action event.
 
 LifecycleAction = Literal[
     "ttl_active_elapsed",
