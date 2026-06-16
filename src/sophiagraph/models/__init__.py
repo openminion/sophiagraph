@@ -39,6 +39,8 @@ from .ontology import (
 from .entity_fact import (
     CONTRADICTION_DECISIONS,
     ENTITY_FACT_SOURCE_KINDS,
+    SUMMARY_AUTHORSHIPS,
+    SUMMARY_INVALIDATION_REASONS,
     Contradiction,
     ContradictionDecision,
     Entity,
@@ -47,6 +49,8 @@ from .entity_fact import (
     EntityFactSourceKind,
     EntitySummary,
     Fact,
+    SummaryAuthorship,
+    SummaryInvalidationReason,
 )
 from .episode_procedure import (
     EPISODE_STATUSES,
@@ -209,6 +213,10 @@ __all__ = [
     "EntityFactProvenance",
     "EntityFactSourceKind",
     "EntitySummary",
+    "SUMMARY_AUTHORSHIPS",
+    "SUMMARY_INVALIDATION_REASONS",
+    "SummaryAuthorship",
+    "SummaryInvalidationReason",
     "CategorySchema",
     "EdgeTypeSchema",
     "EntityTypeSchema",

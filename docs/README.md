@@ -15,6 +15,8 @@ Package-local reference docs:
   metric and conformance harness expectations.
 - `docs/reference/human-management.md` records the package-owned human
   note/import/source management surface.
+- `docs/reference/workspace-mode.md` records the package-owned persistent local
+  workspace and explicit local import-bridge surface.
 - `docs/reference/ui-contracts.md` records the package-owned `sophiagraph.ui`
   boundary for future visual/runtime surfaces.
 
@@ -37,5 +39,5 @@ Repository-local but not package API:
 
 The public package surface now includes not only durable-memory/query/storage
 substrate APIs but also a package-owned human-management layer for note CRUD,
-import dry-runs, source/freshness inspection, and a deterministic local
-workbench packet/HTML preview.
+import dry-runs, source/freshness inspection, a persistent local workspace
+posture, and a deterministic local workbench packet/HTML preview.

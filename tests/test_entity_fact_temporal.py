@@ -12,14 +12,17 @@ from sophiagraph.contracts.errors import (
     InvalidSupersessionError,
 )
 from sophiagraph.models import (
+    ConsentState,
     Contradiction,
     Entity,
     EntityAlias,
     EntitySummary,
     Fact,
     MemoryNamespace,
+    PrivacyPolicyState,
 )
 from sophiagraph.models.entity_fact import EntityFactProvenance
+from sophiagraph.storage.graph_helpers import entity_summary_from_dict
 
 
 def _ns_a() -> MemoryNamespace:
@@ -97,6 +100,75 @@ def test_entity_summary_requires_summary_text() -> None:
         )
 
 
+def test_entity_summary_validates_authorship_and_invalidation_reason() -> None:
+    with pytest.raises(InvalidArgumentError):
+        EntitySummary(
+            summary_id="s-1",
+            entity_id="e-1",
+            namespace=_ns_a(),
+            summary_text="Summary",
+            provenance=_prov(),
+            authorship="guessed",  # type: ignore[arg-type]
+        )
+    with pytest.raises(InvalidArgumentError):
+        EntitySummary(
+            summary_id="s-1",
+            entity_id="e-1",
+            namespace=_ns_a(),
+            summary_text="Summary",
+            provenance=_prov(),
+            invalidation_reason="maybe_stale",  # type: ignore[arg-type]
+        )
+
+
+def test_entity_summary_legacy_payload_hydrates_new_fields_with_defaults() -> None:
+    summary = entity_summary_from_dict(
+        {
+            "summary_id": "sum-legacy",
+            "entity_id": "e-1",
+            "namespace": _ns_a().as_dict(),
+            "summary_text": "Legacy summary",
+            "provenance": {
+                "source_kind": "tool_observation",
+                "source_id": "t-1",
+                "actor": "agent",
+                "extra": {},
+            },
+            "created_at": "2026-06-15T00:00:00+00:00",
+            "updated_at": "2026-06-15T00:00:00+00:00",
+        }
+    )
+
+    assert summary.authorship == "model_authored"
+    assert summary.invalidation_reason is None
+    assert summary.superseded_by_summary_id is None
+    assert summary.source_record_ids == ()
+    assert summary.privacy_policy is None
+
+
+def test_entity_summary_can_carry_typed_privacy_state() -> None:
+    summary = EntitySummary(
+        summary_id="sum-1",
+        entity_id="e-1",
+        namespace=_ns_a(),
+        summary_text="Summary",
+        provenance=_prov(),
+        privacy_policy=PrivacyPolicyState(
+            policy_id="policy-1",
+            consent=ConsentState(status="granted", granted_at="2026-06-15T00:00:00+00:00"),
+            retrieval_visibility="visible",
+            export_visibility="visible",
+            retention_class="retain",
+            erase_intent="none",
+            decision_reason="explicit_allow",
+            source_owner="openminion",
+            applied_at="2026-06-15T00:00:00+00:00",
+        ),
+    )
+    assert summary.privacy_policy is not None
+    assert summary.privacy_policy.policy_id == "policy-1"
+
+
 def test_anti_llm_no_inference_helpers_on_module_surface() -> None:
     """The entity/fact module must not expose prose-inference symbols."""
     from sophiagraph.models import entity_fact as mod
@@ -155,6 +227,43 @@ def test_entity_aliases_round_trip(store) -> None:
     rows = store.list_entity_aliases(entity_id="e-1")
     assert len(rows) == 1
     assert rows[0].alias_name == "Al"
+
+
+def test_entity_summary_round_trip_preserves_metadata_and_order(store) -> None:
+    store.put_entity_summary(
+        EntitySummary(
+            summary_id="sum-older",
+            entity_id="e-1",
+            namespace=_ns_a(),
+            summary_text="Older summary",
+            provenance=_prov(),
+            authorship="operator_authored",
+            source_record_ids=("rec-1",),
+            created_at="2026-06-14T00:00:00+00:00",
+            updated_at="2026-06-14T00:00:00+00:00",
+        )
+    )
+    store.put_entity_summary(
+        EntitySummary(
+            summary_id="sum-newer",
+            entity_id="e-1",
+            namespace=_ns_a(),
+            summary_text="Newer summary",
+            provenance=_prov(),
+            authorship="system_derived",
+            source_record_ids=("rec-2", "rec-3"),
+            created_at="2026-06-15T00:00:00+00:00",
+            updated_at="2026-06-15T00:00:00+00:00",
+        )
+    )
+
+    loaded = store.get_entity_summary("sum-newer")
+    assert loaded is not None
+    assert loaded.authorship == "system_derived"
+    assert loaded.source_record_ids == ("rec-2", "rec-3")
+
+    rows = store.list_entity_summaries(entity_id="e-1")
+    assert [row.summary_id for row in rows] == ["sum-newer", "sum-older"]
 
 
 def test_fact_persists_with_temporal_filter(store) -> None:

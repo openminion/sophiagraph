@@ -103,6 +103,15 @@ from .community import (
     pattern_query_to_backend_payload,
     query_communities,
 )
+from .entity_summary_context import (
+    SUMMARY_CONTEXT_OMISSION_REASONS,
+    SummaryContextItem,
+    SummaryContextOmission,
+    SummaryContextOmissionReason,
+    SummaryContextRequest,
+    SummaryContextResult,
+    assemble_entity_summary_context,
+)
 from .explorer import (
     FacetField,
     KnowledgeContextExcerpt,
@@ -248,7 +257,13 @@ __all__ = [
     "StructuralSearchMode",
     "SummaryReferenceProvider",
     "SavedExplorerView",
+    "SUMMARY_CONTEXT_OMISSION_REASONS",
     "TemporalFactMode",
+    "SummaryContextItem",
+    "SummaryContextOmission",
+    "SummaryContextOmissionReason",
+    "SummaryContextRequest",
+    "SummaryContextResult",
     "VectorScoreLookup",
     "RecencyStageOptions",
     "RecordOrder",
@@ -284,6 +299,7 @@ __all__ = [
     "all_simple_paths",
     "assemble_block_context",
     "assemble_context",
+    "assemble_entity_summary_context",
     "assemble_episode_replay",
     "assemble_retrieval",
     "build_community_snapshot",

@@ -438,6 +438,8 @@ class SophiaGraphStore(Protocol):
 
     def put_entity_summary(self, summary: EntitySummary) -> str: ...
 
+    def get_entity_summary(self, summary_id: str) -> EntitySummary | None: ...
+
     def list_entity_summaries(
         self,
         *,

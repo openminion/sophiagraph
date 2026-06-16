@@ -16,6 +16,7 @@ def test_sophiagraph_package_imports() -> None:
     import sophiagraph.temporal
     import sophiagraph.trust
     import sophiagraph.ui
+    import sophiagraph.workspace
 
     assert sophiagraph.__version__ == "0.0.1"
     assert callable(sophiagraph.create_sqlite_store)
@@ -25,6 +26,7 @@ def test_sophiagraph_package_imports() -> None:
     assert sophiagraph.ListQueryOptions.__name__ == "ListQueryOptions"
     assert sophiagraph.human.HumanWorkspaceSnapshot.__name__ == "HumanWorkspaceSnapshot"
     assert sophiagraph.ui.UiTransportBoundary.__name__ == "UiTransportBoundary"
+    assert sophiagraph.workspace.WorkspaceMetadata.__name__ == "WorkspaceMetadata"
 
 
 def test_top_level_public_api_and_version_metadata_are_stable() -> None:
@@ -33,15 +35,20 @@ def test_top_level_public_api_and_version_metadata_are_stable() -> None:
     root = Path(__file__).resolve().parents[1]
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
     expected_exports = {
+        "EntitySummary",
         "MemoryRecord",
         "MemoryNamespace",
         "SophiaGraphMemoryStore",
         "SophiaGraphSqliteStore",
         "HumanWorkspaceSnapshot",
+        "SummaryContextRequest",
+        "WorkspaceMetadata",
         "VaultFilePayload",
         "all_simple_paths",
+        "assemble_entity_summary_context",
         "retrieval_path_evidence",
         "create_sqlite_store",
+        "initialize_workspace",
     }
 
     assert sophiagraph.__version__ == pyproject["project"]["version"]

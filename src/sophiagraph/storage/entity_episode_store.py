@@ -137,7 +137,7 @@ def entity_summary_passes(
         return False
     if entity_id and summary.entity_id != entity_id:
         return False
-    if not include_invalidated and summary.invalidated_at is not None:
+    if not include_invalidated and summary.is_invalidated:
         return False
     return True
 

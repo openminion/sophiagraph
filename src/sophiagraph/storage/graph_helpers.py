@@ -31,6 +31,7 @@ from sophiagraph.models import (
     RawEpisode,
     StructuralLink,
 )
+from sophiagraph.models.privacy import PrivacyPolicyState
 from sophiagraph.query import GraphEdge, GraphNode, StructuralSearchQuery
 
 
@@ -144,6 +145,8 @@ def entity_summary_to_dict(summary: EntitySummary) -> dict[str, Any]:
     payload = asdict(summary)
     if isinstance(summary.namespace, MemoryNamespace):
         payload["namespace"] = summary.namespace.as_dict()
+    if isinstance(summary.privacy_policy, PrivacyPolicyState):
+        payload["privacy_policy"] = summary.privacy_policy.to_dict()
     payload["meta"] = dict(summary.meta)
     return payload
 
@@ -152,6 +155,12 @@ def entity_summary_from_dict(data: dict[str, Any]) -> EntitySummary:
     payload = dict(data)
     payload["namespace"] = _ns_dict_to_object(payload.get("namespace"))
     payload["provenance"] = _provenance_dict_to_object(payload.get("provenance"))
+    raw_policy = payload.get("privacy_policy")
+    if isinstance(raw_policy, dict):
+        payload["privacy_policy"] = PrivacyPolicyState.from_dict(raw_policy)
+    raw_source_record_ids = payload.get("source_record_ids")
+    if isinstance(raw_source_record_ids, list):
+        payload["source_record_ids"] = tuple(str(item) for item in raw_source_record_ids)
     return EntitySummary(**payload)
 
 

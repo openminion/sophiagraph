@@ -1272,6 +1272,9 @@ class SophiaGraphMemoryStore(
         )
         return summary.summary_id
 
+    def get_entity_summary(self, summary_id):
+        return self._entity_summaries.get(summary_id)
+
     def list_entity_summaries(
         self,
         *,
@@ -1292,7 +1295,8 @@ class SophiaGraphMemoryStore(
                 include_invalidated=include_invalidated,
             )
         ]
-        rows.sort(key=lambda s: (s.updated_at or s.created_at or "", s.summary_id))
+        rows.sort(key=lambda s: s.summary_id)
+        rows.sort(key=lambda s: s.updated_at or s.created_at or "", reverse=True)
         if limit is not None:
             rows = rows[: int(limit)]
         return rows

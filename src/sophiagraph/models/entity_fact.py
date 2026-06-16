@@ -7,6 +7,7 @@ from typing import Any, Final, Literal, Mapping
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models.namespace import MemoryNamespace
+from sophiagraph.models.privacy import PrivacyPolicyState
 
 
 EntityFactSourceKind = Literal[
@@ -38,6 +39,34 @@ ContradictionDecision = Literal[
 
 CONTRADICTION_DECISIONS: Final[frozenset[str]] = frozenset(
     {"supersedes", "both_valid", "invalidates_target"}
+)
+
+
+SummaryAuthorship = Literal["model_authored", "operator_authored", "system_derived"]
+
+
+SUMMARY_AUTHORSHIPS: Final[frozenset[str]] = frozenset(
+    {"model_authored", "operator_authored", "system_derived"}
+)
+
+
+SummaryInvalidationReason = Literal[
+    "source_record_changed",
+    "entity_changed",
+    "privacy_policy_changed",
+    "operator_replaced",
+    "stale_time_window",
+]
+
+
+SUMMARY_INVALIDATION_REASONS: Final[frozenset[str]] = frozenset(
+    {
+        "source_record_changed",
+        "entity_changed",
+        "privacy_policy_changed",
+        "operator_replaced",
+        "stale_time_window",
+    }
 )
 
 
@@ -235,9 +264,14 @@ class EntitySummary:
     namespace: MemoryNamespace
     summary_text: str
     provenance: EntityFactProvenance
+    authorship: SummaryAuthorship = "model_authored"
     created_at: str = ""
     updated_at: str = ""
     invalidated_at: str | None = None
+    invalidation_reason: SummaryInvalidationReason | None = None
+    superseded_by_summary_id: str | None = None
+    source_record_ids: tuple[str, ...] = ()
+    privacy_policy: PrivacyPolicyState | None = None
     meta: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -253,8 +287,41 @@ class EntitySummary:
             )
         if not isinstance(self.provenance, EntityFactProvenance):
             raise InvalidArgumentError("provenance must be EntityFactProvenance")
+        if self.authorship not in SUMMARY_AUTHORSHIPS:
+            raise InvalidArgumentError(f"invalid summary authorship: {self.authorship!r}")
+        if self.invalidation_reason is not None and (
+            self.invalidation_reason not in SUMMARY_INVALIDATION_REASONS
+        ):
+            raise InvalidArgumentError(
+                f"invalid summary invalidation_reason: {self.invalidation_reason!r}"
+            )
+        if self.superseded_by_summary_id is not None and not self.superseded_by_summary_id:
+            raise InvalidArgumentError(
+                "superseded_by_summary_id must be a non-empty string or None"
+            )
+        if not isinstance(self.source_record_ids, tuple):
+            raise InvalidArgumentError("source_record_ids must be a tuple[str, ...]")
+        for record_id in self.source_record_ids:
+            if not isinstance(record_id, str) or not record_id:
+                raise InvalidArgumentError(
+                    "source_record_ids must contain non-empty strings"
+                )
+        if self.privacy_policy is not None and not isinstance(
+            self.privacy_policy, PrivacyPolicyState
+        ):
+            raise InvalidArgumentError(
+                "privacy_policy must be PrivacyPolicyState or None"
+            )
         if not isinstance(self.meta, Mapping):
             raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+
+    @property
+    def is_invalidated(self) -> bool:
+        return (
+            self.invalidated_at is not None
+            or self.superseded_by_summary_id is not None
+            or self.invalidation_reason is not None
+        )
 
 
 __all__ = [
@@ -268,4 +335,8 @@ __all__ = [
     "EntityFactSourceKind",
     "EntitySummary",
     "Fact",
+    "SUMMARY_AUTHORSHIPS",
+    "SUMMARY_INVALIDATION_REASONS",
+    "SummaryAuthorship",
+    "SummaryInvalidationReason",
 ]

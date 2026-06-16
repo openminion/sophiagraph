@@ -12,7 +12,7 @@ The public package surface is documented in:
 
 The preferred public entrypoint is `sophiagraph`, with stable import roots for
 models, query, storage, portability, audit, trust, connectors, graph backends,
-inspection, and `sophiagraph.ui`.
+inspection, `sophiagraph.ui`, and `sophiagraph.workspace`.
 
 ## Source-tree owner map
 
@@ -27,9 +27,11 @@ inspection, and `sophiagraph.ui`.
    connector and replay helpers.
 6. `human.py` owns package-local note/import/source management helpers over the
    canonical store and import surfaces.
-7. `graph_backends/` owns optional graph-adapter contracts and concrete local
+7. `workspace.py` owns the package-local persistent workspace posture and
+   explicit local import bridge around the human-management and store surfaces.
+8. `graph_backends/` owns optional graph-adapter contracts and concrete local
    backends.
-8. `ui/` owns typed UI contracts only; runtime/browser implementation belongs
+9. `ui/` owns typed UI contracts only; runtime/browser implementation belongs
    outside the package.
 
 ## Repo-local but not public API

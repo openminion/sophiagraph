@@ -2095,6 +2095,20 @@ class SophiaGraphSqliteStore(
             )
         return summary.summary_id
 
+    def get_entity_summary(self, summary_id):
+        from sophiagraph.storage.graph_helpers import entity_summary_from_dict
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json
+                FROM sophiagraph_entity_summaries
+                WHERE summary_id = ?
+                """,
+                (summary_id,),
+            ).fetchone()
+        return None if row is None else entity_summary_from_dict(row_json(row))
+
     def list_entity_summaries(
         self,
         *,

@@ -36,6 +36,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.inspection`
 - `sophiagraph.ui`
 - `sophiagraph.embedding_lifecycle`
+- `sophiagraph.workspace`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -52,6 +53,11 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.MemoryRecord`
 - `sophiagraph.MemoryCandidate`
 - `sophiagraph.MemoryRelation`
+- `sophiagraph.EntitySummary`
+- `sophiagraph.SUMMARY_AUTHORSHIPS`
+- `sophiagraph.SUMMARY_INVALIDATION_REASONS`
+- `sophiagraph.SummaryAuthorship`
+- `sophiagraph.SummaryInvalidationReason`
 - `sophiagraph.ActiveEmbeddingModelSet`
 - `sophiagraph.VectorSpaceModelDescriptor`
 - `sophiagraph.StaleEmbeddingFinding`
@@ -84,8 +90,14 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.KnowledgeQueryPlanStage`
 - `sophiagraph.UnlinkedMentionCandidate`
 - `sophiagraph.SavedExplorerView`
+- `sophiagraph.SUMMARY_CONTEXT_OMISSION_REASONS`
+- `sophiagraph.SummaryContextRequest`
+- `sophiagraph.SummaryContextItem`
+- `sophiagraph.SummaryContextOmission`
+- `sophiagraph.SummaryContextResult`
 - `sophiagraph.explore_knowledge(...)`
 - `sophiagraph.evaluate_saved_explorer_view(...)`
+- `sophiagraph.assemble_entity_summary_context(...)`
 - `sophiagraph.shortest_path(...)`
 - `sophiagraph.path_evidence(...)`
 - `sophiagraph.connected_components(...)`
@@ -94,6 +106,16 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.create_memory_store()`
 - `sophiagraph.default_db_path(...)`
 - `sophiagraph.async_store(...)`
+- `sophiagraph.WorkspaceMetadata`
+- `sophiagraph.WorkspaceImportProfile`
+- `sophiagraph.WorkspaceStatusView`
+- `sophiagraph.initialize_workspace(...)`
+- `sophiagraph.load_workspace_status(...)`
+- `sophiagraph.plan_workspace_import(...)`
+- `sophiagraph.apply_workspace_import(...)`
+- `sophiagraph.workspace_note_put(...)`
+- `sophiagraph.build_workspace_workbench(...)`
+- `sophiagraph.render_workspace_workbench(...)`
 - `sophiagraph.audit`
 - `sophiagraph.contracts`
 - `sophiagraph.portability`
@@ -211,6 +233,8 @@ Public-contract confidence should be enforced by tests that cover:
 22. optional concrete graph backend adapters for Kuzu and Neo4j.
 23. namespace-scoped active embedding registries, stale-embedding detection,
     resumable re-embed plans, and orphan vector-id lifecycle helpers.
+24. persistent local workspace metadata/profile/status flows plus explicit
+    local markdown/canvas import planning and application.
 
 ## Internal compatibility shims
 
