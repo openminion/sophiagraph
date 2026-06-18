@@ -1,19 +1,19 @@
 # Sophiagraph Standalone + OpenMinion Certification Readiness Matrix
 
+Status: semantic alpha
+Scope: public package proof matrix
+
 ## Purpose
 
-This page is the single public map from each shipped SophiaGraph package
-surface to:
-
-1. its standalone package proof, and
-2. its OpenMinion direct-library proof where one exists.
+Single map of the current public SophiaGraph surface, the standalone package
+proof for each lane, and the OpenMinion direct-library proof where one exists.
 
 ## Scope
 
-The matrix below lists each completed substrate lane, the exact test
-target that proves the public surface works standalone, and the exact
-test target that proves OpenMinion can consume it as a direct library.
-Lanes with no OpenMinion-facing surface are marked `n/a`.
+The matrix below lists each shipped SophiaGraph capability area, the exact
+package test target that proves the standalone surface works, and the exact
+OpenMinion proof when the lane has one. Rows with no host-facing surface are
+marked `n/a`.
 
 ## Non-goals
 
@@ -22,20 +22,8 @@ behavior, or webhook delivery transport.
 
 ## Success criteria
 
-Every row that is not `n/a` must point to a passing test in the
-SophiaGraph or OpenMinion repository. The certification suite re-runs
-on every release-check pass.
-
-## Acceptance criteria
-
-The matrix stays current with the package surface. New public capability areas
-should add a proof row before they are presented as release-ready.
-
-## Failure criteria
-
-A missing test target, a row pointing to a deleted test, or a row that
-relies on private SophiaGraph modules from the OpenMinion side fails
-certification and blocks release.
+Every row that is not `n/a` points to a passing package-local or OpenMinion
+test that exercises public SophiaGraph imports.
 
 ## Matrix
 
@@ -74,11 +62,9 @@ PYTHONPATH=src:../sophiagraph/src .venv/bin/python3.11 -m pytest -q tests -k 'so
 make lint
 ```
 
-## Anti-LLM substrate boundary
+## Boundary reminder
 
-Every row in the matrix exercises a typed structural surface. No row
-generates or evaluates freeform model output. The OpenMinion-side
-tests carry an AST-based regression check that the test file imports
-only public ``sophiagraph``, ``sophiagraph.audit``, and
-``sophiagraph.models`` paths — never the private storage or audit
+Every row in the matrix exercises typed structural surfaces only. No row
+depends on freeform model output. OpenMinion-side proofs stay on documented
+public `sophiagraph` import roots rather than private storage or audit
 submodules.

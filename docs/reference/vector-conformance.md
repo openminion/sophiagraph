@@ -1,10 +1,13 @@
 # Vector Conformance Harness
 
+Status: semantic alpha
+Scope: metric registry and backend-neutral conformance checks
+
 `sophiagraph.vectors` ships a typed similarity-metric registry and a
 backend-agnostic conformance harness. Any vector backend that wants to
-claim parity with sophiagraph's built-in substrate runs the same
+claim parity with SophiaGraph's built-in substrate runs the same
 operator-supplied test cases through the harness and reports structural
-pass / fail per case.
+pass/fail per case.
 
 This is the bounded package-owned slice:
 
@@ -29,10 +32,10 @@ demand exists.
   each case and emits a typed `ConformanceReport`.
 - `VectorSearchProtocol` — structural protocol any backend implements
   (`search(metric, query, candidates, *, k)`).
-- `BUILTIN_VECTOR_BACKEND` — sophiagraph's built-in deterministic
+- `BUILTIN_VECTOR_BACKEND` — SophiaGraph's built-in deterministic
   backend (delegates to `nearest_neighbors`).
 
-## Quick start — registering a backend
+## Quick start - registering a backend
 
 A backend is anything with a `search` method matching `VectorSearchProtocol`:
 
@@ -54,7 +57,7 @@ class MyBackend(VectorSearchProtocol):
 Backends are passed as instances; there is no global registry. This
 keeps the harness side-effect-free.
 
-## Quick start — registering a case
+## Quick start - registering a case
 
 ```python
 from sophiagraph.vectors import (
@@ -86,7 +89,7 @@ Validation runs at construction:
 - `expected_top_k` ids must all appear in the candidate set and the
   tuple length must equal `k`.
 
-## Quick start — running the harness
+## Quick start - running the harness
 
 ```python
 from sophiagraph.vectors import (
@@ -124,9 +127,9 @@ The harness is deterministic by design:
 
 ## Out of scope
 
-- Per-backend client integrations (pgvector, Qdrant, Pinecone,
-  Weaviate). Each should ship as its own additive package surface only when a
-  concrete consumer requires it.
+- Per-backend client integrations (pgvector, Qdrant, Pinecone, Weaviate). Each
+  should ship as its own additive package surface only when a concrete consumer
+  requires it.
 - HNSW / IVF / approximate-search recall measurement. The harness
   pins exact top-k ordering for the cases it is given.
 - Numpy-backed bulk operations. Sophiagraph maintains a

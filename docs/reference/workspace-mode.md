@@ -1,5 +1,8 @@
 # Workspace Mode
 
+Status: semantic alpha
+Scope: package-local persistent local workspace contract
+
 SophiaGraph now ships a package-owned persistent local workspace posture for
 human-managed notes, explicit local file imports, and workbench rendering.
 

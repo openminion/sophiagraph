@@ -1,9 +1,12 @@
 # Sophiagraph Standalone Claim Alignment
 
+Status: semantic alpha
+Scope: public package claims and current shipped surfaces
+
 ## Purpose
 
-This note maps the current public standalone Sophiagraph story to the package
-surface that actually ships today.
+This note maps the current public standalone SophiaGraph story to the package
+surface that ships today.
 
 It exists to:
 
@@ -13,7 +16,7 @@ It exists to:
 
 ## Named differentiators kept explicit
 
-This lane keeps two package-owned differentiators explicit:
+Two package-owned differentiators stay explicit:
 
 1. typed governance, policy-denial, and observability surfaces,
 2. temporal freshness, lifecycle, and invalidation helpers.
@@ -36,7 +39,7 @@ broadening the story into hosted governance or freeform policy intelligence.
 
 ## Resulting public stance
 
-The resulting honest standalone Sophiagraph story is:
+The resulting honest standalone SophiaGraph story is:
 
 1. a durable graph substrate for approved memory state,
 2. a package-owned retrieval and navigation engine over that approved graph
