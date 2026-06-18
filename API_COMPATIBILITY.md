@@ -37,6 +37,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.ui`
 - `sophiagraph.embedding_lifecycle`
 - `sophiagraph.workspace`
+- `sophiagraph.okf`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -157,6 +158,22 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.detect_stale_embeddings(...)`
 - `sophiagraph.build_reembed_plan(...)`
 - `sophiagraph.list_orphan_external_vector_ids(...)`
+- `sophiagraph.OKF_SPEC_BASELINE_COMMIT`
+- `sophiagraph.OKF_SPEC_BASELINE_URL`
+- `sophiagraph.OkfBundleManifest`
+- `sophiagraph.OkfConceptProfile`
+- `sophiagraph.OkfConceptDocument`
+- `sophiagraph.OkfIndexDocument`
+- `sophiagraph.OkfLogDocument`
+- `sophiagraph.OkfCitation`
+- `sophiagraph.OkfConformanceFinding`
+- `sophiagraph.OkfNavigationPacket`
+- `sophiagraph.import_okf_bundle(...)`
+- `sophiagraph.validate_okf_bundle(...)`
+- `sophiagraph.export_okf_bundle(...)`
+- `sophiagraph.write_okf_bundle(...)`
+- `sophiagraph.import_okf_bundle_into_store(...)`
+- `sophiagraph.build_okf_navigation_packet(...)`
 - `sophiagraph.StructuralGraphQueryRequest`
 - `sophiagraph.StructuralGraphQueryResult`
 - `sophiagraph.StructuralGraphPlannerStage`

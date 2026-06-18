@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sophiagraph.contracts.errors import InvalidArgumentError
-from sophiagraph.models import MemoryNamespace, RelationDirection
+from sophiagraph.models.namespace import MemoryNamespace
+from sophiagraph.models.primitives import RelationDirection
 
 
 @dataclass(frozen=True, slots=True)

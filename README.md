@@ -114,6 +114,10 @@ that is actually true.
 - package-owned UI boundary contracts in `sophiagraph.ui` for the future
   visual explorer, record detail, graph, operations, repair, timeline, and
   schema screens without requiring a second package yet
+- a first-class `sophiagraph.okf` profile layer for Google OKF-style bundle
+  validation, import/export, reserved `index.md` / `log.md` handling, typed
+  citations, and explicit Obsidian-compatible authoring output when the caller
+  asks for it
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 
@@ -187,6 +191,33 @@ Preview a local markdown/canvas import:
 ```bash
 python3.11 -m sophiagraph workspace-import-plan \
   ./.sophiagraph-workspace ./notes --json
+```
+
+## OKF Interoperability Quickstart
+
+Import a Google OKF-style bundle through the public package surface:
+
+```python
+from sophiagraph import MemoryNamespace, import_okf_bundle
+
+bundle = import_okf_bundle(
+    "./knowledge-bundle",
+    namespace=MemoryNamespace(agent_id="local", graph_id="main"),
+)
+
+assert bundle.manifest.spec_commit
+assert bundle.manifest.concept_count >= 0
+```
+
+Export the same bundle back to portable Markdown by default, or request
+Obsidian-flavored output explicitly:
+
+```python
+from sophiagraph import export_okf_bundle, write_okf_bundle
+
+portable_files = export_okf_bundle(bundle)
+obsidian_files = export_okf_bundle(bundle, obsidian_compatible=True)
+write_okf_bundle(bundle, "./portable-out")
 ```
 
 ## Install

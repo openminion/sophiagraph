@@ -10,6 +10,7 @@ def test_sophiagraph_package_imports() -> None:
     import sophiagraph.contracts
     import sophiagraph.human
     import sophiagraph.models
+    import sophiagraph.okf
     import sophiagraph.portability
     import sophiagraph.query
     import sophiagraph.storage
@@ -27,6 +28,7 @@ def test_sophiagraph_package_imports() -> None:
     assert sophiagraph.human.HumanWorkspaceSnapshot.__name__ == "HumanWorkspaceSnapshot"
     assert sophiagraph.ui.UiTransportBoundary.__name__ == "UiTransportBoundary"
     assert sophiagraph.workspace.WorkspaceMetadata.__name__ == "WorkspaceMetadata"
+    assert sophiagraph.okf.OkfBundleManifest.__name__ == "OkfBundleManifest"
 
 
 def test_top_level_public_api_and_version_metadata_are_stable() -> None:
@@ -43,11 +45,13 @@ def test_top_level_public_api_and_version_metadata_are_stable() -> None:
         "HumanWorkspaceSnapshot",
         "SummaryContextRequest",
         "WorkspaceMetadata",
+        "OkfBundleManifest",
         "VaultFilePayload",
         "all_simple_paths",
         "assemble_entity_summary_context",
         "retrieval_path_evidence",
         "create_sqlite_store",
+        "import_okf_bundle",
         "initialize_workspace",
     }
 
