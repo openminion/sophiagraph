@@ -8,20 +8,21 @@ def test_root_layout_stays_clean_and_intentional() -> None:
     root = Path(__file__).resolve().parents[1]
 
     assert (root / "docs" / "README.md").is_file()
-    assert (root / "docs" / "reference").is_dir()
+    assert (root / "docs").is_dir()
     assert (root / "src" / "sophiagraph" / "README.md").is_file()
 
     assert not (root / "fixtures").exists()
     assert not (root / "handoff").exists()
 
 
-def test_docs_reference_surface_contains_expected_package_refs() -> None:
-    root = Path(__file__).resolve().parents[1] / "docs" / "reference"
+def test_docs_surface_contains_expected_package_refs() -> None:
+    root = Path(__file__).resolve().parents[1] / "docs"
 
     expected = {
         "certification-readiness-matrix.md",
         "human-management.md",
         "retrieval-boundary.md",
+        "source-tree-owner-map.md",
         "standalone-claim-alignment.md",
         "ui-contracts.md",
         "vector-conformance.md",
@@ -38,7 +39,11 @@ def test_public_markdown_docs_stay_package_local_and_portable() -> None:
         root / "API_COMPATIBILITY.md",
         root / "RELEASING.md",
         root / "docs" / "README.md",
-        *sorted((root / "docs" / "reference").glob("*.md")),
+        *sorted(
+            path
+            for path in (root / "docs").glob("*.md")
+            if path.name != "README.md"
+        ),
     ]
 
     local_path_markers = ("/Users/", "file://")
