@@ -2889,6 +2889,89 @@ class SophiaGraphSqliteStore(
             rows = conn.execute(sql, params).fetchall()
         return [self._artifact_from_payload(row_json(row)) for row in rows]
 
+    def put_artifact_projection(self, projection):
+        with self._write_connection() as conn:
+            self._persist_artifact_projection(
+                conn,
+                projection,
+                emit_change=True,
+            )
+        return projection.projection_id
+
+    def get_artifact_projection(self, projection_id):
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json
+                  FROM sophiagraph_artifact_projections
+                 WHERE projection_id = ?
+                """,
+                (projection_id,),
+            ).fetchone()
+        return (
+            None if row is None else self._artifact_projection_from_payload(row_json(row))
+        )
+
+    def list_artifact_projections(
+        self,
+        *,
+        namespaces=None,
+        artifact_id=None,
+        derived_text_record_id=None,
+        projection_kinds=None,
+        include_superseded=True,
+        limit=None,
+    ):
+        clauses = ["1=1"]
+        params: list[Any] = []
+        if artifact_id is not None:
+            clauses.append("artifact_id = ?")
+            params.append(artifact_id)
+        if derived_text_record_id is not None:
+            clauses.append("derived_text_record_id = ?")
+            params.append(derived_text_record_id)
+        if projection_kinds:
+            placeholders = ", ".join("?" for _ in projection_kinds)
+            clauses.append(f"projection_kind IN ({placeholders})")
+            params.extend(projection_kinds)
+        if not include_superseded:
+            clauses.append("superseded_by_projection_id IS NULL")
+        ns_sql, ns_params = self._ns_filter(namespaces)
+        if ns_sql:
+            clauses.append(ns_sql)
+            params.extend(ns_params)
+        sql = (
+            "SELECT payload_json FROM sophiagraph_artifact_projections WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY artifact_id ASC, created_at ASC, projection_id ASC"
+        )
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        with self._connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        return [self._artifact_projection_from_payload(row_json(row)) for row in rows]
+
+    def mark_artifact_projection_superseded(
+        self,
+        projection_id,
+        *,
+        superseded_by_projection_id,
+        superseded_at,
+    ):
+        from dataclasses import replace
+
+        projection = self.get_artifact_projection(projection_id)
+        if projection is None:
+            raise KeyError(projection_id)
+        updated = replace(
+            projection,
+            superseded_by_projection_id=superseded_by_projection_id,
+            superseded_at=superseded_at,
+        )
+        self.put_artifact_projection(updated)
+        return updated
+
     @staticmethod
     def _artifact_from_payload(data):
         from sophiagraph.models import ArtifactRecord, MemoryNamespace
@@ -2898,6 +2981,50 @@ class SophiaGraphSqliteStore(
         if isinstance(ns, dict):
             payload["namespace"] = MemoryNamespace.from_dict(ns)
         return ArtifactRecord(**payload)
+
+    @staticmethod
+    def _artifact_projection_from_payload(data):
+        from sophiagraph.models import ArtifactTextProjection
+
+        return ArtifactTextProjection.from_dict(dict(data))
+
+    def _persist_artifact_projection(self, conn, projection, *, emit_change):
+        payload = projection.to_dict()
+        cols = self._ns_columns_clause(self._ns_values(projection.namespace))
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO sophiagraph_artifact_projections(
+                projection_id, artifact_id, derived_text_record_id, projection_kind,
+                tenant_id, org_id, user_id, agent_id, session_id,
+                conversation_id, project_id, graph_id,
+                created_at, superseded_by_projection_id, superseded_at, payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                projection.projection_id,
+                projection.artifact_id,
+                projection.derived_text_record_id,
+                projection.projection_kind,
+                *cols,
+                projection.created_at,
+                projection.superseded_by_projection_id,
+                projection.superseded_at,
+                json_dumps(payload),
+            ),
+        )
+        if emit_change:
+            self._emit_change(
+                conn,
+                object_type="artifact_projection",
+                object_id=projection.projection_id,
+                payload=payload,
+                namespace=projection.namespace,
+                schema_identifiers={
+                    "node_label": "artifact_projection",
+                    "artifact_id": projection.artifact_id,
+                    "projection_kind": projection.projection_kind,
+                },
+            )
 
     # Canvas board storage.
 

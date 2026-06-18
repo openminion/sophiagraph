@@ -7,6 +7,7 @@ from typing import Any
 
 from sophiagraph.models import (
     ActiveEmbeddingModelSet,
+    ArtifactTextProjection,
     MemoryBlock,
     MemoryCandidate,
     MemoryNamespace,
@@ -413,6 +414,13 @@ class SqlitePortabilityMixin(SnapshotImportExportDeltaMixin):
                     # columns + structural fields stay in sync. Pass the live
                     # ``conn`` so the delta runs inside the open transaction.
                     self._persist_memory_block(conn, block, operation="delta_import")
+                elif event.object_type == "artifact_projection":
+                    projection = ArtifactTextProjection.from_dict(event.payload)
+                    self._persist_artifact_projection(
+                        conn,
+                        projection,
+                        emit_change=False,
+                    )
                 elif event.object_type == "active_embedding_model_set":
                     model_set = ActiveEmbeddingModelSet.from_dict(event.payload)
                     self._persist_active_model_set(

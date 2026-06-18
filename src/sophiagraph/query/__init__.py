@@ -17,6 +17,16 @@ from .algorithms import (
     retrieval_path_evidence,
     shortest_path,
 )
+from .artifacts import (
+    ArtifactTextHit,
+    ArtifactTextOmission,
+    ArtifactTextQueryOptions,
+    ArtifactTextQueryResult,
+    ArtifactTextQueryStore,
+    filter_artifact_query_result_for_export,
+    projection_freshness,
+    query_artifact_text,
+)
 from .blocks import (
     BLOCK_PRIORITY_ORDER,
     DisagreementKind,
@@ -179,6 +189,11 @@ from .temporal import (
 )
 
 __all__ = [
+    "ArtifactTextHit",
+    "ArtifactTextOmission",
+    "ArtifactTextQueryOptions",
+    "ArtifactTextQueryResult",
+    "ArtifactTextQueryStore",
     "BLOCK_PRIORITY_ORDER",
     "CandidateListOptions",
     "CommunityAlgorithm",
@@ -313,12 +328,15 @@ __all__ = [
     "execute_graph_pattern_query",
     "execute_structural_graph_query",
     "explore_knowledge",
+    "filter_artifact_query_result_for_export",
     "layout_hints_for_snapshot",
     "orphan_clusters",
     "path_evidence",
     "pattern_query_to_backend_payload",
     "parse_structural_query",
+    "projection_freshness",
     "query_communities",
+    "query_artifact_text",
     "has_bitemporal_filter",
     "record_matches_bitemporal",
     "record_disagreement",

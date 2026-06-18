@@ -7,6 +7,17 @@ from .artifact import (
     ArtifactRetentionPolicy,
     ArtifactSourceClass,
 )
+from .artifact_projection import (
+    ARTIFACT_CITATION_KINDS,
+    ARTIFACT_PROJECTION_FRESHNESS_STATES,
+    ARTIFACT_PROJECTION_KINDS,
+    ArtifactCitation,
+    ArtifactCitationKind,
+    ArtifactProjectionFreshness,
+    ArtifactProjectionKind,
+    ArtifactProjectionSegment,
+    ArtifactTextProjection,
+)
 from .block import (
     MEMORY_BLOCK_DEFERRED_MODES,
     MEMORY_BLOCK_V1_CLASS_ALLOWLIST,
@@ -211,12 +222,21 @@ _as_memory_type_list = _primitive_models._as_memory_type_list
 _coerce_temporal_dt = _record_models._coerce_temporal_dt
 
 __all__ = [
+    "ARTIFACT_CITATION_KINDS",
+    "ARTIFACT_PROJECTION_FRESHNESS_STATES",
+    "ARTIFACT_PROJECTION_KINDS",
     "ARTIFACT_RETENTION_POLICIES",
     "ARTIFACT_SOURCE_CLASSES",
+    "ArtifactCitation",
+    "ArtifactCitationKind",
+    "ArtifactProjectionFreshness",
+    "ArtifactProjectionKind",
+    "ArtifactProjectionSegment",
     "ArtifactRecord",
     "ArtifactRef",
     "ArtifactRetentionPolicy",
     "ArtifactSourceClass",
+    "ArtifactTextProjection",
     "CONTRADICTION_DECISIONS",
     "CandidateReview",
     "CandidateStatus",

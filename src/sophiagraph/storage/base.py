@@ -17,6 +17,7 @@ from sophiagraph.models import (
     EpisodeStep,
     Fact,
     FactConvergenceLink,
+    ArtifactTextProjection,
     MemoryBlock,
     MemoryCandidate,
     MemoryEmbedding,
@@ -27,6 +28,7 @@ from sophiagraph.models import (
     Outcome,
     Procedure,
     RawEpisode,
+    ArtifactRecord,
     RetentionSnapshot,
     RelationDirection,
     MemoryNamespace,
@@ -512,6 +514,44 @@ class SophiaGraphStore(Protocol):
         include_invalidated: bool = False,
         limit: int | None = None,
     ) -> list[Procedure]: ...
+
+    def put_artifact(self, artifact: ArtifactRecord) -> str: ...
+
+    def get_artifact(self, artifact_id: str) -> ArtifactRecord | None: ...
+
+    def list_artifacts(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        target_record_id: str | None = None,
+        source_class: str | None = None,
+        limit: int | None = None,
+    ) -> list[ArtifactRecord]: ...
+
+    def put_artifact_projection(self, projection: ArtifactTextProjection) -> str: ...
+
+    def get_artifact_projection(
+        self, projection_id: str
+    ) -> ArtifactTextProjection | None: ...
+
+    def list_artifact_projections(
+        self,
+        *,
+        namespaces: list[MemoryNamespace] | None = None,
+        artifact_id: str | None = None,
+        derived_text_record_id: str | None = None,
+        projection_kinds: list[str] | None = None,
+        include_superseded: bool = True,
+        limit: int | None = None,
+    ) -> list[ArtifactTextProjection]: ...
+
+    def mark_artifact_projection_superseded(
+        self,
+        projection_id: str,
+        *,
+        superseded_by_projection_id: str,
+        superseded_at: str,
+    ) -> ArtifactTextProjection: ...
 
     def put_embedding(self, embedding: MemoryEmbedding) -> str: ...
 
