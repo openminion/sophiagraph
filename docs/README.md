@@ -7,31 +7,30 @@ This directory holds the public package documentation for standalone
 
 ## Package-local references
 
-- [`reference/standalone-claim-alignment.md`](reference/standalone-claim-alignment.md)
+- [`standalone-claim-alignment.md`](standalone-claim-alignment.md)
   keeps public package claims aligned with the surfaces that ship today.
-- [`reference/certification-readiness-matrix.md`](reference/certification-readiness-matrix.md)
+- [`certification-readiness-matrix.md`](certification-readiness-matrix.md)
   maps each public capability area to its current standalone and OpenMinion
   proof.
-- [`reference/retrieval-boundary.md`](reference/retrieval-boundary.md) records
+- [`retrieval-boundary.md`](retrieval-boundary.md) records
   the package-owned retrieval and navigation boundary.
-- [`reference/vector-conformance.md`](reference/vector-conformance.md) records
+- [`vector-conformance.md`](vector-conformance.md) records
   the vector metric registry and backend-neutral conformance harness.
-- [`reference/human-management.md`](reference/human-management.md) records the
+- [`human-management.md`](human-management.md) records the
   local note, import, and source-management surface.
-- [`reference/workspace-mode.md`](reference/workspace-mode.md) records the
+- [`workspace-mode.md`](workspace-mode.md) records the
   package-owned persistent local workspace contract.
-- [`reference/ui-contracts.md`](reference/ui-contracts.md) records the typed
+- [`ui-contracts.md`](ui-contracts.md) records the typed
   `sophiagraph.ui` boundary for deterministic local workbench screens.
 
 ## Package-local code/docs boundaries
 
 1. `README.md` is the public package contract and install surface.
-2. [`../API_COMPATIBILITY.md`](../API_COMPATIBILITY.md) records the supported
-   public import roots and top-level export policy.
-3. [`../src/sophiagraph/README.md`](../src/sophiagraph/README.md) explains the
-   source-tree owner map and public-vs-repo-local boundary.
-4. [`../RELEASING.md`](../RELEASING.md) records the package-local release and
-   PyPI publish flow.
+2. `API_COMPATIBILITY.md` records the supported public import roots and
+   top-level export policy.
+3. The Source Tree Owner Map reference explains the source-tree owner map and
+   public-vs-repo-local boundary.
+4. `RELEASING.md` records the package-local release and PyPI publish flow.
 5. `scripts/release_check.py` is the canonical package release smoke entrypoint.
 
 ## Repository-local but not package API

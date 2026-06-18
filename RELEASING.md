@@ -15,8 +15,9 @@ A publishable release must satisfy all of the following:
 2. `LICENSE` is present and included in built artifacts.
 3. `README.md` describes install, quickstart, smoke, name meaning, and import-boundary expectations for external consumers.
 4. `API_COMPATIBILITY.md` names the stable import roots and deprecation policy.
-5. `docs/reference/` remains the canonical package-local reference-docs root.
-6. `src/sophiagraph/README.md` continues to document the source-tree owner map.
+5. `docs/` remains the canonical package-local docs root.
+6. `docs/source-tree-owner-map.md` continues to document the
+   source-tree owner map.
 7. `sophiagraph.ui` remains documented as a typed boundary contract.
 8. Package tests pass from the package root.
 9. Both wheel and sdist build successfully.
@@ -35,8 +36,8 @@ If the release changes the external consumer contract, also update:
 - `README.md`
 - `API_COMPATIBILITY.md`
 - `docs/README.md`
-- `docs/reference/`
-- `src/sophiagraph/README.md`
+- `docs/`
+- `docs/source-tree-owner-map.md`
 
 ## Build and Validation
 

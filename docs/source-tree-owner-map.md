@@ -1,6 +1,9 @@
-# Sophiagraph Package Layout
+# Sophiagraph Source Tree Owner Map
 
-`sophiagraph` is the standalone wisdom-graph package for durable agent memory.
+Status: semantic alpha
+
+Purpose: explain the `sophiagraph` source-tree owners without treating deep
+imports as blanket public promises.
 
 ## Public contract
 
@@ -28,15 +31,15 @@ inspection, `sophiagraph.ui`, and `sophiagraph.workspace`.
 6. `human.py` owns package-local note/import/source management helpers over the
    canonical store and import surfaces.
 7. `workspace.py` owns the package-local persistent workspace posture and
-   explicit local import bridge around the human-management and store surfaces.
-8. `graph_backends/` owns optional graph-adapter contracts and concrete local
+   explicit import bridge around the human-management and store surfaces.
+8. `graph_backends/` owns optional graph-adapter contracts and concrete
    backends.
-9. `ui/` owns typed UI contracts only; runtime/browser implementation belongs
-   outside the package.
+9. `ui/` owns typed UI contracts only; runtime and browser implementation
+   belongs outside the package.
 
 ## Repo-local but not public API
 
 1. `tests/` contains the certification, regression, and compatibility harness.
 2. `examples/` are package demos, not wider host-runtime guarantees.
-3. Root-repo planning and execution docs stay under the workspace `docs/`
-   tree instead of inside the package source tree.
+3. Repository planning and execution docs stay in the workspace `docs/` tree
+   instead of the package source tree.
