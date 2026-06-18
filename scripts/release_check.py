@@ -27,6 +27,7 @@ def _assert_package_docs_shape(root: Path) -> None:
         root / "docs" / "reference" / "standalone-claim-alignment.md",
         root / "docs" / "reference" / "retrieval-boundary.md",
         root / "docs" / "reference" / "vector-conformance.md",
+        root / "docs" / "reference" / "workspace-mode.md",
         root / "docs" / "reference" / "ui-contracts.md",
         root / "src" / "sophiagraph" / "README.md",
     ]
@@ -98,8 +99,10 @@ def main(argv: list[str] | None = None) -> int:
                         "from sophiagraph import VaultFilePayload, all_simple_paths, "
                         "EmbeddingListOptions, FreshnessLedgerEntry, "
                         "HumanNoteInput, KuzuGraphBackendAdapter, MemoryEmbedding, "
-                        "create_human_note, decide_replay, import_vault_files, "
-                        "plan_human_vault_import, retrieval_path_evidence; "
+                        "WorkspaceMetadata, create_human_note, decide_replay, "
+                        "import_vault_files, initialize_workspace, "
+                        "plan_human_vault_import, plan_workspace_import, "
+                        "retrieval_path_evidence; "
                         "from sophiagraph.ui import build_ui_screen_manifest"
                     ),
                 ],

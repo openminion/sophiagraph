@@ -7,6 +7,7 @@ from typing import Any
 
 from sophiagraph.models import (
     ActiveEmbeddingModelSet,
+    ArtifactTextProjection,
     MemoryBlock,
     MemoryCandidate,
     MemoryNamespace,
@@ -155,6 +156,11 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
             elif event.object_type == "memory_block":
                 memory_block = memory_block_from_dict(event.payload)
                 self._memory_blocks[memory_block.block_id] = memory_block
+            elif event.object_type == "artifact_projection":
+                projection = ArtifactTextProjection.from_dict(event.payload)
+                if not hasattr(self, "_artifact_projections"):
+                    self._artifact_projections = {}
+                self._artifact_projections[projection.projection_id] = projection
             elif event.object_type == "active_embedding_model_set":
                 model_set = ActiveEmbeddingModelSet.from_dict(event.payload)
                 self._active_model_sets[model_set.key] = model_set

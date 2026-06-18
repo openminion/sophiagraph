@@ -1,30 +1,33 @@
 # Sophiagraph Standalone Claim Alignment
 
+Status: semantic alpha
+Scope: public package claims and current shipped surfaces
+
 ## Purpose
 
-This note maps the current public standalone Sophiagraph story to the package
-surface that actually ships today.
+This note maps the current public standalone SophiaGraph story to the package
+surface that ships today.
 
-It is the package-local alignment artifact for SGBA:
+It exists to:
 
 1. keep public claims honest,
 2. narrow vague claims before widening them,
 3. name the differentiators that are worth preserving as real package value.
 
-## Named differentiators kept by SGBA
+## Named differentiators kept explicit
 
-This lane keeps two package-owned differentiators explicit:
+Two package-owned differentiators stay explicit:
 
 1. typed governance, policy-denial, and observability surfaces,
 2. temporal freshness, lifecycle, and invalidation helpers.
 
 These are worth preserving because they are already real, typed, and
-cross-backend. SGBA strengthens the proof around them instead of broadening the
-story into hosted governance or freeform policy intelligence.
+cross-backend. This document keeps the proof around them visible without
+broadening the story into hosted governance or freeform policy intelligence.
 
 ## Claim inventory
 
-| Public claim | Shipped package surface | Proof today | SGBA alignment |
+| Public claim | Shipped package surface | Proof today | Alignment |
 | --- | --- | --- | --- |
 | Sophiagraph is a standalone wisdom graph substrate for durable agent memory. | Public stores, models, query DTOs, portability bundles, release smoke, sibling server. | `README.md`, `tests/test_certification_suite.py`, `scripts/release_check.py` | Keep. This claim is already true. |
 | Trust and temporal primitives are part of the package. | `sophiagraph.trust`, `sophiagraph.temporal`, lifecycle helpers, freshness ledger, invalidation/supersession helpers. | `tests/test_governance_observability.py`, `tests/test_local_sync_and_freshness.py`, `tests/test_temporal_convergence.py` | Narrow the wording to typed trust/policy and temporal freshness/lifecycle helpers, not a general trust-reasoning engine. |
@@ -36,7 +39,7 @@ story into hosted governance or freeform policy intelligence.
 
 ## Resulting public stance
 
-After SGBA, the honest standalone Sophiagraph story is:
+The resulting honest standalone SophiaGraph story is:
 
 1. a durable graph substrate for approved memory state,
 2. a package-owned retrieval and navigation engine over that approved graph

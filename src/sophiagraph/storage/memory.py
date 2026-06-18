@@ -1272,6 +1272,9 @@ class SophiaGraphMemoryStore(
         )
         return summary.summary_id
 
+    def get_entity_summary(self, summary_id):
+        return self._entity_summaries.get(summary_id)
+
     def list_entity_summaries(
         self,
         *,
@@ -1292,7 +1295,8 @@ class SophiaGraphMemoryStore(
                 include_invalidated=include_invalidated,
             )
         ]
-        rows.sort(key=lambda s: (s.updated_at or s.created_at or "", s.summary_id))
+        rows.sort(key=lambda s: s.summary_id)
+        rows.sort(key=lambda s: s.updated_at or s.created_at or "", reverse=True)
         if limit is not None:
             rows = rows[: int(limit)]
         return rows
@@ -1696,6 +1700,78 @@ class SophiaGraphMemoryStore(
         if limit is not None:
             rows = rows[: int(limit)]
         return rows
+
+    def put_artifact_projection(self, projection):
+        if not hasattr(self, "_artifact_projections"):
+            self._artifact_projections = {}
+        self._artifact_projections[projection.projection_id] = projection
+        payload = projection.to_dict()
+        self._emit_change(
+            object_type="artifact_projection",
+            object_id=projection.projection_id,
+            payload=payload,
+            namespace=projection.namespace,
+            schema_identifiers={
+                "node_label": "artifact_projection",
+                "artifact_id": projection.artifact_id,
+                "projection_kind": projection.projection_kind,
+            },
+        )
+        return projection.projection_id
+
+    def get_artifact_projection(self, projection_id):
+        if not hasattr(self, "_artifact_projections"):
+            self._artifact_projections = {}
+        return self._artifact_projections.get(projection_id)
+
+    def list_artifact_projections(
+        self,
+        *,
+        namespaces=None,
+        artifact_id=None,
+        derived_text_record_id=None,
+        projection_kinds=None,
+        include_superseded=True,
+        limit=None,
+    ):
+        from sophiagraph.storage.graph_helpers import namespace_matches_filters
+
+        if not hasattr(self, "_artifact_projections"):
+            self._artifact_projections = {}
+        rows = list(self._artifact_projections.values())
+        rows = [p for p in rows if namespace_matches_filters(p.namespace, namespaces)]
+        if artifact_id is not None:
+            rows = [p for p in rows if p.artifact_id == artifact_id]
+        if derived_text_record_id is not None:
+            rows = [p for p in rows if p.derived_text_record_id == derived_text_record_id]
+        if projection_kinds is not None:
+            rows = [p for p in rows if p.projection_kind in projection_kinds]
+        if not include_superseded:
+            rows = [p for p in rows if p.superseded_by_projection_id is None]
+        rows.sort(key=lambda p: (p.artifact_id, p.created_at, p.projection_id))
+        if limit is not None:
+            rows = rows[: int(limit)]
+        return rows
+
+    def mark_artifact_projection_superseded(
+        self,
+        projection_id,
+        *,
+        superseded_by_projection_id,
+        superseded_at,
+    ):
+        from dataclasses import replace
+
+        projection = self.get_artifact_projection(projection_id)
+        if projection is None:
+            raise KeyError(projection_id)
+        updated = replace(
+            projection,
+            superseded_by_projection_id=superseded_by_projection_id,
+            superseded_at=superseded_at,
+        )
+        self.put_artifact_projection(updated)
+        return updated
 
     # Canvas board storage.
 

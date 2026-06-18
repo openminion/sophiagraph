@@ -108,9 +108,16 @@ that is actually true.
 - package-owned human-management helpers for note CRUD, vault-import dry-runs,
   source/freshness inspection, and deterministic local workbench packets/HTML
   previews
+- package-owned workspace helpers for one persistent local SQLite workspace,
+  stored import defaults, explicit local markdown/canvas import planning/apply
+  flows, and workspace-backed workbench rendering
 - package-owned UI boundary contracts in `sophiagraph.ui` for the future
   visual explorer, record detail, graph, operations, repair, timeline, and
   schema screens without requiring a second package yet
+- a first-class `sophiagraph.okf` profile layer for Google OKF-style bundle
+  validation, import/export, reserved `index.md` / `log.md` handling, typed
+  citations, and explicit Obsidian-compatible authoring output when the caller
+  asks for it
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 
@@ -158,6 +165,60 @@ the REST design pinned by SSSF-02 rather than private in-process imports.
 
 Host frameworks remain the orchestrators. `sophiagraph` owns reusable durable
 wisdom graph primitives and the standalone durable engine.
+
+## Workspace Quickstart
+
+Create one persistent local workspace with stored scope/namespace/import
+defaults:
+
+```bash
+python3.11 -m sophiagraph workspace-init ./.sophiagraph-workspace \
+  --scope agent:local \
+  --agent-id local \
+  --graph-id main \
+  --label local-wisdom \
+  --json
+```
+
+Inspect the workspace:
+
+```bash
+python3.11 -m sophiagraph workspace-status ./.sophiagraph-workspace --json
+```
+
+Preview a local markdown/canvas import:
+
+```bash
+python3.11 -m sophiagraph workspace-import-plan \
+  ./.sophiagraph-workspace ./notes --json
+```
+
+## OKF Interoperability Quickstart
+
+Import a Google OKF-style bundle through the public package surface:
+
+```python
+from sophiagraph import MemoryNamespace, import_okf_bundle
+
+bundle = import_okf_bundle(
+    "./knowledge-bundle",
+    namespace=MemoryNamespace(agent_id="local", graph_id="main"),
+)
+
+assert bundle.manifest.spec_commit
+assert bundle.manifest.concept_count >= 0
+```
+
+Export the same bundle back to portable Markdown by default, or request
+Obsidian-flavored output explicitly:
+
+```python
+from sophiagraph import export_okf_bundle, write_okf_bundle
+
+portable_files = export_okf_bundle(bundle)
+obsidian_files = export_okf_bundle(bundle, obsidian_compatible=True)
+write_okf_bundle(bundle, "./portable-out")
+```
 
 ## Install
 
@@ -225,6 +286,8 @@ sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
   backend-conformance harness.
 - `docs/reference/human-management.md` records the package-owned human
   note/import/source management surface.
+- `docs/reference/workspace-mode.md` records the package-owned persistent local
+  workspace and explicit local import-bridge surface.
 - `docs/reference/ui-contracts.md` records the package-owned UI boundary
   contract.
 - `src/sophiagraph/README.md` explains the source-tree module layout and

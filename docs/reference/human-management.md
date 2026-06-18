@@ -1,6 +1,9 @@
 # Human Management
 
-Sophiagraph now ships a package-owned human-management layer for local note
+Status: semantic alpha
+Scope: package-local note, import, and source-management surface
+
+SophiaGraph ships a package-owned human-management layer for local note
 workspaces, import dry-runs, and source/freshness inspection without moving
 raw-input promotion policy into the package.
 
@@ -21,8 +24,8 @@ raw-input promotion policy into the package.
 
 ## Boundary
 
-This surface is local-first and package-owned. It stays inside the accepted
-Sophia boundary:
+This surface is local-first and package-owned. It keeps the current SophiaGraph
+boundary explicit:
 
 1. humans can manage note-shaped entries intentionally,
 2. imports can be previewed before mutation,
@@ -40,13 +43,13 @@ This surface does **not** provide:
 
 ## Typed operating packets
 
-The package-owned management layer is intentionally packet-first:
+The management layer is intentionally packet-first:
 
 - `HumanWorkspaceSnapshot` summarizes note workspace state
 - `VaultImportPlan` summarizes dry-run import actions and diagnostics
 - `SourceManagementConsole` summarizes source/freshness/conflict posture
 - `HumanWorkbenchPacket` bundles those views into one local operating surface
 
-Hosts can render or transport those packets however they want, but the package
-now owns one canonical local management shape instead of requiring each caller
-to reassemble the workflow from lower-level store and import primitives.
+Hosts can render or transport these packets however they want, but the package
+owns one canonical local management shape instead of requiring each caller to
+reassemble the workflow from lower-level store and import primitives.

@@ -1,7 +1,10 @@
 # Sophiagraph UI Contracts
 
-`sophiagraph.ui` is the package-owned typed boundary for future operator-facing
-memory and wisdom-graph screens.
+Status: semantic alpha
+Scope: typed UI boundary contracts only
+
+`sophiagraph.ui` is the package-owned typed boundary for deterministic
+operator-facing memory and knowledge-graph screens.
 
 The ownership split is explicit:
 
@@ -10,13 +13,15 @@ The ownership split is explicit:
 2. `sophiagraph-server` or another host runtime owns the actual browser,
    transport, auth, and operator experience.
 
-Current contract:
+## Current contract
 
 - owner import root: `sophiagraph.ui`
 - runtime package: `sophiagraph-server`
 - transport kind: `rest`
 - transport status: `designed_not_implemented`
 - current API seam: `sophiagraph-server`
+
+## Screen manifest
 
 The current screen manifest stays intentionally structural:
 
@@ -29,6 +34,9 @@ The current screen manifest stays intentionally structural:
 7. timeline
 8. schema
 
+## Boundary
+
 This package does **not** currently ship a browser app, Textual TUI, daemon,
-or hosted admin UI. It only ships the typed boundary contract so the standalone
-package has one canonical import root for future visual/runtime work.
+or hosted admin UI. It ships typed UI contracts and deterministic render
+surfaces so the standalone package has one canonical import root for future
+visual/runtime work.

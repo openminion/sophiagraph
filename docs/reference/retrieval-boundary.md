@@ -1,13 +1,16 @@
 # Sophiagraph Retrieval Boundary
 
+Status: semantic alpha
+Scope: package-owned retrieval and navigation contract
+
 ## Purpose
 
-This note makes the package-owned retrieval boundary explicit so the shipped
-query surface, package README, and broader vision docs do not drift apart.
+This note keeps the package-owned retrieval boundary explicit so the shipped
+query surface, README, and broader product positioning stay aligned.
 
 ## Canonical rule
 
-Sophiagraph owns retrieval and navigation **over approved graph state already
+SophiaGraph owns retrieval and navigation **over approved graph state already
 stored in the package**.
 
 That includes:
@@ -42,7 +45,7 @@ Even though the package owns retrieval stages, it still does **not**:
 
 ## Why this matters
 
-This rule preserves both halves of the architecture:
+This split preserves both halves of the architecture:
 
 1. the package stays a strong standalone retrieval substrate,
 2. host runtimes keep orchestration and policy ownership,

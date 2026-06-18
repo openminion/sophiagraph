@@ -10,7 +10,7 @@ from sophiagraph.models import KnowledgeDocumentBlock, MemoryNamespace, MemoryRe
 from sophiagraph.portability.codec import json_dumps
 from sophiagraph.query import StructuralSearchQuery
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_CONNECT_TIMEOUT_SECONDS = SQLITE_BUSY_TIMEOUT_MS / 1000
 SQLITE_JOURNAL_MODE = "wal"
@@ -545,6 +545,38 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             ON sophiagraph_artifacts(target_record_id);
         CREATE INDEX IF NOT EXISTS idx_sophiagraph_artifacts_source_class
             ON sophiagraph_artifacts(source_class);
+
+        CREATE TABLE IF NOT EXISTS sophiagraph_artifact_projections (
+            projection_id TEXT PRIMARY KEY,
+            artifact_id TEXT NOT NULL,
+            derived_text_record_id TEXT NOT NULL,
+            projection_kind TEXT NOT NULL,
+            tenant_id TEXT,
+            org_id TEXT,
+            user_id TEXT,
+            agent_id TEXT,
+            session_id TEXT,
+            conversation_id TEXT,
+            project_id TEXT,
+            graph_id TEXT,
+            created_at TEXT NOT NULL,
+            superseded_by_projection_id TEXT,
+            superseded_at TEXT,
+            payload_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_artifact_projections_artifact
+            ON sophiagraph_artifact_projections(artifact_id, created_at, projection_id);
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_artifact_projections_record
+            ON sophiagraph_artifact_projections(
+                derived_text_record_id, created_at, projection_id
+            );
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_artifact_projections_kind
+            ON sophiagraph_artifact_projections(projection_kind);
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_artifact_projections_namespace
+            ON sophiagraph_artifact_projections(
+                tenant_id, org_id, user_id, agent_id, session_id,
+                conversation_id, project_id, graph_id
+            );
 
         CREATE TABLE IF NOT EXISTS sophiagraph_canvas_boards (
             board_id TEXT PRIMARY KEY,
