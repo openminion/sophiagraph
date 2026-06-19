@@ -30,6 +30,7 @@ from sophiagraph.portability.models import (
     MemoryBundleExportOptions,
     MemoryBundleImportOptions,
 )
+from tests.fake_neo4j import install_fake_neo4j
 from sophiagraph.contracts.errors import (
     SnapshotNameConflictError,
     WriteLeaseNotHeldError,
@@ -229,40 +230,7 @@ def test_compaction_outcomes_cover_backends(tmp_path: Path, monkeypatch) -> None
 
     from sophiagraph.graph_backends import neo4j as neo4j_module
 
-    real_import = neo4j_module.importlib.import_module
-
-    class _Driver:
-        def session(self, database=None):  # noqa: ARG002
-            class _Session:
-                def __enter__(self):
-                    return self
-
-                def __exit__(self, exc_type, exc, tb):  # noqa: ARG002
-                    return None
-
-                def run(self, statement, params=None):  # noqa: ARG002
-                    class _Result:
-                        def __iter__(self):
-                            return iter([])
-
-                    return _Result()
-
-            return _Session()
-
-        def close(self) -> None:
-            return None
-
-    class _GraphDatabase:
-        @staticmethod
-        def driver(uri, auth=None):  # noqa: ARG002
-            return _Driver()
-
-    def _fake_import(name: str):
-        if name == "neo4j":
-            return type("_Module", (), {"GraphDatabase": _GraphDatabase})()
-        return real_import(name)
-
-    monkeypatch.setattr(neo4j_module.importlib, "import_module", _fake_import)
+    install_fake_neo4j(monkeypatch, neo4j_module.importlib)
     neo4j = Neo4jGraphBackendAdapter("neo4j://fixture")
     neo4j_outcome = compact_store(neo4j)
     assert neo4j_outcome.operator_action_required is not None

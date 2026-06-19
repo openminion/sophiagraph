@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-
 import pytest
 
 from sophiagraph import (
@@ -18,9 +16,6 @@ from sophiagraph import (
 )
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
-
-
-StoreFactory = Callable[[object], object]
 
 
 @pytest.fixture(params=["memory", "sqlite"])

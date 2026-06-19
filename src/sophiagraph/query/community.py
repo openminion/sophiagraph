@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections import Counter, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Literal, Mapping, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace, MemoryRecord, SophiaGraphChangeEvent
+from sophiagraph.models.namespace import sorted_namespace_key
 from sophiagraph.query.algorithms import (
     GraphPath,
     all_simple_paths,
@@ -17,6 +17,7 @@ from sophiagraph.query.algorithms import (
 )
 from sophiagraph.query.graph import GraphSnapshot, GraphSnapshotOptions
 from sophiagraph.query.options import ListQueryOptions, SearchQueryOptions
+from sophiagraph.temporal import utc_now_iso
 
 CommunityAlgorithm = Literal["connected_components", "label_propagation"]
 CommunityLayoutKind = Literal["community_band", "degree_weight"]
@@ -32,18 +33,8 @@ _PATTERN_PROJECTIONS = {"record_ids", "edge_ids", "community_ids", "properties"}
 _STRUCTURAL_CHANGE_TYPES = {"record", "relation", "link"}
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}:{uuid5(NAMESPACE_URL, '|'.join(parts))}"
-
-
-def _namespace_key(namespace: MemoryNamespace) -> str:
-    return "|".join(
-        f"{key}={value}" for key, value in sorted(namespace.as_dict().items())
-    )
 
 
 def _normalize_namespace_parts(
@@ -51,7 +42,7 @@ def _normalize_namespace_parts(
 ) -> tuple[str, ...]:
     if not namespaces:
         return ()
-    return tuple(sorted(_namespace_key(namespace) for namespace in namespaces))
+    return tuple(sorted(sorted_namespace_key(namespace) for namespace in namespaces))
 
 
 def _community_namespace(
@@ -149,7 +140,7 @@ class GraphCommunity:
     seed_record_id: str | None = None
     algorithm: CommunityAlgorithm = "connected_components"
     score: float = 0.0
-    created_at: str = field(default_factory=_utc_now_iso)
+    created_at: str = field(default_factory=utc_now_iso)
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -485,7 +476,7 @@ def detect_communities(
         community_id = _stable_id(
             "community",
             options.algorithm,
-            _namespace_key(namespace),
+            sorted_namespace_key(namespace),
             *members,
         )
         score = float(len(edge_ids)) / float(max(1, len(members) - 1))
@@ -562,7 +553,7 @@ def build_community_snapshot(
         scopes=list(options.scopes),
         namespaces=options.namespaces,
         latest_cursor=latest_cursor,
-        computed_at=_utc_now_iso(),
+        computed_at=utc_now_iso(),
         communities=communities,
         memberships=memberships,
     )

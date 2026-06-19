@@ -60,11 +60,6 @@ def _stable_id(prefix: str, *parts: str) -> str:
 def _bundle_id(root: Path) -> str:
     return sha256(str(root.resolve()).encode("utf-8")).hexdigest()[:16]
 
-
-def _path_key(path: str) -> str:
-    return str(PurePosixPath(path).as_posix()).lower()
-
-
 def _bundle_relative(path: str) -> str:
     normalized = str(PurePosixPath(str(path or "").replace("\\", "/")))
     if not normalized or normalized == ".":
@@ -290,14 +285,6 @@ def _extract_log_entries(body: str) -> list[OkfLogEntry]:
             continue
         entries.append(OkfLogEntry(text=item_match.group(1).strip(), line_number=index))
     return entries
-
-
-def _all_bundle_paths(bundle: OkfBundle) -> set[str]:
-    paths = {doc.document.path for doc in bundle.concepts}
-    paths.update(doc.document.path for doc in bundle.references)
-    paths.update(doc.document.path for doc in bundle.indices)
-    paths.update(doc.document.path for doc in bundle.logs)
-    return paths
 
 
 def _findings_for_document(

@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
+from sophiagraph.models.namespace import sorted_namespace_key
 
 LocalSyncMode = Literal["file_primary", "db_as_index"]
 SyncConflictKind = Literal[
@@ -29,12 +30,6 @@ SyncConflictStatus = Literal["open", "resolved"]
 SyncResolutionAction = Literal[
     "use_file", "use_record", "caller_patch", "mark_resolved"
 ]
-
-
-def _namespace_key(namespace: MemoryNamespace) -> str:
-    return "|".join(
-        f"{key}={value}" for key, value in sorted(namespace.as_dict().items())
-    )
 
 
 def _stable_id(prefix: str, *parts: str) -> str:
@@ -192,7 +187,7 @@ def conflict_id_for(request: LocalSyncRequest, kind: SyncConflictKind) -> str:
     return _stable_id(
         "sync-conflict",
         request.mode,
-        _namespace_key(request.namespace),
+        sorted_namespace_key(request.namespace),
         request.source_id,
         request.path,
         kind,

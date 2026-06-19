@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import inspect
 import re
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -30,9 +29,6 @@ from sophiagraph import (
 )
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.query.graph import GraphSnapshotOptions
-
-
-StoreFactory = Callable[[Path], SophiaGraphMemoryStore | SophiaGraphSqliteStore]
 
 
 def _ns(agent_id: str = "agent") -> MemoryNamespace:

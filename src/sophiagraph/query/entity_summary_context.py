@@ -126,14 +126,6 @@ def _matches_namespace(
     return any(namespace.matches(item) for item in filters)
 
 
-def _summary_sort_key(summary: EntitySummary) -> tuple[str, str, str]:
-    return (
-        summary.updated_at or summary.created_at or "",
-        summary.created_at or "",
-        summary.summary_id,
-    )
-
-
 def _ordered_entity_summaries(
     rows: Sequence[EntitySummary],
 ) -> list[EntitySummary]:

@@ -13,6 +13,7 @@ from sophiagraph.contracts.errors import InvalidArgumentError, NotFoundError
 from sophiagraph.freshness import FreshnessLedgerEntry
 from sophiagraph.inspection import InspectionReport, build_inspection_report
 from sophiagraph.models import MemoryNamespace, MemoryRecord
+from sophiagraph.models.namespace import sorted_namespace_key
 from sophiagraph.query import ListQueryOptions
 from sophiagraph.storage.record_lifecycle import utc_now_iso
 from sophiagraph.sync import SyncConflictRecord
@@ -67,12 +68,6 @@ class HumanStore(Protocol):
 
 def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}-{uuid5(NAMESPACE_URL, ':'.join(str(part) for part in parts))}"
-
-
-def _namespace_key(namespace: MemoryNamespace) -> str:
-    return "|".join(
-        f"{key}={value}" for key, value in sorted(namespace.as_dict().items())
-    )
 
 
 def _note_meta(record: MemoryRecord) -> dict[str, Any]:
@@ -220,7 +215,7 @@ class HumanWorkbenchPacket:
 
 def note_record_id_for(scope: str, namespace: MemoryNamespace, note_key: str) -> str:
     """Return a deterministic record identifier for one note key."""
-    return _stable_id("note", scope, _namespace_key(namespace), note_key)
+    return _stable_id("note", scope, sorted_namespace_key(namespace), note_key)
 
 
 def create_human_note(store: HumanStore, note: HumanNoteInput) -> MemoryRecord:
@@ -575,7 +570,9 @@ def build_source_management_console(
             )
         )
     report = build_inspection_report(
-        report_id=_stable_id("human-source-console", scope, _namespace_key(namespace)),
+        report_id=_stable_id(
+            "human-source-console", scope, sorted_namespace_key(namespace)
+        ),
         namespace=namespace,
         generated_at=utc_now_iso(),
         records=records,

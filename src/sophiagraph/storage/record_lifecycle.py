@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryRecord
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from sophiagraph.temporal import utc_now_iso
 
 
 def record_matches_query(

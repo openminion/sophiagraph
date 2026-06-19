@@ -186,4 +186,17 @@ class MemoryNamespace:
         )
 
 
-__all__ = ["MemoryScope", "MemoryNamespaceComponent", "MemoryNamespace"]
+def sorted_namespace_key(namespace: MemoryNamespace) -> str:
+    """Return a stable namespace key sorted by dimension name for derived IDs."""
+
+    return "|".join(
+        f"{key}={value}" for key, value in sorted(namespace.as_dict().items())
+    )
+
+
+__all__ = [
+    "MemoryScope",
+    "MemoryNamespaceComponent",
+    "MemoryNamespace",
+    "sorted_namespace_key",
+]
