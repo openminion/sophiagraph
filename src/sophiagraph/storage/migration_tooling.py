@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -13,6 +12,7 @@ from sophiagraph.storage.lifecycle_policy import (
     LifecyclePolicy,
     evaluate_policy,
 )
+from sophiagraph.temporal import utc_now_iso
 
 if TYPE_CHECKING:
     from sophiagraph.storage.base import SophiaGraphStore
@@ -106,10 +106,6 @@ class VerifyOutcome:
             raise ValueError("mismatch_count must be non-negative")
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _namespace_filter_signature(policy: LifecyclePolicy) -> str:
     """Return a deterministic signature of the policy namespace filter."""
     ns = policy.namespace_filter
@@ -178,7 +174,7 @@ def detect_migration_needed(
     now_iso: str | None = None,
 ) -> MigrationDecision:
     """Detect whether records under ``policy`` need phase transitions."""
-    evaluation_time = now_iso or _now_iso()
+    evaluation_time = now_iso or utc_now_iso()
     try:
         records = _list_records_for_policy(policy, store)
     except Exception:
@@ -241,7 +237,7 @@ def backup_before_migration(
         namespace_filter_signature=_namespace_filter_signature(policy),
         record_count=len(records),
         snapshot_ref=snapshot_ref,
-        created_at_iso=_now_iso(),
+        created_at_iso=utc_now_iso(),
     )
 
 
@@ -253,7 +249,7 @@ def verify_migration_result(
     now_iso: str | None = None,
 ) -> VerifyOutcome:
     """Verify post-migration phase distribution structurally."""
-    evaluation_time = now_iso or _now_iso()
+    evaluation_time = now_iso or utc_now_iso()
     try:
         records = _list_records_for_policy(policy, store)
     except Exception:

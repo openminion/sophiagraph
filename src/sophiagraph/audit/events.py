@@ -6,11 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Literal
 import uuid
 
-
-def _utc_now_iso() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
+from sophiagraph.temporal import utc_now_iso
 
 
 # Structural recorder; callers own the audit sink lifecycle.
@@ -34,7 +30,7 @@ class MemoryAuditEvent:
     session_id: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> dict[str, Any]:
         return {

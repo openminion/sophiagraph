@@ -527,90 +527,6 @@ def _snapshot_to_payload(snapshot: MemoryBundleSnapshot) -> dict[str, Any]:
     }
 
 
-def _payload_to_snapshot(payload: dict[str, Any]) -> MemoryBundleSnapshot:
-    from sophiagraph.portability.codec import (
-        candidate_from_dict,
-        memory_block_from_dict,
-        record_from_dict,
-        relation_from_dict,
-        tier_transition_from_dict,
-    )
-    from sophiagraph.storage.graph_helpers import ontology_from_dict
-    from sophiagraph.models import ActiveEmbeddingModelSet
-
-    return MemoryBundleSnapshot(
-        manifest=dict(payload.get("manifest", {})),
-        records=[
-            record_from_dict(item)
-            for item in payload.get("records", [])
-            if isinstance(item, dict)
-        ],
-        candidates=[
-            candidate_from_dict(item)
-            for item in payload.get("candidates", [])
-            if isinstance(item, dict)
-        ],
-        relations=[
-            relation_from_dict(item)
-            for item in payload.get("relations", [])
-            if isinstance(item, dict)
-        ],
-        tier_transitions=[
-            tier_transition_from_dict(item)
-            for item in payload.get("tier_transitions", [])
-            if isinstance(item, dict)
-        ],
-        memory_blocks=[
-            memory_block_from_dict(item)
-            for item in payload.get("memory_blocks", [])
-            if isinstance(item, dict)
-        ],
-        ontologies=[
-            ontology_from_dict(item)
-            for item in payload.get("ontologies", [])
-            if isinstance(item, dict)
-        ],
-        active_embedding_model_sets=[
-            ActiveEmbeddingModelSet.from_dict(item)
-            for item in payload.get("active_embedding_model_sets", [])
-            if isinstance(item, dict)
-        ],
-        retention_snapshots=[
-            RetentionSnapshot.from_dict(item)
-            for item in payload.get("retention_snapshots", [])
-            if isinstance(item, dict)
-        ],
-    )
-
-
-def _snapshot_manifest_entries(
-    snapshot: MemoryBundleSnapshot,
-) -> list[BackupManifestEntry]:
-    groups: dict[str, list[Any]] = {
-        "records": snapshot.records,
-        "candidates": snapshot.candidates,
-        "relations": snapshot.relations,
-        "tier_transitions": snapshot.tier_transitions,
-        "memory_blocks": snapshot.memory_blocks,
-        "ontologies": snapshot.ontologies,
-        "active_embedding_model_sets": snapshot.active_embedding_model_sets,
-        "retention_snapshots": snapshot.retention_snapshots,
-    }
-    entries: list[BackupManifestEntry] = []
-    for group, rows in groups.items():
-        payload_bytes = _jsonl_bytes_for_rows(rows)
-        entries.append(
-            BackupManifestEntry(
-                table_group=group,
-                row_count=len(rows),
-                sha256=_sha256_bytes(payload_bytes),
-                byte_size=len(payload_bytes),
-            )
-        )
-    entries.sort(key=lambda item: item.table_group)
-    return entries
-
-
 def _bundle_archive_entries(bundle_path: Path) -> list[BackupManifestEntry]:
     snapshot = read_bundle_snapshot(bundle_path)
     files = dict(snapshot.manifest.get("files", {}))
@@ -977,20 +893,6 @@ def _prepare_directory(target_path: str | Path) -> Path:
 
 def _sha256_bytes(data: bytes) -> str:
     return sha256(data).hexdigest()
-
-
-def _jsonl_bytes_for_rows(rows: list[Any]) -> bytes:
-    payload = "\n".join(
-        json_dumps(
-            item.to_dict()
-            if hasattr(item, "to_dict") and callable(item.to_dict)
-            else asdict(item)
-        )
-        for item in rows
-    )
-    if payload:
-        payload += "\n"
-    return payload.encode("utf-8")
 
 
 def _sqlite_wal_frame_position(db_path: Path) -> int:

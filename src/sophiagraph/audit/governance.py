@@ -6,9 +6,10 @@ from dataclasses import dataclass, field
 from typing import Any, Final, Literal
 import uuid
 
-from sophiagraph.audit.events import MemoryAuditEvent, _utc_now_iso
+from sophiagraph.audit.events import MemoryAuditEvent
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models.namespace import MemoryNamespace
+from sophiagraph.temporal import utc_now_iso
 
 
 GovernanceEventKind = Literal[
@@ -102,7 +103,7 @@ class WriteAttemptEvent:
     idempotency_key: str | None = None
     trust_mode: str = "direct"
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
 
     def __post_init__(self) -> None:
         _require_namespace("namespace", self.namespace)
@@ -139,7 +140,7 @@ class WriteAcceptedEvent:
     target_kind: str
     target_id: str
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
 
     def __post_init__(self) -> None:
         _require_namespace("namespace", self.namespace)
@@ -174,7 +175,7 @@ class RetrievalEvent:
     retrieval_mode: str | None = None
     session_id: str | None = None
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
 
     def __post_init__(self) -> None:
         _require_namespace("namespace", self.namespace)
@@ -275,7 +276,7 @@ class QualityEvalSignal:
     source_owner: str
     session_id: str | None = None
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
     details: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -318,7 +319,7 @@ class ExportEvent:
     document_count: int = 0
     bundle_id: str | None = None
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
 
     def __post_init__(self) -> None:
         _require_namespace("namespace", self.namespace)
@@ -365,7 +366,7 @@ class PolicyDenialEvent:
     target_kind: str
     target_id: str | None = None
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
     details: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -434,7 +435,7 @@ class LifecycleActionEvent:
     to_phase: str
     job_id: str | None = None
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
 
     def __post_init__(self) -> None:
         _require_namespace("namespace", self.namespace)
@@ -478,7 +479,7 @@ class WebhookDeliveryAttemptEvent:
     target_url_host: str
     response_status_code: int | None = None
     event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    timestamp: str = field(default_factory=_utc_now_iso)
+    timestamp: str = field(default_factory=utc_now_iso)
 
     def __post_init__(self) -> None:
         _require_nonempty("webhook_id", self.webhook_id)

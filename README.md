@@ -71,7 +71,7 @@ that is actually true.
 - a package-local in-memory backend for tests and ephemeral consumers
 - a standalone smoke entrypoint for publish/install validation
 - a typed vector-similarity metric registry (`cosine`, `L2`, `dot`) and a
-  backend-agnostic conformance harness (see [docs/reference/vector-conformance.md](docs/reference/vector-conformance.md))
+  backend-agnostic conformance harness (see [docs/vector-conformance.md](docs/vector-conformance.md))
 - typed embedding lifecycle helpers for active-model registries,
   stale-embedding detection, resumable re-embed plans, and orphan
   `external_vector_id` enumeration without provider SDK imports in core
@@ -172,7 +172,7 @@ Create one persistent local workspace with stored scope/namespace/import
 defaults:
 
 ```bash
-python3.11 -m sophiagraph workspace-init ./.sophiagraph-workspace \
+python3.11 -m sophiagraph workspace-init <workspace-root> \
   --scope agent:local \
   --agent-id local \
   --graph-id main \
@@ -183,14 +183,14 @@ python3.11 -m sophiagraph workspace-init ./.sophiagraph-workspace \
 Inspect the workspace:
 
 ```bash
-python3.11 -m sophiagraph workspace-status ./.sophiagraph-workspace --json
+python3.11 -m sophiagraph workspace-status <workspace-root> --json
 ```
 
 Preview a local markdown/canvas import:
 
 ```bash
 python3.11 -m sophiagraph workspace-import-plan \
-  ./.sophiagraph-workspace ./notes --json
+  <workspace-root> <notes-root> --json
 ```
 
 ## OKF Interoperability Quickstart
@@ -201,7 +201,7 @@ Import a Google OKF-style bundle through the public package surface:
 from sophiagraph import MemoryNamespace, import_okf_bundle
 
 bundle = import_okf_bundle(
-    "./knowledge-bundle",
+    "<bundle-root>",
     namespace=MemoryNamespace(agent_id="local", graph_id="main"),
 )
 
@@ -217,7 +217,7 @@ from sophiagraph import export_okf_bundle, write_okf_bundle
 
 portable_files = export_okf_bundle(bundle)
 obsidian_files = export_okf_bundle(bundle, obsidian_compatible=True)
-write_okf_bundle(bundle, "./portable-out")
+write_okf_bundle(bundle, "<portable-output-root>")
 ```
 
 ## Install
@@ -276,22 +276,22 @@ sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
 ## Package-local docs and release
 
 - `docs/README.md` summarizes the package-local docs contract.
-- `docs/reference/certification-readiness-matrix.md` records standalone and
+- `docs/certification-readiness-matrix.md` records standalone and
   OpenMinion proof coverage for the public package surface.
-- `docs/reference/standalone-claim-alignment.md` maps public standalone claims
+- `docs/standalone-claim-alignment.md` maps public standalone claims
   to the concrete package surfaces and proof that ship today.
-- `docs/reference/retrieval-boundary.md` records the canonical package vs host
+- `docs/retrieval-boundary.md` records the canonical package vs host
   retrieval ownership split.
-- `docs/reference/vector-conformance.md` records the vector registry and
+- `docs/vector-conformance.md` records the vector registry and
   backend-conformance harness.
-- `docs/reference/human-management.md` records the package-owned human
+- `docs/human-management.md` records the package-owned human
   note/import/source management surface.
-- `docs/reference/workspace-mode.md` records the package-owned persistent local
+- `docs/workspace-mode.md` records the package-owned persistent local
   workspace and explicit local import-bridge surface.
-- `docs/reference/ui-contracts.md` records the package-owned UI boundary
+- `docs/ui-contracts.md` records the package-owned UI boundary
   contract.
-- `src/sophiagraph/README.md` explains the source-tree module layout and
-  public-vs-repo-local boundary.
+- `docs/source-tree-owner-map.md` explains the source-tree module
+  layout and public-vs-repo-local boundary.
 - `API_COMPATIBILITY.md` records the supported public import roots and
   top-level export policy.
 - `RELEASING.md` records the package-local release and PyPI publish flow.
@@ -344,7 +344,7 @@ For Neo4j-backed usage, swap the adapter construction:
 
 ```python
 backend = Neo4jGraphBackendAdapter(
-    "neo4j://localhost:7687",
+    "neo4j://db.example.test:7687",
     auth=("neo4j", "password"),
 )
 ```

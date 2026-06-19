@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
+from sophiagraph.models.namespace import sorted_namespace_key
 
 SharedAttachmentStatus = Literal["active", "detached"]
 SharedBlockAccessMode = Literal["read_only"]
@@ -24,12 +25,6 @@ SharedBlockUsageAction = Literal[
 
 def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}-{uuid5(NAMESPACE_URL, ':'.join(str(part) for part in parts))}"
-
-
-def _ns_key(namespace: MemoryNamespace) -> str:
-    return "|".join(
-        f"{key}={value}" for key, value in sorted(namespace.as_dict().items())
-    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +63,10 @@ class SharedBlockAttachment:
     ) -> "SharedBlockAttachment":
         return cls(
             attachment_id=_stable_id(
-                "shared-attach", block_id, _ns_key(namespace), attached_agent_id
+                "shared-attach",
+                block_id,
+                sorted_namespace_key(namespace),
+                attached_agent_id,
             ),
             block_id=block_id,
             namespace=namespace,
@@ -192,7 +190,7 @@ def create_shared_block_conflict(
         conflict_id=_stable_id(
             "shared-conflict",
             block_id,
-            _ns_key(namespace),
+            sorted_namespace_key(namespace),
             attempted_by,
             base_hash,
             proposed_hash,

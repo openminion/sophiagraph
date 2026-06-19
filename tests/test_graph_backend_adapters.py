@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import ast
-import importlib
 
 import pytest
 
@@ -19,6 +18,7 @@ from sophiagraph.models import (
     MemoryRelation,
     StructuralLink,
 )
+from tests.fake_neo4j import install_fake_neo4j
 
 
 def _ns(agent_id: str = "agent") -> MemoryNamespace:
@@ -87,175 +87,6 @@ def _fixture_batch():
     )
 
 
-class _FakeNeo4jRow:
-    def __init__(self, data: dict[str, object]) -> None:
-        self._data = data
-
-    def keys(self):
-        return self._data.keys()
-
-    def __getitem__(self, key: str):
-        return self._data[key]
-
-
-class _FakeNeo4jResult:
-    def __init__(self, rows: list[dict[str, object]]) -> None:
-        self._rows = [_FakeNeo4jRow(row) for row in rows]
-
-    def __iter__(self):
-        return iter(self._rows)
-
-
-class _FakeNeo4jSession:
-    def __init__(self, state: dict[str, object]) -> None:
-        self._state = state
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        return None
-
-    def run(self, statement: str, params: dict[str, object]):
-        tag = statement.splitlines()[0].strip()
-        nodes = self._state["nodes"]
-        edges = self._state["edges"]
-        meta = self._state["meta"]
-        if tag == "// sg_op:ensure_node_constraint":
-            return _FakeNeo4jResult([])
-        if tag == "// sg_op:ensure_meta_constraint":
-            return _FakeNeo4jResult([])
-        if tag == "// sg_op:delete_edges":
-            for edge_id in params.get("edge_ids", []):
-                edges.pop(edge_id, None)
-            return _FakeNeo4jResult([])
-        if tag == "// sg_op:delete_nodes":
-            for node_id in params.get("node_ids", []):
-                nodes.pop(node_id, None)
-            doomed = [
-                edge_id
-                for edge_id, edge in list(edges.items())
-                if edge["source_node_id"] in params.get("node_ids", [])
-                or edge["target_node_id"] in params.get("node_ids", [])
-            ]
-            for edge_id in doomed:
-                edges.pop(edge_id, None)
-            return _FakeNeo4jResult([])
-        if tag == "// sg_op:upsert_node":
-            nodes[params["node_id"]] = dict(params)
-            return _FakeNeo4jResult([])
-        if tag == "// sg_op:upsert_edge":
-            edges[params["edge_id"]] = dict(params)
-            return _FakeNeo4jResult([])
-        if tag == "// sg_op:upsert_meta":
-            meta[params["meta_key"]] = params["meta_value"]
-            return _FakeNeo4jResult([])
-        if tag == "// sg_op:query_schema":
-            value = meta.get(params["meta_key"])
-            if value is None:
-                return _FakeNeo4jResult([])
-            return _FakeNeo4jResult([{"meta_value": value}])
-        if tag == "// sg_op:query_neighbors":
-            rows = []
-            start_node_id = params["start_node_id"]
-            for edge in sorted(edges.values(), key=lambda item: item["edge_id"]):
-                if edge["source_node_id"] != start_node_id:
-                    continue
-                target = nodes[edge["target_node_id"]]
-                rows.append(
-                    {
-                        "target_node_id": target["node_id"],
-                        "primary_label": target["primary_label"],
-                        "labels_json": target["labels_json"],
-                        "target_properties_json": target["properties_json"],
-                        "target_tenant_id": target.get("tenant_id"),
-                        "target_org_id": target.get("org_id"),
-                        "target_user_id": target.get("user_id"),
-                        "target_agent_id": target.get("agent_id"),
-                        "target_session_id": target.get("session_id"),
-                        "target_conversation_id": target.get("conversation_id"),
-                        "target_project_id": target.get("project_id"),
-                        "target_graph_id": target.get("graph_id"),
-                        "edge_id": edge["edge_id"],
-                        "relation_type": edge["relation_type"],
-                        "edge_properties_json": edge["properties_json"],
-                        "edge_tenant_id": edge.get("tenant_id"),
-                        "edge_org_id": edge.get("org_id"),
-                        "edge_user_id": edge.get("user_id"),
-                        "edge_agent_id": edge.get("agent_id"),
-                        "edge_session_id": edge.get("session_id"),
-                        "edge_conversation_id": edge.get("conversation_id"),
-                        "edge_project_id": edge.get("project_id"),
-                        "edge_graph_id": edge.get("graph_id"),
-                    }
-                )
-            return _FakeNeo4jResult(rows)
-        if tag == "// sg_op:query_property_filter":
-            rows = []
-            for node in sorted(nodes.values(), key=lambda item: item["node_id"]):
-                rows.append(
-                    {
-                        "node_id": node["node_id"],
-                        "primary_label": node["primary_label"],
-                        "labels_json": node["labels_json"],
-                        "properties_json": node["properties_json"],
-                        "tenant_id": node.get("tenant_id"),
-                        "org_id": node.get("org_id"),
-                        "user_id": node.get("user_id"),
-                        "agent_id": node.get("agent_id"),
-                        "session_id": node.get("session_id"),
-                        "conversation_id": node.get("conversation_id"),
-                        "project_id": node.get("project_id"),
-                        "graph_id": node.get("graph_id"),
-                    }
-                )
-            return _FakeNeo4jResult(rows)
-        if tag == "// sg_op:query_all_edges":
-            rows = []
-            for edge in sorted(edges.values(), key=lambda item: item["edge_id"]):
-                rows.append(
-                    {
-                        "source_node_id": edge["source_node_id"],
-                        "target_node_id": edge["target_node_id"],
-                        "edge_id": edge["edge_id"],
-                        "relation_type": edge["relation_type"],
-                        "edge_properties_json": edge["properties_json"],
-                        "tenant_id": edge.get("tenant_id"),
-                        "org_id": edge.get("org_id"),
-                        "user_id": edge.get("user_id"),
-                        "agent_id": edge.get("agent_id"),
-                        "session_id": edge.get("session_id"),
-                        "conversation_id": edge.get("conversation_id"),
-                        "project_id": edge.get("project_id"),
-                        "graph_id": edge.get("graph_id"),
-                    }
-                )
-            return _FakeNeo4jResult(rows)
-        raise AssertionError(f"unexpected query tag: {tag}")
-
-
-class _FakeNeo4jDriver:
-    def __init__(self) -> None:
-        self.state = {"nodes": {}, "edges": {}, "meta": {}}
-
-    def session(self, database=None):  # noqa: ARG002
-        return _FakeNeo4jSession(self.state)
-
-    def close(self) -> None:
-        return None
-
-
-class _FakeNeo4jGraphDatabase:
-    def driver(self, uri: str, auth=None):  # noqa: ARG002
-        if not uri.startswith("neo4j://"):
-            raise AssertionError(f"unexpected URI: {uri}")
-        return _FakeNeo4jDriver()
-
-
-class _FakeNeo4jModule:
-    GraphDatabase = _FakeNeo4jGraphDatabase()
-
-
 @pytest.fixture(params=["fake", "kuzu", "neo4j"])
 def backend(request, tmp_path: Path, monkeypatch):
     batch = _fixture_batch()
@@ -266,14 +97,7 @@ def backend(request, tmp_path: Path, monkeypatch):
     if request.param == "neo4j":
         from sophiagraph.graph_backends import neo4j as neo4j_module
 
-        real_import_module = importlib.import_module
-
-        def _fake_import(name: str):
-            if name == "neo4j":
-                return _FakeNeo4jModule()
-            return real_import_module(name)
-
-        monkeypatch.setattr(neo4j_module.importlib, "import_module", _fake_import)
+        install_fake_neo4j(monkeypatch, neo4j_module.importlib)
         adapter = Neo4jGraphBackendAdapter("neo4j://fixture")
         adapter.upsert_batch(batch)
         return adapter

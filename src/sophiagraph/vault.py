@@ -19,6 +19,7 @@ from sophiagraph.models import (
     StructuralLink,
     split_target_parts,
 )
+from sophiagraph.models.namespace import sorted_namespace_key
 from sophiagraph.query import LinkQueryOptions, ListQueryOptions
 from sophiagraph.storage.record_lifecycle import utc_now_iso
 
@@ -49,12 +50,6 @@ class VaultStore(Protocol):
 
 def _hash_text(value: str) -> str:
     return sha256(value.encode("utf-8")).hexdigest()
-
-
-def _namespace_key(namespace: MemoryNamespace) -> str:
-    return "|".join(
-        f"{key}={value}" for key, value in sorted(namespace.as_dict().items())
-    )
 
 
 def _stable_id(prefix: str, *parts: str) -> str:
@@ -236,7 +231,10 @@ class VaultRepairPlan:
 
 def _record_id_for(options: VaultImportOptions | VaultExportOptions, path: str) -> str:
     return _stable_id(
-        "vault-rec", options.vault_id, _namespace_key(options.namespace), path
+        "vault-rec",
+        options.vault_id,
+        sorted_namespace_key(options.namespace),
+        path,
     )
 
 

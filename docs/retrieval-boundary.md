@@ -57,4 +57,4 @@ This split preserves both halves of the architecture:
 - `tests/test_hybrid_retrieval.py`
 - `tests/test_context_assembly.py`
 - `tests/test_certification_suite.py`
-- `docs/reference/vector-conformance.md`
+- `docs/vector-conformance.md`

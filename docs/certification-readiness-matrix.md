@@ -50,14 +50,14 @@ test that exercises public SophiaGraph imports.
 ## Run-the-suite commands
 
 ```bash
-cd sophiagraph
 make check
 python3.11 scripts/release_check.py
 ```
 
+From the `openminion` package root, with SophiaGraph source available on disk:
+
 ```bash
-cd openminion
-PYTHONPATH=src:../sophiagraph/src .venv/bin/python3.11 -m pytest -q tests -k 'sophiagraph'
+PYTHONPATH=src:<sophiagraph-src> .venv/bin/python3.11 -m pytest -q tests -k 'sophiagraph'
 .venv/bin/python3.11 -m ruff check .
 make lint
 ```

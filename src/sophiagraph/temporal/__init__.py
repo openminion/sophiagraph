@@ -7,6 +7,12 @@ from datetime import datetime, timezone
 from sophiagraph.contracts.errors import InvalidArgumentError
 
 
+def utc_now_iso() -> str:
+    """Return the current UTC timestamp in ISO-8601 form."""
+
+    return datetime.now(timezone.utc).isoformat()
+
+
 def coerce_temporal_dt(value: datetime | str) -> datetime:
     """Normalize a temporal timestamp into a timezone-aware datetime."""
     if isinstance(value, datetime):
@@ -17,4 +23,4 @@ def coerce_temporal_dt(value: datetime | str) -> datetime:
     return datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
-__all__ = ["coerce_temporal_dt"]
+__all__ = ["coerce_temporal_dt", "utc_now_iso"]
