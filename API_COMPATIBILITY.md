@@ -37,6 +37,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.ui`
 - `sophiagraph.embedding_lifecycle`
 - `sophiagraph.workspace`
+- `sophiagraph.workspace_sync`
 - `sophiagraph.okf`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
@@ -110,11 +111,25 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.WorkspaceMetadata`
 - `sophiagraph.WorkspaceImportProfile`
 - `sophiagraph.WorkspaceStatusView`
+- `sophiagraph.WorkspaceSourceLedgerEntry`
+- `sophiagraph.WorkspaceFileDelta`
+- `sophiagraph.WorkspaceSyncPlan`
+- `sophiagraph.WorkspaceSyncApplyResult`
+- `sophiagraph.WorkspaceSyncStatus`
+- `sophiagraph.WorkspacePollCycle`
+- `sophiagraph.WorkspaceFilePrimaryNoteOptions`
+- `sophiagraph.WorkspaceFilePrimaryNoteResult`
 - `sophiagraph.initialize_workspace(...)`
 - `sophiagraph.load_workspace_status(...)`
 - `sophiagraph.plan_workspace_import(...)`
 - `sophiagraph.apply_workspace_import(...)`
 - `sophiagraph.workspace_note_put(...)`
+- `sophiagraph.scan_workspace_sync(...)`
+- `sophiagraph.apply_workspace_sync(...)`
+- `sophiagraph.workspace_sync_status(...)`
+- `sophiagraph.poll_workspace_sync(...)`
+- `sophiagraph.workspace_file_primary_note_put(...)`
+- `sophiagraph.materialize_workspace_note(...)`
 - `sophiagraph.build_workspace_workbench(...)`
 - `sophiagraph.render_workspace_workbench(...)`
 - `sophiagraph.audit`

@@ -19,7 +19,7 @@ This directory holds the public package documentation for standalone
 - [`human-management.md`](human-management.md) records the
   local note, import, and source-management surface.
 - [`workspace-mode.md`](workspace-mode.md) records the
-  package-owned persistent local workspace contract.
+  package-owned persistent local workspace and live file-primary sync contract.
 - [`ui-contracts.md`](ui-contracts.md) records the typed
   `sophiagraph.ui` boundary for deterministic local workbench screens.
 
@@ -44,5 +44,5 @@ This directory holds the public package documentation for standalone
 
 The current public package contract is a local-first memory and knowledge-graph
 substrate: typed records, relations, retrieval, navigation, governance,
-freshness, portability, human note/import management, local workspaces, and
-deterministic workbench packets/HTML previews.
+freshness, portability, human note/import management, local workspaces,
+file-primary live sync, and deterministic workbench packets/HTML previews.

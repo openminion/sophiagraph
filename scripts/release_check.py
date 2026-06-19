@@ -99,9 +99,11 @@ def main(argv: list[str] | None = None) -> int:
                         "from sophiagraph import VaultFilePayload, all_simple_paths, "
                         "EmbeddingListOptions, FreshnessLedgerEntry, "
                         "HumanNoteInput, KuzuGraphBackendAdapter, MemoryEmbedding, "
-                        "WorkspaceMetadata, create_human_note, decide_replay, "
+                        "WorkspaceFilePrimaryNoteOptions, WorkspaceMetadata, "
+                        "create_human_note, decide_replay, "
                         "import_vault_files, initialize_workspace, "
                         "plan_human_vault_import, plan_workspace_import, "
+                        "scan_workspace_sync, workspace_sync_status, "
                         "retrieval_path_evidence; "
                         "from sophiagraph.ui import build_ui_screen_manifest"
                     ),
