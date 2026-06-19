@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
-from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
 from time import sleep
@@ -25,6 +24,7 @@ from sophiagraph.sync import (
     sync_conflict_from_dict,
     sync_conflict_to_dict,
 )
+from sophiagraph.temporal import utc_now_iso_seconds
 from sophiagraph.vault import VaultFilePayload, VaultImportOptions, import_vault_files
 from sophiagraph.workspace import (
     collect_workspace_import_files,
@@ -42,10 +42,6 @@ WorkspaceFileDeltaKind = Literal[
 ]
 
 _WORKSPACE_SYNC_META_KEY = "workspace_sync"
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 def _normalize_root(root: str | Path) -> Path:
@@ -652,7 +648,7 @@ def scan_workspace_sync(
 ) -> WorkspaceSyncPlan:
     source_root_path = _normalize_root(source_root)
     store, metadata, _profile = _workspace_sync_options(workspace_root)
-    observed_at = _utc_now_iso()
+    observed_at = utc_now_iso_seconds()
     payloads = _build_file_payload_map(source_root_path)
     ledger_by_path = _workspace_sync_entries(
         store,
@@ -916,7 +912,7 @@ def apply_workspace_sync(
     store, metadata, profile = _workspace_sync_options(workspace_root)
     active_plan = plan or scan_workspace_sync(workspace_root, source_root_path)
     payloads = _build_file_payload_map(source_root_path)
-    applied_at = _utc_now_iso()
+    applied_at = utc_now_iso_seconds()
 
     import_payloads: list[VaultFilePayload] = []
     stale_paths: list[str] = []
@@ -1192,7 +1188,7 @@ def _archive_legacy_note_if_needed(
     archive_human_note(
         store,
         record_id=legacy_id,
-        archived_at=_utc_now_iso(),
+        archived_at=utc_now_iso_seconds(),
         reason="materialized into file-primary workspace sync record",
     )
 
@@ -1216,7 +1212,7 @@ def workspace_file_primary_note_put(
     )
     target = source_root_path / Path(relative_path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    written_at = _utc_now_iso()
+    written_at = utc_now_iso_seconds()
     target.write_text(markdown, encoding="utf-8")
     apply_result = apply_workspace_sync(workspace_root, source_root_path)
     record_id = apply_result.path_record_ids.get(relative_path)

@@ -13,6 +13,12 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def utc_now_iso_seconds() -> str:
+    """Return the current UTC timestamp in ISO-8601 form without microseconds."""
+
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
 def coerce_temporal_dt(value: datetime | str) -> datetime:
     """Normalize a temporal timestamp into a timezone-aware datetime."""
     if isinstance(value, datetime):
@@ -23,4 +29,4 @@ def coerce_temporal_dt(value: datetime | str) -> datetime:
     return datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
-__all__ = ["coerce_temporal_dt", "utc_now_iso"]
+__all__ = ["coerce_temporal_dt", "utc_now_iso", "utc_now_iso_seconds"]

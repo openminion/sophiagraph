@@ -29,6 +29,7 @@ from sophiagraph.storage import (
     create_sqlite_store,
     default_db_path,
 )
+from sophiagraph.temporal import utc_now_iso_seconds
 from sophiagraph.vault import (
     VaultFilePayload,
     VaultImportOptions,
@@ -42,11 +43,6 @@ WORKSPACE_METADATA_FILE = "workspace.json"
 WORKSPACE_IMPORT_PROFILE_FILE = "import_profile.json"
 WORKSPACE_STORE_DIR = "store"
 WORKSPACE_SUPPORTED_IMPORT_SUFFIXES = (".md", ".canvas")
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat()
-
 
 def _json_ready(value: Any) -> Any:
     if isinstance(value, Path):
@@ -107,7 +103,7 @@ class WorkspaceMetadata:
         if not self.schema_version:
             raise InvalidArgumentError("schema_version is required")
         if not self.created_at:
-            object.__setattr__(self, "created_at", _utc_now_iso())
+            object.__setattr__(self, "created_at", utc_now_iso_seconds())
         if not self.updated_at:
             object.__setattr__(self, "updated_at", self.created_at)
 

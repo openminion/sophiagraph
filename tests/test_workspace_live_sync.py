@@ -60,6 +60,8 @@ def test_workspace_live_sync_create_apply_status_and_roundtrip(tmp_path: Path) -
     assert apply_result.imported_paths == ("notes/alpha.md",)
     assert apply_result.path_record_ids["notes/alpha.md"]
     assert apply_result.source_entry_id is not None
+    assert "." not in plan.observed_at
+    assert "." not in apply_result.applied_at
 
     repeat_plan = scan_workspace_sync(workspace, source_root)
     assert repeat_plan.deltas == ()
