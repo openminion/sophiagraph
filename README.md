@@ -27,6 +27,16 @@ The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this packa
 frames durable knowledge as a graph of records, relations, provenance, trust,
 and portable snapshots.
 
+## Trust and Brand Safety
+
+- Official GitHub: `https://github.com/openminion/sophiagraph`
+- Official website: `https://www.openminion.com`
+- Official X account: `https://x.com/OpenMinion`
+
+`sophiagraph` has no official token, coin, NFT, airdrop, staking program,
+treasury product, or investment offering. Any claim otherwise is unauthorized
+and should be treated as a scam.
+
 ## What the package provides
 
 `sophiagraph` currently provides:
@@ -803,16 +813,6 @@ Package-local release runbook:
 
 - `RELEASING.md`
 - `scripts/release_check.py`
-
-## Trust and Brand Safety
-
-- Official GitHub: `https://github.com/openminion/sophiagraph`
-- Official website: `https://www.openminion.com`
-- Official X account: `https://x.com/OpenMinion`
-
-`sophiagraph` has no official token, coin, NFT, airdrop, staking program,
-treasury product, or investment offering. Any claim otherwise is unauthorized
-and should be treated as a scam.
 
 ## License and brand-use boundary
 
