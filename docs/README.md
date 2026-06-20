@@ -7,6 +7,15 @@ This directory holds the public package documentation for standalone
 
 ## Package-local references
 
+- [`getting-started.md`](getting-started.md) gives the
+  package-local bootstrap and execution summary for contributors and automation.
+- [`engineering-patterns.md`](engineering-patterns.md)
+  summarizes the package-local engineering and boundary rules for contributors.
+- [`code-quality-enforcement.md`](code-quality-enforcement.md)
+  summarizes the active public quality gates and validation posture.
+- [`testing-and-validation.md`](testing-and-validation.md)
+  records the package-local install, smoke, test, lint, and release-check
+  flow.
 - [`standalone-claim-alignment.md`](standalone-claim-alignment.md)
   keeps public package claims aligned with the surfaces that ship today.
 - [`certification-readiness-matrix.md`](certification-readiness-matrix.md)
@@ -30,8 +39,10 @@ This directory holds the public package documentation for standalone
    top-level export policy.
 3. The Source Tree Owner Map reference explains the source-tree owner map and
    public-vs-repo-local boundary.
-4. `RELEASING.md` records the package-local release and PyPI publish flow.
-5. `scripts/release_check.py` is the canonical package release smoke entrypoint.
+4. `CHANGELOG.md` records package-facing release notes.
+5. `CODE_QUALITY.md` summarizes the public contributor code-quality rules.
+6. `RELEASING.md` records the package-local release and PyPI publish flow.
+7. `scripts/release_check.py` is the canonical package release smoke entrypoint.
 
 ## Repository-local but not package API
 
