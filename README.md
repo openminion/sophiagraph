@@ -111,6 +111,9 @@ that is actually true.
 - package-owned workspace helpers for one persistent local SQLite workspace,
   stored import defaults, explicit local markdown/canvas import planning/apply
   flows, and workspace-backed workbench rendering
+- package-owned live workspace sync helpers for deterministic source-ledger
+  persistence, incremental create/modify/delete/rename scans, explicit
+  file-primary note writes, and bounded poll/status helpers without a daemon
 - package-owned UI boundary contracts in `sophiagraph.ui` for the future
   visual explorer, record detail, graph, operations, repair, timeline, and
   schema screens without requiring a second package yet
@@ -191,6 +194,30 @@ Preview a local markdown/canvas import:
 ```bash
 python3.11 -m sophiagraph workspace-import-plan \
   <workspace-root> <notes-root> --json
+```
+
+Scan the same root as a file-primary live-sync source:
+
+```bash
+python3.11 -m sophiagraph workspace-sync-plan \
+  <workspace-root> <notes-root> --json
+```
+
+Apply the typed live-sync plan and refresh the graph index:
+
+```bash
+python3.11 -m sophiagraph workspace-sync-apply \
+  <workspace-root> <notes-root> --json
+```
+
+Write a canonical markdown note to disk first, then refresh the index:
+
+```bash
+python3.11 -m sophiagraph workspace-file-note-put \
+  <workspace-root> <notes-root> welcome \
+  --title "Welcome" \
+  --body "Hello from a file-primary workspace." \
+  --json
 ```
 
 ## OKF Interoperability Quickstart

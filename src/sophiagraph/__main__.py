@@ -16,11 +16,20 @@ from sophiagraph.workspace import (
     build_workspace_workbench,
     initialize_workspace,
     load_workspace_status,
+    plan_workspace_import,
     render_workspace_workbench,
     workspace_note_put,
     workspace_status_to_dict,
     workspace_workbench_to_dict,
-    plan_workspace_import,
+)
+from sophiagraph.workspace_sync import (
+    WorkspaceFilePrimaryNoteOptions,
+    apply_workspace_sync,
+    materialize_workspace_note,
+    poll_workspace_sync,
+    scan_workspace_sync,
+    workspace_file_primary_note_put,
+    workspace_sync_status,
 )
 
 
@@ -115,6 +124,48 @@ def _build_workspace_parser() -> argparse.ArgumentParser:
     workbench_parser.add_argument("--tombstone-missing", action="store_true")
     workbench_parser.add_argument("--html-out")
     workbench_parser.add_argument("--json", action="store_true")
+
+    sync_plan_parser = subparsers.add_parser("workspace-sync-plan")
+    sync_plan_parser.add_argument("workspace")
+    sync_plan_parser.add_argument("source_root")
+    sync_plan_parser.add_argument("--json", action="store_true")
+
+    sync_apply_parser = subparsers.add_parser("workspace-sync-apply")
+    sync_apply_parser.add_argument("workspace")
+    sync_apply_parser.add_argument("source_root")
+    sync_apply_parser.add_argument("--json", action="store_true")
+
+    sync_status_parser = subparsers.add_parser("workspace-sync-status")
+    sync_status_parser.add_argument("workspace")
+    sync_status_parser.add_argument("source_root")
+    sync_status_parser.add_argument("--json", action="store_true")
+
+    sync_poll_parser = subparsers.add_parser("workspace-sync-poll")
+    sync_poll_parser.add_argument("workspace")
+    sync_poll_parser.add_argument("source_root")
+    sync_poll_parser.add_argument("--cycles", type=int, default=1)
+    sync_poll_parser.add_argument("--interval-seconds", type=float, default=0.0)
+    sync_poll_parser.add_argument("--apply", action="store_true")
+    sync_poll_parser.add_argument("--json", action="store_true")
+
+    file_note_parser = subparsers.add_parser("workspace-file-note-put")
+    file_note_parser.add_argument("workspace")
+    file_note_parser.add_argument("source_root")
+    file_note_parser.add_argument("note_key")
+    file_note_parser.add_argument("--title", required=True)
+    file_body_group = file_note_parser.add_mutually_exclusive_group(required=True)
+    file_body_group.add_argument("--body")
+    file_body_group.add_argument("--body-file")
+    file_note_parser.add_argument("--relative-path")
+    file_note_parser.add_argument("--tag", action="append", default=[])
+    file_note_parser.add_argument("--json", action="store_true")
+
+    materialize_parser = subparsers.add_parser("workspace-note-materialize")
+    materialize_parser.add_argument("workspace")
+    materialize_parser.add_argument("source_root")
+    materialize_parser.add_argument("record_id")
+    materialize_parser.add_argument("--relative-path")
+    materialize_parser.add_argument("--json", action="store_true")
     return parser
 
 
@@ -215,6 +266,51 @@ def _run_workspace_cli(argv: list[str]) -> int:
             return 0
         print(html)
         return 0
+    if command == "workspace-sync-plan":
+        plan = scan_workspace_sync(args.workspace, args.source_root)
+        _print_payload(plan.to_dict(), json_mode=args.json)
+        return 0
+    if command == "workspace-sync-apply":
+        result = apply_workspace_sync(args.workspace, args.source_root)
+        _print_payload(result.to_dict(), json_mode=args.json)
+        return 0
+    if command == "workspace-sync-status":
+        status = workspace_sync_status(args.workspace, args.source_root)
+        _print_payload(status.to_dict(), json_mode=args.json)
+        return 0
+    if command == "workspace-sync-poll":
+        cycles = poll_workspace_sync(
+            args.workspace,
+            args.source_root,
+            cycles=args.cycles,
+            interval_seconds=args.interval_seconds,
+            apply_changes=args.apply,
+        )
+        _print_payload([cycle.to_dict() for cycle in cycles], json_mode=args.json)
+        return 0
+    if command == "workspace-file-note-put":
+        result = workspace_file_primary_note_put(
+            args.workspace,
+            args.source_root,
+            options=WorkspaceFilePrimaryNoteOptions(
+                note_key=args.note_key,
+                title=args.title,
+                body=_read_note_body(args),
+                tags=tuple(args.tag),
+                relative_path=args.relative_path,
+            ),
+        )
+        _print_payload(result.to_dict(), json_mode=args.json)
+        return 0
+    if command == "workspace-note-materialize":
+        result = materialize_workspace_note(
+            args.workspace,
+            args.source_root,
+            record_id=args.record_id,
+            relative_path=args.relative_path,
+        )
+        _print_payload(result.to_dict(), json_mode=args.json)
+        return 0
     raise SystemExit(f"unknown workspace command: {command}")
 
 
@@ -250,6 +346,12 @@ def main(argv: list[str] | None = None) -> int:
         "workspace-import-plan",
         "workspace-import-apply",
         "workspace-workbench",
+        "workspace-sync-plan",
+        "workspace-sync-apply",
+        "workspace-sync-status",
+        "workspace-sync-poll",
+        "workspace-file-note-put",
+        "workspace-note-materialize",
     }:
         return _run_workspace_cli(args)
     return _run_smoke_cli(args)

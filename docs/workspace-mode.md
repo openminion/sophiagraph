@@ -9,6 +9,7 @@ human-managed notes, explicit local file imports, and workbench rendering.
 ## Public root
 
 - `sophiagraph.workspace`
+- `sophiagraph.workspace_sync`
 
 ## What it provides
 
@@ -24,6 +25,14 @@ human-managed notes, explicit local file imports, and workbench rendering.
 - workspace-scoped import application via `apply_workspace_import(...)`
 - workspace-backed workbench packets via `build_workspace_workbench(...)`
 - deterministic HTML rendering via `render_workspace_workbench(...)`
+- typed source-ledger DTOs via `WorkspaceSourceLedgerEntry`
+- typed drift facts via `WorkspaceFileDelta`
+- typed live-sync plans/results/status via
+  `WorkspaceSyncPlan`, `WorkspaceSyncApplyResult`, and
+  `WorkspaceSyncStatus`
+- bounded live-sync polling via `poll_workspace_sync(...)`
+- explicit file-primary note/materialize helpers via
+  `workspace_file_primary_note_put(...)` and `materialize_workspace_note(...)`
 
 ## Workspace layout
 
@@ -43,6 +52,8 @@ It does:
 2. read explicit local markdown/canvas files from a caller-supplied directory,
 3. reuse existing human/vault/source surfaces from the package,
 4. let callers reopen the same workspace without reconstructing raw defaults.
+5. let callers keep a deterministic file-primary source ledger for one local
+   root without introducing a daemon.
 
 It does **not** provide:
 
@@ -51,6 +62,7 @@ It does **not** provide:
 3. automatic promotion of raw chat into durable memory
 4. semantic extraction from local prose
 5. browser runtime or admin console behavior
+6. prose-based merge resolution or hidden DB-only writes in file-primary mode
 
 ## CLI
 
@@ -62,3 +74,9 @@ Workspace mode is available through `python3.11 -m sophiagraph`:
 - `workspace-import-plan`
 - `workspace-import-apply`
 - `workspace-workbench`
+- `workspace-sync-plan`
+- `workspace-sync-apply`
+- `workspace-sync-status`
+- `workspace-sync-poll`
+- `workspace-file-note-put`
+- `workspace-note-materialize`

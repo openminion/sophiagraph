@@ -42,6 +42,7 @@ def test_workspace_init_persists_metadata_and_status(tmp_path: Path) -> None:
     assert status.import_profile.vault_id == "vault-main"
     assert status.record_count == 0
     assert status.db_path.endswith("sophiagraph.sqlite3")
+    assert "." not in status.metadata.created_at
 
     reloaded = load_workspace_status(workspace)
     assert reloaded.metadata.namespace == _ns()
