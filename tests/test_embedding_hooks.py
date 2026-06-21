@@ -9,7 +9,7 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryEmbedding, MemoryNamespace
 from sophiagraph.query import EmbeddingListOptions
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
-from sophiagraph.storage.sqlite_support import SCHEMA_VERSION
+from sophiagraph.storage.sqlite.support import SCHEMA_VERSION
 
 
 def _namespace(agent_id: str = "agent") -> MemoryNamespace:
