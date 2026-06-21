@@ -54,6 +54,12 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.MemoryNamespaceComponent`
 - `sophiagraph.MemoryRecord`
 - `sophiagraph.MemoryCandidate`
+- `sophiagraph.SelfImprovingMemoryLifecycle`
+- `sophiagraph.MemoryEvidenceLink`
+- `sophiagraph.MemoryLifecycleEvent`
+- `sophiagraph.MemoryContradictionLink`
+- `sophiagraph.MemoryAttributionUpdate`
+- `sophiagraph.MemoryRetrievalPacket`
 - `sophiagraph.MemoryRelation`
 - `sophiagraph.EntitySummary`
 - `sophiagraph.SUMMARY_AUTHORSHIPS`
@@ -106,6 +112,11 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.degree_centrality(...)`
 - `sophiagraph.create_sqlite_store(...)`
 - `sophiagraph.create_memory_store()`
+- `sophiagraph.lifecycle_from_candidate(...)`
+- `sophiagraph.transition_lifecycle(...)`
+- `sophiagraph.apply_attribution_update(...)`
+- `sophiagraph.attach_contradiction(...)`
+- `sophiagraph.build_memory_retrieval_packet(...)`
 - `sophiagraph.default_db_path(...)`
 - `sophiagraph.async_store(...)`
 - `sophiagraph.WorkspaceMetadata`
