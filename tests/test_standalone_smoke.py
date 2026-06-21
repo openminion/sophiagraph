@@ -56,6 +56,9 @@ def test_python_m_sophiagraph_ui_preview_writes_html(tmp_path) -> None:
     assert payload["record_count"] == 2
     assert "Saved Views" in html
     assert "Preview Records" in html
+    assert "OpenMinion Integration" in html
+    assert "Second-brain durable memory graph." in html
+    assert "sophiagraph-ui --workspace" in html
 
 
 def test_sophiagraph_ui_preview_server_serves_visual_routes() -> None:
@@ -79,6 +82,7 @@ def test_sophiagraph_ui_preview_server_serves_visual_routes() -> None:
         thread.join(timeout=5)
 
     assert "Saved Views" in views_html
+    assert "OpenMinion Integration" in views_html
     assert "href='/graph'" in views_html
     assert "Graph View" in graph_html
 

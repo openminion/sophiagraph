@@ -128,6 +128,12 @@ body.sg-page {
   gap: 16px;
   align-items: start;
 }
+.sg-integration {
+  display: grid;
+  grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr);
+  gap: 12px;
+  align-items: start;
+}
 .sg-panel {
   background: var(--sg-panel);
   border: 1px solid var(--sg-line);
@@ -271,6 +277,22 @@ body.sg-page {
 .sg-muted {
   color: var(--sg-muted);
 }
+.sg-code-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.sg-code-list code {
+  display: block;
+  border: 1px solid var(--sg-line);
+  border-radius: 8px;
+  background: #fbfcfa;
+  padding: 9px 10px;
+  color: var(--sg-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 860px) {
   .sg-shell { grid-template-columns: 1fr; }
   .sg-nav {
@@ -278,7 +300,7 @@ body.sg-page {
     border-bottom: 1px solid var(--sg-line);
   }
   .sg-nav-links { display: flex; flex-wrap: wrap; gap: 4px; }
-  .sg-header, .sg-layout { grid-template-columns: 1fr; }
+  .sg-header, .sg-layout, .sg-integration { grid-template-columns: 1fr; }
   .sg-summary { justify-content: flex-start; }
 }
 </style>
@@ -330,6 +352,24 @@ def _metric(label: str, value: int | str, *, tone: str = "") -> tuple[str, str]:
     return rendered, tone
 
 
+def _integration_panel() -> str:
+    commands = (
+        "sophiagraph-ui --workspace <workspace-root> --screen explore --serve --open",
+        "python -m sophiagraph ui-preview --screen views --serve",
+    )
+    command_list = "".join(
+        f"<code>{escape(command)}</code>" for command in commands
+    )
+    return (
+        "<section class='sg-panel sg-integration' aria-label='OpenMinion integration'>"
+        "<div><h2>OpenMinion Integration</h2>"
+        "<p class='sg-empty'>Second-brain durable memory graph.</p>"
+        f"{_badges([('public package APIs', 'accent'), ('local preview', 'blue')])}"
+        "</div><div class='sg-code-list'>"
+        f"{command_list}</div></section>"
+    )
+
+
 def _nav(active_screen: str) -> str:
     links = []
     for screen_id, label in _SCREEN_NAV:
@@ -361,7 +401,8 @@ def _page(
         "<header class='sg-header'><div>"
         f"<p class='sg-eyebrow'>{escape(eyebrow)}</p><h1>{escape(title)}</h1>"
         "</div><div class='sg-summary'>"
-        f"{_badges(metrics)}</div></header>{body}</main></div></body></html>"
+        f"{_badges(metrics)}</div></header>{_integration_panel()}{body}"
+        "</main></div></body></html>"
     )
 
 
