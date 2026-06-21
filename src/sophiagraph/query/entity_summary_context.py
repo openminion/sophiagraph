@@ -138,7 +138,9 @@ def _ordered_entity_summaries(
     )
 
 
-def _policy_omission_reason(summary: EntitySummary) -> SummaryContextOmissionReason | None:
+def _policy_omission_reason(
+    summary: EntitySummary,
+) -> SummaryContextOmissionReason | None:
     policy = summary.privacy_policy
     if policy is None:
         return None
@@ -249,7 +251,9 @@ def assemble_entity_summary_context(
     denial_events: list[PolicyDenialEvent] = []
     seen_summary_ids: set[str] = set()
 
-    def process(summary: EntitySummary | None, *, requested_id: str | None = None) -> None:
+    def process(
+        summary: EntitySummary | None, *, requested_id: str | None = None
+    ) -> None:
         summary_id = requested_id or (summary.summary_id if summary is not None else "")
         if summary is None:
             omitted.append(

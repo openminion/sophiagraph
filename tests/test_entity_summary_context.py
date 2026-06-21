@@ -103,7 +103,9 @@ def test_summary_context_assembles_explicit_ids_in_order(store) -> None:
     assert result.items[0].provenance["source_record_ids"] == ["rec-1"]
 
 
-def test_summary_context_entity_mode_uses_deterministic_latest_first_order(store) -> None:
+def test_summary_context_entity_mode_uses_deterministic_latest_first_order(
+    store,
+) -> None:
     store.put_entity_summary(
         _summary("sum-older", updated_at="2026-06-14T00:00:00+00:00")
     )

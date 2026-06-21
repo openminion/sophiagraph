@@ -64,9 +64,7 @@ class ArtifactCitation:
                 raise InvalidArgumentError("region citations require region_id")
             if self.page_index is None:
                 raise InvalidArgumentError("region citations require page_index")
-        if self.kind == "timestamp" and (
-            self.start_ms is None or self.end_ms is None
-        ):
+        if self.kind == "timestamp" and (self.start_ms is None or self.end_ms is None):
             raise InvalidArgumentError(
                 "timestamp citations require start_ms and end_ms"
             )
@@ -126,11 +124,11 @@ class ArtifactCitation:
                 str(data["region_id"]) if data.get("region_id") is not None else None
             ),
             segment_id=(
-                str(data["segment_id"])
-                if data.get("segment_id") is not None
-                else None
+                str(data["segment_id"]) if data.get("segment_id") is not None else None
             ),
-            start_ms=int(data["start_ms"]) if data.get("start_ms") is not None else None,
+            start_ms=int(data["start_ms"])
+            if data.get("start_ms") is not None
+            else None,
             end_ms=int(data["end_ms"]) if data.get("end_ms") is not None else None,
             start_char=(
                 int(data["start_char"]) if data.get("start_char") is not None else None
@@ -237,7 +235,10 @@ class ArtifactTextProjection:
             raise InvalidArgumentError("created_at is required")
         if not self.segments:
             raise InvalidArgumentError("segments must not be empty")
-        if self.superseded_by_projection_id is not None and not self.superseded_by_projection_id:
+        if (
+            self.superseded_by_projection_id is not None
+            and not self.superseded_by_projection_id
+        ):
             raise InvalidArgumentError(
                 "superseded_by_projection_id must be non-empty or None"
             )

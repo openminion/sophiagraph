@@ -40,9 +40,7 @@ def test_public_markdown_docs_stay_package_local_and_portable() -> None:
         root / "RELEASING.md",
         root / "docs" / "README.md",
         *sorted(
-            path
-            for path in (root / "docs").glob("*.md")
-            if path.name != "README.md"
+            path for path in (root / "docs").glob("*.md") if path.name != "README.md"
         ),
     ]
 

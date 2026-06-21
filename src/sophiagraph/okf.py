@@ -60,6 +60,7 @@ def _stable_id(prefix: str, *parts: str) -> str:
 def _bundle_id(root: Path) -> str:
     return sha256(str(root.resolve()).encode("utf-8")).hexdigest()[:16]
 
+
 def _bundle_relative(path: str) -> str:
     normalized = str(PurePosixPath(str(path or "").replace("\\", "/")))
     if not normalized or normalized == ".":
@@ -126,10 +127,10 @@ def _profile_from_frontmatter(frontmatter: dict[str, Any]) -> OkfConceptProfile:
         resource=str(frontmatter["resource"]) if frontmatter.get("resource") else None,
         tags=[str(item) for item in frontmatter.get("tags", [])]
         if isinstance(frontmatter.get("tags"), list)
-        else (
-            [str(frontmatter["tags"])] if frontmatter.get("tags") else []
-        ),
-        timestamp=str(frontmatter["timestamp"]) if frontmatter.get("timestamp") else None,
+        else ([str(frontmatter["tags"])] if frontmatter.get("tags") else []),
+        timestamp=str(frontmatter["timestamp"])
+        if frontmatter.get("timestamp")
+        else None,
         okf_version=(
             str(frontmatter["okf_version"]) if frontmatter.get("okf_version") else None
         ),
@@ -238,11 +239,15 @@ def _extract_citations(body: str, *, source_path: str) -> list[OkfCitation]:
         else:
             label = None
             target = item
-        target_kind = "external" if re.match(
-            r"^[a-zA-Z][a-zA-Z0-9+.-]*://", target
-        ) else "bundle_path"
+        target_kind = (
+            "external"
+            if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", target)
+            else "bundle_path"
+        )
         if target_kind == "bundle_path":
-            target = _resolve_bundle_target(source_path, target) or _bundle_relative(target)
+            target = _resolve_bundle_target(source_path, target) or _bundle_relative(
+                target
+            )
         citations.append(
             OkfCitation(
                 citation_id=_stable_id("okf-citation", source_path, str(index), target),
@@ -328,14 +333,20 @@ def _findings_for_document(
         if link.link_kind == "external":
             continue
         raw_target = link.raw_target.split("#", 1)[0]
-        if raw_target and raw_target not in bundle_paths and link.resolution_status == "unresolved":
+        if (
+            raw_target
+            and raw_target not in bundle_paths
+            and link.resolution_status == "unresolved"
+        ):
             findings.append(
                 OkfConformanceFinding(
                     code="unresolved_link",
                     severity="warning",
                     path=path,
                     message=f"unresolved bundle link: {link.raw_target}",
-                    line_number=(link.start or 0) + 1 if link.start is not None else None,
+                    line_number=(link.start or 0) + 1
+                    if link.start is not None
+                    else None,
                 )
             )
     return findings
@@ -364,13 +375,24 @@ def import_okf_bundle(
     root = Path(bundle_root).expanduser().resolve()
     markdown_by_path = _read_markdown_files(root)
     bundle_id = _bundle_id(root)
-    candidates = _build_candidates(markdown_by_path, namespace=namespace, bundle_id=bundle_id)
+    candidates = _build_candidates(
+        markdown_by_path, namespace=namespace, bundle_id=bundle_id
+    )
     concepts: list[OkfConceptDocument] = []
     indices: list[OkfIndexDocument] = []
     logs: list[OkfLogDocument] = []
     references: list[OkfConceptDocument] = []
     findings: list[OkfConformanceFinding] = []
-    provisional: list[tuple[str, str, MarkdownImport, dict[str, Any], list[StructuralLink], list[OkfCitation]]] = []
+    provisional: list[
+        tuple[
+            str,
+            str,
+            MarkdownImport,
+            dict[str, Any],
+            list[StructuralLink],
+            list[OkfCitation],
+        ]
+    ] = []
     bundle_version: str | None = None
     for path, text in markdown_by_path.items():
         record_id = _stable_id("okf-rec", bundle_id, path)
@@ -388,7 +410,14 @@ def import_okf_bundle(
         )
         citations = _extract_citations(imported.body, source_path=path)
         provisional.append(
-            (path, _document_kind(path), imported, frontmatter, normalized_links, citations)
+            (
+                path,
+                _document_kind(path),
+                imported,
+                frontmatter,
+                normalized_links,
+                citations,
+            )
         )
         if bundle_version is None and frontmatter.get("okf_version"):
             bundle_version = str(frontmatter["okf_version"])
@@ -463,7 +492,9 @@ def import_okf_bundle(
         indices=sorted(indices, key=lambda item: item.document.path),
         logs=sorted(logs, key=lambda item: item.document.path),
         references=sorted(references, key=lambda item: item.document.path),
-        findings=sorted(findings, key=lambda item: (item.path, item.code, item.line_number or 0)),
+        findings=sorted(
+            findings, key=lambda item: (item.path, item.code, item.line_number or 0)
+        ),
     )
 
 
@@ -511,7 +542,9 @@ def _render_link(link: StructuralLink, *, obsidian_compatible: bool) -> str:
         label = link.display_text or link.raw_target
         return f"[{label}]({link.raw_target})"
     target = (
-        _obsidian_target(link) if obsidian_compatible else _bundle_relative_markdown_target(link)
+        _obsidian_target(link)
+        if obsidian_compatible
+        else _bundle_relative_markdown_target(link)
     )
     if target is None:
         return link.original or (
@@ -523,13 +556,17 @@ def _render_link(link: StructuralLink, *, obsidian_compatible: bool) -> str:
         display = f"|{link.display_text}" if link.display_text else ""
         prefix = "!" if link.link_kind == "embed" else ""
         return f"{prefix}[[{target}{display}]]"
-    label = link.display_text or link.raw_target.split("#", 1)[0].rsplit("/", 1)[-1].removesuffix(".md")
+    label = link.display_text or link.raw_target.split("#", 1)[0].rsplit("/", 1)[
+        -1
+    ].removesuffix(".md")
     if link.link_kind == "embed":
         return f"![{label}]({target})"
     return f"[{label}]({target})"
 
 
-def _rewrite_body(body: str, links: list[StructuralLink], *, obsidian_compatible: bool) -> str:
+def _rewrite_body(
+    body: str, links: list[StructuralLink], *, obsidian_compatible: bool
+) -> str:
     rewritten = body
     for link in sorted(
         [item for item in links if item.start is not None and item.end is not None],
@@ -603,7 +640,9 @@ def export_okf_bundle(
         files.append(
             VaultFilePayload(
                 path=document.document.path,
-                content=_render_document(frontmatter=dict(document.frontmatter), body=body),
+                content=_render_document(
+                    frontmatter=dict(document.frontmatter), body=body
+                ),
                 file_kind="markdown",
             )
         )
@@ -616,7 +655,9 @@ def export_okf_bundle(
         files.append(
             VaultFilePayload(
                 path=document.document.path,
-                content=_render_document(frontmatter=dict(document.frontmatter), body=body),
+                content=_render_document(
+                    frontmatter=dict(document.frontmatter), body=body
+                ),
                 file_kind="markdown",
             )
         )
@@ -664,7 +705,9 @@ def import_okf_bundle_into_store(
         namespace=namespace,
         spec_commit=spec_commit,
     )
-    files = [_store_compatible_payload(payload) for payload in export_okf_bundle(bundle)]
+    files = [
+        _store_compatible_payload(payload) for payload in export_okf_bundle(bundle)
+    ]
     return import_vault_files(
         store,
         files,
@@ -697,7 +740,8 @@ def build_okf_navigation_packet(
     backlinks = [
         link
         for link in all_links
-        if link.target_path == path and link.source_record_id != document.document.record_id
+        if link.target_path == path
+        and link.source_record_id != document.document.record_id
     ]
     unresolved = [
         link
@@ -714,30 +758,45 @@ def build_okf_navigation_packet(
             title_map[alias.lower()] = (item.document.record_id, alias)
     masked_body = document.body
     for link in sorted(
-        [item for item in getattr(document, "links", []) if item.start is not None and item.end is not None],
+        [
+            item
+            for item in getattr(document, "links", [])
+            if item.start is not None and item.end is not None
+        ],
         key=lambda item: item.start or 0,
         reverse=True,
     ):
-        masked_body = masked_body[: link.start] + (" " * (link.end - link.start)) + masked_body[link.end :]
+        masked_body = (
+            masked_body[: link.start]
+            + (" " * (link.end - link.start))
+            + masked_body[link.end :]
+        )
     suggestions: list[UnlinkedMentionCandidate] = []
     self_record_id = document.document.record_id
     for lowered, (target_record_id, matched_text) in title_map.items():
         if target_record_id == self_record_id:
             continue
-        pattern = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(matched_text)}(?![A-Za-z0-9_])", re.IGNORECASE)
+        pattern = re.compile(
+            rf"(?<![A-Za-z0-9_]){re.escape(matched_text)}(?![A-Za-z0-9_])",
+            re.IGNORECASE,
+        )
         match = pattern.search(masked_body)
         if match is None:
             continue
         suggestions.append(
             UnlinkedMentionCandidate(
-                candidate_id=_stable_id("okf-mention", path, target_record_id, str(match.start())),
+                candidate_id=_stable_id(
+                    "okf-mention", path, target_record_id, str(match.start())
+                ),
                 source_record_id=self_record_id,
                 target_record_id=target_record_id,
                 matched_text=match.group(0),
                 match_kind="title" if lowered == matched_text.lower() else "alias",
                 context=KnowledgeContextExcerpt(
                     record_id=self_record_id,
-                    text=masked_body[max(0, match.start() - 40) : match.end() + 40].strip(),
+                    text=masked_body[
+                        max(0, match.start() - 40) : match.end() + 40
+                    ].strip(),
                     source_path=path,
                     char_budget=160,
                 ),
@@ -753,7 +812,11 @@ def build_okf_navigation_packet(
         )
     ]
     document_kind = getattr(document, "document_kind", None) or (
-        "index" if isinstance(document, OkfIndexDocument) else "log" if isinstance(document, OkfLogDocument) else "concept"
+        "index"
+        if isinstance(document, OkfIndexDocument)
+        else "log"
+        if isinstance(document, OkfLogDocument)
+        else "concept"
     )
     return OkfNavigationPacket(
         manifest=bundle.manifest,

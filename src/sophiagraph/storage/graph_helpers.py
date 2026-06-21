@@ -160,7 +160,9 @@ def entity_summary_from_dict(data: dict[str, Any]) -> EntitySummary:
         payload["privacy_policy"] = PrivacyPolicyState.from_dict(raw_policy)
     raw_source_record_ids = payload.get("source_record_ids")
     if isinstance(raw_source_record_ids, list):
-        payload["source_record_ids"] = tuple(str(item) for item in raw_source_record_ids)
+        payload["source_record_ids"] = tuple(
+            str(item) for item in raw_source_record_ids
+        )
     return EntitySummary(**payload)
 
 

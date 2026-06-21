@@ -155,7 +155,9 @@ def test_entity_summary_can_carry_typed_privacy_state() -> None:
         provenance=_prov(),
         privacy_policy=PrivacyPolicyState(
             policy_id="policy-1",
-            consent=ConsentState(status="granted", granted_at="2026-06-15T00:00:00+00:00"),
+            consent=ConsentState(
+                status="granted", granted_at="2026-06-15T00:00:00+00:00"
+            ),
             retrieval_visibility="visible",
             export_visibility="visible",
             retention_class="retain",
