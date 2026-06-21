@@ -11,6 +11,11 @@ from uuid import uuid4
 from sophiagraph.human import HumanWorkbenchPacket
 from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.storage import create_sqlite_store, default_db_path
+from sophiagraph.ui.preview import (
+    UiPreviewRequest,
+    serve_ui_preview,
+    write_ui_preview,
+)
 from sophiagraph.workspace import (
     apply_workspace_import,
     build_workspace_workbench,
@@ -166,6 +171,34 @@ def _build_workspace_parser() -> argparse.ArgumentParser:
     materialize_parser.add_argument("record_id")
     materialize_parser.add_argument("--relative-path")
     materialize_parser.add_argument("--json", action="store_true")
+
+    ui_parser = subparsers.add_parser("ui-preview")
+    ui_parser.add_argument("--workspace")
+    ui_parser.add_argument(
+        "--screen",
+        choices=(
+            "explore",
+            "record",
+            "graph",
+            "candidates",
+            "views",
+            "timeline",
+            "schema",
+        ),
+        default="explore",
+    )
+    ui_parser.add_argument("--html-out", default="sophiagraph-ui-preview.html")
+    ui_parser.add_argument("--scope", default="agent:demo")
+    ui_parser.add_argument("--query", default="")
+    ui_parser.add_argument("--record-id")
+    ui_parser.add_argument("--tenant-id")
+    ui_parser.add_argument("--agent-id", default="demo")
+    ui_parser.add_argument("--graph-id", default="main")
+    ui_parser.add_argument("--open", action="store_true")
+    ui_parser.add_argument("--serve", action="store_true")
+    ui_parser.add_argument("--host", default="127.0.0.1")
+    ui_parser.add_argument("--port", type=int, default=8765)
+    ui_parser.add_argument("--json", action="store_true")
     return parser
 
 
@@ -311,6 +344,28 @@ def _run_workspace_cli(argv: list[str]) -> int:
         )
         _print_payload(result.to_dict(), json_mode=args.json)
         return 0
+    if command == "ui-preview":
+        request = UiPreviewRequest(
+            screen=args.screen,
+            workspace=args.workspace,
+            output_path=args.html_out,
+            scope=args.scope,
+            query=args.query,
+            record_id=args.record_id,
+            tenant_id=args.tenant_id,
+            agent_id=args.agent_id,
+            graph_id=args.graph_id,
+            open_browser=args.open,
+        )
+        if args.serve:
+            result = serve_ui_preview(request, host=args.host, port=args.port)
+            _print_payload(result.to_dict() if args.json else result.url, json_mode=args.json)
+            return 0
+        result = write_ui_preview(
+            request
+        )
+        _print_payload(result.to_dict() if args.json else result.output_path, json_mode=args.json)
+        return 0
     raise SystemExit(f"unknown workspace command: {command}")
 
 
@@ -352,9 +407,14 @@ def main(argv: list[str] | None = None) -> int:
         "workspace-sync-poll",
         "workspace-file-note-put",
         "workspace-note-materialize",
+        "ui-preview",
     }:
         return _run_workspace_cli(args)
     return _run_smoke_cli(args)
+
+
+def ui_preview_main(argv: list[str] | None = None) -> int:
+    return _run_workspace_cli(["ui-preview", *list(sys.argv[1:] if argv is None else argv)])
 
 
 if __name__ == "__main__":

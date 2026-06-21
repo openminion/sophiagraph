@@ -27,6 +27,16 @@ The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this packa
 frames durable knowledge as a graph of records, relations, provenance, trust,
 and portable snapshots.
 
+## Docs and release
+
+- [`docs/README.md`](docs/README.md) is the package-local docs entrypoint.
+- [`API_COMPATIBILITY.md`](API_COMPATIBILITY.md) records the supported public
+  import roots and top-level export policy.
+- [`RELEASING.md`](RELEASING.md) records the package-local release and publish
+  flow.
+- [`docs/source-tree-owner-map.md`](docs/source-tree-owner-map.md) explains the
+  source-tree module layout and public-vs-repo-local boundary.
+
 ## Trust and Brand Safety
 
 - Official GitHub: `https://github.com/openminion/sophiagraph`
@@ -152,6 +162,27 @@ This package does **not** provide:
 The current visual explorer contract lives in `sophiagraph.ui`. Browser-facing
 runtime transport is still expected to route through `sophiagraph-server` over
 the REST design pinned by SSSF-02 rather than private in-process imports.
+
+You can run the package-local visual UI today:
+
+```bash
+sophiagraph-ui \
+  --screen explore \
+  --serve \
+  --open
+```
+
+Use a persistent workspace as the preview source:
+
+```bash
+sophiagraph-ui \
+  --workspace <workspace-root> \
+  --screen views \
+  --serve
+```
+
+Use `--html-out` only when you want to export a standalone HTML snapshot. The
+equivalent module form is `python3.11 -m sophiagraph ui-preview`.
 
 Host frameworks remain the orchestrators. `sophiagraph` owns reusable durable
 wisdom graph primitives and the standalone durable engine.

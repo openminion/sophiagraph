@@ -89,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
             pip = venv_dir / "bin" / "pip"
             wheel_python = venv_dir / "bin" / "python"
             smoke = venv_dir / "bin" / "sophiagraph-smoke"
+            ui_preview = venv_dir / "bin" / "sophiagraph-ui"
             wheel = sorted((root / "dist").glob("sophiagraph-*.whl"))[-1]
             _run([str(pip), "install", str(wheel)], cwd=root)
             _run(
@@ -111,6 +112,17 @@ def main(argv: list[str] | None = None) -> int:
                 cwd=root,
             )
             _run([str(smoke), "--root", str(smoke_root), "--seed", "--json"], cwd=root)
+            _run(
+                [
+                    str(ui_preview),
+                    "--screen",
+                    "views",
+                    "--html-out",
+                    str(tmp / "sophiagraph-ui.html"),
+                    "--json",
+                ],
+                cwd=root,
+            )
     return 0
 
 
