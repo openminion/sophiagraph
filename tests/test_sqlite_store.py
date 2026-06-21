@@ -19,8 +19,8 @@ from sophiagraph.portability.models import (
 )
 from sophiagraph.query import CandidateListOptions, ListQueryOptions, SearchQueryOptions
 from sophiagraph.storage import SophiaGraphSqliteStore
-from sophiagraph.storage.sqlite_portability import SqlitePortabilityMixin
-from sophiagraph.storage.sqlite_support import SCHEMA_VERSION, namespace_filter_sql
+from sophiagraph.storage.sqlite.portability import SqlitePortabilityMixin
+from sophiagraph.storage.sqlite.support import SCHEMA_VERSION, namespace_filter_sql
 
 
 def _record(

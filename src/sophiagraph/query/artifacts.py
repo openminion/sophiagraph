@@ -189,9 +189,7 @@ def _build_hit(
 ) -> ArtifactTextHit | None:
     needle = _normalize(query.strip())
     matched_segments = [
-        segment
-        for segment in projection.segments
-        if needle in _normalize(segment.text)
+        segment for segment in projection.segments if needle in _normalize(segment.text)
     ]
     if not matched_segments:
         return None
@@ -247,11 +245,19 @@ def query_artifact_text(
         limit=None,
     )
     candidate_rows: list[
-        tuple[ArtifactTextProjection, ArtifactRecord | None, MemoryRecord | None, ArtifactTextHit]
+        tuple[
+            ArtifactTextProjection,
+            ArtifactRecord | None,
+            MemoryRecord | None,
+            ArtifactTextHit,
+        ]
     ] = []
     for projection in projections:
         artifact = store.get_artifact(projection.artifact_id)
-        if options.artifact_ids is not None and projection.artifact_id not in options.artifact_ids:
+        if (
+            options.artifact_ids is not None
+            and projection.artifact_id not in options.artifact_ids
+        ):
             continue
         if artifact is None:
             continue

@@ -44,6 +44,7 @@ dev = [
 
 [project.scripts]
 sophiagraph-smoke = "sophiagraph.__main__:main"
+sophiagraph-ui = "sophiagraph.__main__:ui_preview_main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

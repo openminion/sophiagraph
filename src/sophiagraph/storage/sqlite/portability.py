@@ -33,7 +33,7 @@ from sophiagraph.portability.models import (
 from sophiagraph.query import CandidateListOptions, ListQueryOptions, RecordOrder
 from sophiagraph.storage.graph_helpers import link_from_dict, link_to_dict
 from sophiagraph.storage.portability_helpers import SnapshotImportExportDeltaMixin
-from sophiagraph.storage.sqlite_support import namespace_filter_sql
+from .support import namespace_filter_sql
 
 
 class SqlitePortabilityMixin(SnapshotImportExportDeltaMixin):

@@ -288,14 +288,19 @@ class EntitySummary:
         if not isinstance(self.provenance, EntityFactProvenance):
             raise InvalidArgumentError("provenance must be EntityFactProvenance")
         if self.authorship not in SUMMARY_AUTHORSHIPS:
-            raise InvalidArgumentError(f"invalid summary authorship: {self.authorship!r}")
+            raise InvalidArgumentError(
+                f"invalid summary authorship: {self.authorship!r}"
+            )
         if self.invalidation_reason is not None and (
             self.invalidation_reason not in SUMMARY_INVALIDATION_REASONS
         ):
             raise InvalidArgumentError(
                 f"invalid summary invalidation_reason: {self.invalidation_reason!r}"
             )
-        if self.superseded_by_summary_id is not None and not self.superseded_by_summary_id:
+        if (
+            self.superseded_by_summary_id is not None
+            and not self.superseded_by_summary_id
+        ):
             raise InvalidArgumentError(
                 "superseded_by_summary_id must be a non-empty string or None"
             )

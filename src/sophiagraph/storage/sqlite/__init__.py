@@ -74,10 +74,10 @@ from sophiagraph.storage.graph_helpers import (
 from sophiagraph.storage.memory_block_helpers import (
     enforce_block_edit_gate as _enforce_block_edit_gate,
 )
-from sophiagraph.storage.sqlite_aux import SqliteAuxObjectMixin
-from sophiagraph.storage.sqlite_changefeed import SqliteChangefeedMixin
+from .aux import SqliteAuxObjectMixin
+from .changefeed import SqliteChangefeedMixin
 from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
-from sophiagraph.storage.sqlite_support import (
+from .support import (
     SQLITE_BUSY_TIMEOUT_MS,
     SQLITE_CONNECT_TIMEOUT_SECONDS,
     SQLITE_JOURNAL_MODE,
@@ -91,7 +91,7 @@ from sophiagraph.storage.sqlite_support import (
     replace_record_fts,
     row_json,
 )
-from sophiagraph.storage.sqlite_portability import SqlitePortabilityMixin
+from .portability import SqlitePortabilityMixin
 
 
 class SophiaGraphSqliteStore(
@@ -1661,7 +1661,7 @@ class SophiaGraphSqliteStore(
         return tuple(namespace_values.get(col) for col in cols)
 
     def _ns_filter(self, namespaces):
-        from sophiagraph.storage.sqlite_support import namespace_filter_sql
+        from .support import namespace_filter_sql
 
         return namespace_filter_sql(namespaces)
 
@@ -2909,7 +2909,9 @@ class SophiaGraphSqliteStore(
                 (projection_id,),
             ).fetchone()
         return (
-            None if row is None else self._artifact_projection_from_payload(row_json(row))
+            None
+            if row is None
+            else self._artifact_projection_from_payload(row_json(row))
         )
 
     def list_artifact_projections(

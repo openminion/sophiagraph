@@ -13,6 +13,8 @@ UiScreenId = Literal[
     "graph",
     "operations",
     "repair",
+    "candidate_review",
+    "saved_views",
     "community",
     "timeline",
     "schema",
@@ -110,6 +112,24 @@ def build_ui_screen_manifest() -> tuple[UiScreenDefinition, ...]:
             primary_payloads=("InspectionReport", "RepairCandidate"),
             mvp=True,
             mutating=True,
+        ),
+        UiScreenDefinition(
+            screen_id="candidate_review",
+            route="/candidates",
+            title="Candidate Review",
+            primary_payloads=("CandidateListOptions", "MemoryCandidate"),
+            mvp=True,
+            mutating=True,
+        ),
+        UiScreenDefinition(
+            screen_id="saved_views",
+            route="/views",
+            title="Saved Views",
+            primary_payloads=(
+                "SavedViewWorkbenchRequest",
+                "SavedViewWorkbenchPanel",
+            ),
+            mvp=True,
         ),
         UiScreenDefinition(
             screen_id="community",

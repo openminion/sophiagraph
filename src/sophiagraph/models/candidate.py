@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Any, get_args
 
 from sophiagraph.contracts.errors import InvalidArgumentError
-from sophiagraph.models.constants import MEMORY_CANDIDATE_STATUS_PROPOSED
 from sophiagraph.models.namespace import MemoryNamespace
 from sophiagraph.models.primitives import (
     CandidateStatus,
@@ -22,6 +21,8 @@ from sophiagraph.models.primitives import (
 )
 from sophiagraph.models.record import ArtifactRef
 from sophiagraph.trust.types import ClaimKeyPolarity, MemorySourceClass
+
+MEMORY_CANDIDATE_STATUS_PROPOSED = "proposed"
 
 
 @dataclass(frozen=True)

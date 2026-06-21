@@ -68,7 +68,9 @@ def test_okf_import_preserves_reserved_docs_extensions_and_spec_pin() -> None:
     assert reference.profile.concept_type == "reference"
 
 
-def test_okf_validation_reports_missing_type_reserved_file_and_unresolved_link() -> None:
+def test_okf_validation_reports_missing_type_reserved_file_and_unresolved_link() -> (
+    None
+):
     findings = validate_okf_bundle(_fixture_root("invalid"))
 
     assert [(finding.code, finding.path) for finding in findings] == [

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sophiagraph.storage.constants import DEFAULT_DB_FILENAME
 from sophiagraph.storage.memory import SophiaGraphMemoryStore
 from sophiagraph.storage.sqlite import SophiaGraphSqliteStore
+
+DEFAULT_DB_FILENAME = "sophiagraph.sqlite3"
 
 
 def default_db_path(root: str | Path) -> Path:

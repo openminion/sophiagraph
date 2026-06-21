@@ -3,11 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from sophiagraph import (
+    CandidateListOptions,
     CommunityDetectionOptions,
     CommunityQueryOptions,
     ConnectorReplayRequest,
     KnowledgeDocumentBlock,
     KnowledgeExplorerRequest,
+    MemoryCandidate,
     LocalSyncRequest,
     MemoryNamespace,
     MemoryRecord,
@@ -18,8 +20,15 @@ from sophiagraph import (
     SyncRunRequest,
 )
 from sophiagraph.sync import detect_sync_conflict
+from sophiagraph.views import (
+    SavedViewDefinition,
+    SavedViewFilter,
+    SavedViewSummary,
+)
 from sophiagraph.ui import (
+    SavedViewWorkbenchRequest,
     UiAppState,
+    build_candidate_review_screen,
     build_community_structure_screen,
     build_explorer_screen,
     build_graph_view_screen,
@@ -27,6 +36,7 @@ from sophiagraph.ui import (
     build_record_detail_packet,
     build_record_detail_screen,
     build_repair_center_screen,
+    build_saved_view_workbench_screen,
     build_schema_developer_screen,
     build_timeline_screen,
     render_screen_html,
@@ -88,6 +98,26 @@ def _seed_store() -> SophiaGraphMemoryStore:
                 excerpt="JWT auth",
             )
         ],
+    )
+    store.put_candidate(
+        MemoryCandidate(
+            candidate_id="candidate-auth-rule",
+            session_id="session-ui",
+            proposed_scope="agent:ui",
+            type="fact",
+            title="Auth rule candidate",
+            content={"text": "JWT auth should be remembered"},
+            tags=["auth"],
+            source="agent_inferred",
+            confidence=0.82,
+            status="proposed",
+            namespace=_ns(),
+            claim_key="auth.jwt",
+            polarity="asserts",
+            source_class="user_input",
+            created_at="2026-06-06T00:05:00+00:00",
+            updated_at="2026-06-06T00:05:00+00:00",
+        )
     )
     return store
 
@@ -163,12 +193,34 @@ def test_ui_mvp_screens_render_structural_content() -> None:
             )
         ],
     )
+    candidates = build_candidate_review_screen(
+        store,
+        CandidateListOptions(status="proposed", limit=10),
+    )
+    saved_views = build_saved_view_workbench_screen(
+        store,
+        SavedViewWorkbenchRequest(
+            scopes=["agent:ui"],
+            namespaces=[_ns()],
+            definitions=[
+                SavedViewDefinition(
+                    view_id="view-ready",
+                    name="Ready Records",
+                    filters=SavedViewFilter("status", "eq", "ok"),
+                    projected_properties=["status", "path"],
+                    summaries=[SavedViewSummary("count")],
+                )
+            ],
+        ),
+    )
 
     assert "Knowledge Explorer" in render_screen_html(explorer)
     detail_html = render_screen_html(detail)
     graph_html = render_screen_html(graph)
     operations_html = render_screen_html(operations)
     repair_html = render_screen_html(repair)
+    candidate_html = render_screen_html(candidates)
+    saved_view_html = render_screen_html(saved_views)
 
     assert "Auth Decision" in detail_html
     assert "created_at=2026-06-06T00:00:00+00:00" in detail_html
@@ -178,9 +230,110 @@ def test_ui_mvp_screens_render_structural_content() -> None:
     assert "Operations Console" in operations_html
     assert "sync-ui" in operations_html
     assert "Repair Center" in repair_html
+    assert "Candidate Review" in candidate_html
+    assert "Auth rule candidate" in candidate_html
+    assert "Saved Views" in saved_view_html
+    assert "Ready Records" in saved_view_html
 
     packet = build_record_detail_packet(store, record_id="auth")
     assert [block.block_id for block in packet.document_blocks] == ["block-auth"]
+
+
+def test_ui_renderer_exposes_workbench_navigation_and_graph_affordances() -> None:
+    store = _seed_store()
+    explorer = build_explorer_screen(
+        store,
+        KnowledgeExplorerRequest(
+            scopes=["agent:ui"],
+            namespaces=[_ns()],
+            query="auth",
+            root_record_id="auth",
+        ),
+    )
+    graph = build_graph_view_screen(
+        store,
+        GraphViewRequest(
+            root_record_id="auth",
+            scopes=["agent:ui"],
+            namespaces=[_ns()],
+            target_record_id="refresh",
+        ),
+    )
+
+    explorer_html = render_screen_html(explorer)
+    graph_html = render_screen_html(graph)
+
+    assert explorer_html.startswith("<!doctype html>")
+    assert "class='sg-shell'" in explorer_html
+    assert "aria-current='page'>Explore</a>" in explorer_html
+    assert "class='sg-summary'" in explorer_html
+    assert "data-kind='open_root'" in explorer_html
+
+    assert "aria-current='page'>Graph</a>" in graph_html
+    assert "class='sg-graph'" in graph_html
+    assert "role='img' aria-label='Knowledge graph viewport'" in graph_html
+    assert "data-node-id='auth'" in graph_html
+    assert "data-node-id='refresh'" in graph_html
+    assert "data-edge-id='link-auth-refresh'" in graph_html
+    assert "sg-edge sg-path" in graph_html
+
+
+def test_ui_candidate_review_screen_surfaces_structural_review_actions() -> None:
+    store = _seed_store()
+    screen = build_candidate_review_screen(
+        store,
+        CandidateListOptions(status="proposed", limit=5),
+    )
+
+    html = render_screen_html(screen)
+
+    assert screen.screen_id == "candidate_review"
+    assert [candidate.candidate_id for candidate in screen.candidates] == [
+        "candidate-auth-rule"
+    ]
+    assert "aria-current='page'>Candidates</a>" in html
+    assert "data-candidate-id='candidate-auth-rule'" in html
+    assert "claim: auth.jwt" in html
+    assert "source class: user_input" in html
+    assert "data-kind='approve_candidate'" in html
+    assert "data-kind='reject_candidate'" in html
+    assert "data-kind='promote_candidate'" in html
+
+
+def test_ui_saved_view_workbench_surfaces_live_panels() -> None:
+    store = _seed_store()
+    screen = build_saved_view_workbench_screen(
+        store,
+        SavedViewWorkbenchRequest(
+            scopes=["agent:ui"],
+            namespaces=[_ns()],
+            definitions=[
+                SavedViewDefinition(
+                    view_id="view-ready",
+                    name="Ready Records",
+                    view_type="table",
+                    filters=SavedViewFilter("status", "eq", "ok"),
+                    projected_properties=["status", "path"],
+                    group_by="status",
+                    summaries=[SavedViewSummary("count")],
+                )
+            ],
+            live=True,
+        ),
+    )
+
+    html = render_screen_html(screen)
+
+    assert screen.screen_id == "saved_views"
+    assert len(screen.panels) == 1
+    assert screen.panels[0].result.summaries == {"count": 2}
+    assert screen.panels[0].result.groups == {"ok": ["auth", "refresh"]}
+    assert "aria-current='page'>Views</a>" in html
+    assert "data-view-id='view-ready'" in html
+    assert "Ready Records" in html
+    assert "count: 2" in html
+    assert "status: ok" in html
+    assert "data-kind='refresh_saved_views'" in html
 
 
 def test_ui_secondary_screens_cover_community_timeline_and_schema() -> None:
@@ -228,6 +381,10 @@ def test_ui_state_and_screen_dicts_stay_structural() -> None:
         active_namespace=_ns(),
         explorer_request=explorer.request,
         selected_record_id="auth",
+        selected_candidate_id="candidate-auth-rule",
+        candidate_status_filter="proposed",
+        active_saved_view_id="view-ready",
+        saved_view_live=True,
         graph_depth=1,
         graph_mode="neighborhood",
         last_request_payload={"query": "auth"},
@@ -238,6 +395,8 @@ def test_ui_state_and_screen_dicts_stay_structural() -> None:
     assert payload["screen_id"] == "explore"
     assert payload["result"]["hits"][0]["record_id"] == "auth"
     assert state.selected_record_id == "auth"
+    assert state.selected_candidate_id == "candidate-auth-rule"
+    assert state.active_saved_view_id == "view-ready"
 
 
 def test_ui_source_files_stay_structural_and_query_builder_free() -> None:

@@ -7,7 +7,7 @@ from typing import Any
 
 from sophiagraph.models import MemoryNamespace
 from sophiagraph.portability.codec import json_dumps
-from sophiagraph.storage.sqlite_support import namespace_filter_sql, row_json
+from .support import namespace_filter_sql, row_json
 
 
 class SqliteAuxObjectMixin:

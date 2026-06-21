@@ -1743,7 +1743,9 @@ class SophiaGraphMemoryStore(
         if artifact_id is not None:
             rows = [p for p in rows if p.artifact_id == artifact_id]
         if derived_text_record_id is not None:
-            rows = [p for p in rows if p.derived_text_record_id == derived_text_record_id]
+            rows = [
+                p for p in rows if p.derived_text_record_id == derived_text_record_id
+            ]
         if projection_kinds is not None:
             rows = [p for p in rows if p.projection_kind in projection_kinds]
         if not include_superseded:

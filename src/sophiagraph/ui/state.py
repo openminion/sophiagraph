@@ -25,6 +25,10 @@ class UiAppState:
     believed_at: str | None = None
     active_source_id: str | None = None
     active_connector_id: str | None = None
+    selected_candidate_id: str | None = None
+    candidate_status_filter: str | None = None
+    active_saved_view_id: str | None = None
+    saved_view_live: bool = True
     backend_capability_snapshot: dict[str, Any] = field(default_factory=dict)
     last_request_payload: dict[str, Any] = field(default_factory=dict)
     last_response_payload: dict[str, Any] = field(default_factory=dict)

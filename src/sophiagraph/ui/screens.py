@@ -13,6 +13,7 @@ from sophiagraph.inspection import (
 )
 from sophiagraph.models import (
     KnowledgeDocumentBlock,
+    MemoryCandidate,
     MemoryNamespace,
     MemoryRecord,
     MemoryRelation,
@@ -24,6 +25,7 @@ from sophiagraph.operations import (
     execute_operational_run,
 )
 from sophiagraph.query import (
+    CandidateListOptions,
     CommunityDetectionOptions,
     CommunityQueryOptions,
     CommunityQueryResult,
@@ -46,6 +48,11 @@ from sophiagraph.query import (
     shortest_path,
 )
 from sophiagraph.schema import GraphSchema, describe_schema
+from sophiagraph.views import (
+    SavedViewDefinition,
+    SavedViewResult,
+    evaluate_saved_view,
+)
 
 ScreenId = Literal[
     "explore",
@@ -53,6 +60,8 @@ ScreenId = Literal[
     "graph",
     "operations",
     "repair",
+    "candidate_review",
+    "saved_views",
     "community",
     "timeline",
     "schema",
@@ -87,6 +96,10 @@ class _UiStore(Protocol):
     def get_local_graph(self, options: LocalGraphOptions) -> GraphSnapshot: ...
 
     def get_graph_snapshot(self, options: GraphSnapshotOptions) -> GraphSnapshot: ...
+
+    def list_candidates(
+        self, options: CandidateListOptions
+    ) -> list[MemoryCandidate]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +172,42 @@ class RepairCenterScreen:
     report: InspectionReport
     repair_candidates: list[RepairCandidate] = field(default_factory=list)
     screen_id: ScreenId = "repair"
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateReviewScreen:
+    options: CandidateListOptions
+    candidates: list[MemoryCandidate] = field(default_factory=list)
+    screen_id: ScreenId = "candidate_review"
+
+
+@dataclass(frozen=True, slots=True)
+class SavedViewWorkbenchRequest:
+    scopes: list[str]
+    definitions: list[SavedViewDefinition]
+    namespaces: list[MemoryNamespace] | None = None
+    include_invalidated: bool = False
+    live: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.scopes:
+            raise InvalidArgumentError("scopes are required")
+        if not self.definitions:
+            raise InvalidArgumentError("saved view definitions are required")
+
+
+@dataclass(frozen=True, slots=True)
+class SavedViewWorkbenchPanel:
+    definition: SavedViewDefinition
+    result: SavedViewResult
+    status: Literal["ready", "empty"] = "ready"
+
+
+@dataclass(frozen=True, slots=True)
+class SavedViewWorkbenchScreen:
+    request: SavedViewWorkbenchRequest
+    panels: list[SavedViewWorkbenchPanel] = field(default_factory=list)
+    screen_id: ScreenId = "saved_views"
 
 
 @dataclass(frozen=True, slots=True)
@@ -338,6 +387,40 @@ def build_repair_center_screen(
     )
 
 
+def build_candidate_review_screen(
+    store: _UiStore,
+    options: CandidateListOptions,
+) -> CandidateReviewScreen:
+    return CandidateReviewScreen(
+        options=options,
+        candidates=store.list_candidates(options),
+    )
+
+
+def build_saved_view_workbench_screen(
+    store: _UiStore,
+    request: SavedViewWorkbenchRequest,
+) -> SavedViewWorkbenchScreen:
+    records = store.list_records(
+        ListQueryOptions(
+            scopes=request.scopes,
+            namespaces=request.namespaces,
+            include_invalidated=request.include_invalidated,
+        )
+    )
+    panels: list[SavedViewWorkbenchPanel] = []
+    for definition in request.definitions:
+        result = evaluate_saved_view(records, definition)
+        panels.append(
+            SavedViewWorkbenchPanel(
+            definition=definition,
+            result=result,
+            status="ready" if result.rows else "empty",
+            )
+        )
+    return SavedViewWorkbenchScreen(request=request, panels=panels)
+
+
 def build_community_structure_screen(
     store: _UiStore,
     request: CommunityQueryOptions,
@@ -388,6 +471,7 @@ def screen_to_dict(screen: Any) -> dict[str, Any]:
 
 
 __all__ = [
+    "CandidateReviewScreen",
     "CommunityStructureScreen",
     "GraphViewMode",
     "GraphViewRequest",
@@ -397,9 +481,13 @@ __all__ = [
     "OperationsConsoleScreen",
     "RecordDetailScreen",
     "RepairCenterScreen",
+    "SavedViewWorkbenchPanel",
+    "SavedViewWorkbenchRequest",
+    "SavedViewWorkbenchScreen",
     "SchemaDeveloperScreen",
     "ScreenId",
     "TimelineScreen",
+    "build_candidate_review_screen",
     "build_community_structure_screen",
     "build_explorer_screen",
     "build_graph_view_screen",
@@ -407,6 +495,7 @@ __all__ = [
     "build_record_detail_packet",
     "build_record_detail_screen",
     "build_repair_center_screen",
+    "build_saved_view_workbench_screen",
     "build_schema_developer_screen",
     "build_timeline_screen",
     "screen_to_dict",

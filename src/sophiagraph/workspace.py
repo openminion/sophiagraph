@@ -44,6 +44,7 @@ WORKSPACE_IMPORT_PROFILE_FILE = "import_profile.json"
 WORKSPACE_STORE_DIR = "store"
 WORKSPACE_SUPPORTED_IMPORT_SUFFIXES = (".md", ".canvas")
 
+
 def _json_ready(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)

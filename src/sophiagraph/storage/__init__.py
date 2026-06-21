@@ -2,8 +2,8 @@
 
 from .base import SophiaGraphStore
 from .async_facade import AsyncSophiaGraphStore, async_store
-from .constants import DEFAULT_DB_FILENAME
 from .factory import (
+    DEFAULT_DB_FILENAME,
     create_memory_store,
     create_sqlite_store,
     default_db_path,

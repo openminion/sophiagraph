@@ -52,7 +52,9 @@ class OkfCitation:
             raise InvalidArgumentError("citation_id is required")
         if not self.target:
             raise InvalidArgumentError("target is required")
-        object.__setattr__(self, "source_path", _validate_relative_path(self.source_path))
+        object.__setattr__(
+            self, "source_path", _validate_relative_path(self.source_path)
+        )
         if self.line_number is not None and self.line_number < 1:
             raise InvalidArgumentError("line_number must be positive")
 
@@ -89,7 +91,9 @@ class OkfIndexEntry:
         if not self.label:
             raise InvalidArgumentError("label is required")
         if self.target_path is not None:
-            object.__setattr__(self, "target_path", _validate_relative_path(self.target_path))
+            object.__setattr__(
+                self, "target_path", _validate_relative_path(self.target_path)
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,9 +125,7 @@ class OkfConceptDocument:
 
     def __post_init__(self) -> None:
         if self.document_kind not in {"concept", "reference"}:
-            raise InvalidArgumentError(
-                f"invalid document_kind: {self.document_kind!r}"
-            )
+            raise InvalidArgumentError(f"invalid document_kind: {self.document_kind!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,7 +232,9 @@ class OkfNavigationPacket:
     log_entries: list[OkfLogEntry] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "current_path", _validate_relative_path(self.current_path))
+        object.__setattr__(
+            self, "current_path", _validate_relative_path(self.current_path)
+        )
 
 
 __all__ = [

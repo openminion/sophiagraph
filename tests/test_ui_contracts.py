@@ -23,6 +23,8 @@ def test_ui_screen_manifest_covers_mvp_and_secondary_routes() -> None:
         "graph",
         "operations",
         "repair",
+        "candidate_review",
+        "saved_views",
         "community",
         "timeline",
         "schema",
@@ -33,4 +35,6 @@ def test_ui_screen_manifest_covers_mvp_and_secondary_routes() -> None:
         "graph",
         "operations",
         "repair",
+        "candidate_review",
+        "saved_views",
     ]
