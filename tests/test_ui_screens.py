@@ -214,7 +214,10 @@ def test_ui_mvp_screens_render_structural_content() -> None:
         ),
     )
 
-    assert "Knowledge Explorer" in render_screen_html(explorer)
+    explorer_html = render_screen_html(explorer)
+    assert "Knowledge Explorer" in explorer_html
+    assert "OpenMinion Integration" in explorer_html
+    assert "Second-brain durable memory graph." in explorer_html
     detail_html = render_screen_html(detail)
     graph_html = render_screen_html(graph)
     operations_html = render_screen_html(operations)
