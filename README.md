@@ -22,20 +22,13 @@
   <img alt="Status" src="https://img.shields.io/badge/status-publish--ready%20alpha-5B8DEF">
 </p>
 
-`sophiagraph` is a standalone wisdom graph substrate for durable agent memory.
+`sophiagraph` is the standalone durable-memory package in the OpenMinion
+family. Use it when you want typed records, relations, provenance, trust, and
+portable memory snapshots outside a host runtime.
+
 The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this package it
 frames durable knowledge as a graph of records, relations, provenance, trust,
 and portable snapshots.
-
-## Docs and release
-
-- [`docs/README.md`](docs/README.md) is the package-local docs entrypoint.
-- [`API_COMPATIBILITY.md`](API_COMPATIBILITY.md) records the supported public
-  import roots and top-level export policy.
-- [`RELEASING.md`](RELEASING.md) records the package-local release and publish
-  flow.
-- [`docs/source-tree-owner-map.md`](docs/source-tree-owner-map.md) explains the
-  source-tree module layout and public-vs-repo-local boundary.
 
 ## Trust and Brand Safety
 
@@ -47,77 +40,38 @@ and portable snapshots.
 treasury product, or investment offering. Any claim otherwise is unauthorized
 and should be treated as a scam.
 
-## What the package provides
+## At a glance
+
+- Current public package line: `0.0.1` alpha
+- Best fit when: you want durable memory records, relations, provenance, trust,
+  and exportable graph state outside a host runtime
+- Backends today: a package-local SQLite engine plus an in-memory backend for
+  tests and ephemeral consumers
+- Public shape: typed memory models, storage contracts, governance helpers,
+  portability bundles, workspace helpers, and package-local UI preview
+  boundaries
+- Not the claim: `sophiagraph` does not own orchestration, provider routing,
+  hosted webhook delivery, or hosted admin/runtime UI behavior
+
+## What Sophiagraph provides
 
 `sophiagraph` currently provides:
 
-- canonical durable-memory models
-- contract and provenance helpers
-- query DTOs
-- portability bundle models and codec helpers
-- audit-event schemas
-- typed trust/policy primitives and temporal freshness/lifecycle helpers
-- typed namespace DTOs for explicit tenant/user/agent/session isolation
-- directed relation APIs with explicit incoming/outgoing/bidirectional lookup
-- Obsidian-style structural document/link DTOs, Markdown/frontmatter adapter,
-  addressable blocks, backlinks, outgoing links, local graph traversal, graph
-  snapshots, deterministic graph algorithms, structural search DTOs, saved view
-  evaluation, JSON Canvas DTOs, schema discovery, async facade helpers, and
-  extension hooks
-- a package-local SQLite durable engine
-- a package-local in-memory backend for tests and ephemeral consumers
-- a standalone smoke entrypoint for publish/install validation
-- a typed vector-similarity metric registry (`cosine`, `L2`, `dot`) and a
-  backend-agnostic conformance harness (see [docs/vector-conformance.md](docs/vector-conformance.md))
-- typed embedding lifecycle helpers for active-model registries,
-  stale-embedding detection, resumable re-embed plans, and orphan
-  `external_vector_id` enumeration without provider SDK imports in core
-- typed governance + observability event DTOs (write attempt/accepted,
-  retrieval, export, policy denial, lifecycle action, webhook delivery
-  attempt, retrieval explanation, quality eval signal) and deterministic
-  policy hook protocols in `sophiagraph.audit`
-- typed lifecycle policy DTOs and a pure `evaluate_policy` /
-  `apply_decision_to_record_meta` engine for TTL, promotion, and archival
-  transitions with cross-backend `put_lifecycle_policy` /
-  `get_lifecycle_policy` / `list_lifecycle_policies`
-- typed `ArtifactRecord` DTO + cross-backend `put_artifact` /
-  `get_artifact` / `list_artifacts` for multimodal artifact references
-  with caller-supplied URI, sha256, MIME, source class, retention
-  policy, and explicit `derived_text_record_id` link (the package
-  never OCRs, transcribes, or extracts claims from artifact content)
-- extended JSON Canvas DTOs (`CanvasNode.subpath`/`label`,
-  `CanvasEdge.from_side`/`to_side`/`from_end`/`to_end`) plus
-  cross-backend `put_canvas_board` / `get_canvas_board` /
-  `list_canvas_boards` / `delete_canvas_board` with deterministic
-  changefeed emission; explicit caller-supplied relation-type policy
-  for the optional canvas-edge → graph-relation mapping
-- local-first sync conflict DTOs, freshness ledger entries, and
-  provider-neutral connector ingestion envelopes for idempotent replay
-- shared memory-block attachment, mirror freshness, edit-conflict, and
-  usage-audit primitives on top of the v1 memory-block store
-- optional graph-backend adapter contracts with explicit export batches,
-  capability discovery, normalized query results, a provider-free fake
-  adapter for conformance tests, and an optional `KuzuGraphBackendAdapter`
-  for local graph-backed query execution
-- structural inspection reports and explicit repair candidates for unresolved
-  links, orphan records, duplicate aliases, stale facts, broken source
-  references, and open conflict queues
-- package-owned human-management helpers for note CRUD, vault-import dry-runs,
-  source/freshness inspection, and deterministic local workbench packets/HTML
-  previews
-- package-owned workspace helpers for one persistent local SQLite workspace,
-  stored import defaults, explicit local markdown/canvas import planning/apply
-  flows, and workspace-backed workbench rendering
-- package-owned live workspace sync helpers for deterministic source-ledger
-  persistence, incremental create/modify/delete/rename scans, explicit
-  file-primary note writes, and bounded poll/status helpers without a daemon
-- package-owned UI boundary contracts in `sophiagraph.ui` for the future
-  visual explorer, record detail, graph, operations, repair, timeline, and
-  schema screens without requiring a second package yet
-- a first-class `sophiagraph.okf` profile layer for Google OKF-style bundle
-  validation, import/export, reserved `index.md` / `log.md` handling, typed
-  citations, and explicit Obsidian-compatible authoring output when the caller
-  asks for it
+- Core memory contracts: canonical durable-memory models, provenance helpers,
+  query DTOs, namespace isolation, relation APIs, and portability bundle
+  models/codecs
+- Storage and portability: a package-local SQLite durable engine, an in-memory
+  backend, standalone smoke validation, and graph/record export surfaces
+- Governance and lifecycle: trust/policy primitives, audit events, temporal
+  freshness helpers, vector metric/embedding lifecycle support, lifecycle
+  policy evaluation, artifact records, and JSON Canvas contracts
+- Interop and repair: connector ingestion envelopes, sync conflict DTOs,
+  structural inspection reports, repair candidates, shared memory-block
+  primitives, and optional graph-backend adapter contracts
+- Local operations: note-management helpers, workspace/workbench helpers,
+  deterministic live workspace sync, UI boundary contracts in
+  `sophiagraph.ui`, and the `sophiagraph.okf` bundle profile for import/export
+  workflows
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 
@@ -138,7 +92,7 @@ or deliver webhooks. Those are the responsibility of
 package supplies the typed contract; the service supplies the
 operational behavior.
 
-## What the package does not provide
+## What Sophiagraph does not provide
 
 This package does **not** provide:
 
@@ -318,7 +272,7 @@ Installed-console-script smoke:
 sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
 ```
 
-## Package-local docs and release
+## Docs and release
 
 - `docs/README.md` summarizes the package-local docs contract.
 - `docs/certification-readiness-matrix.md` records standalone and
@@ -491,14 +445,6 @@ Reports stay explicit:
 - replay decisions remain typed,
 - follow-up actions are structural and source-scoped,
 - scheduler ownership stays outside `sophiagraph` core.
-
-## Package-local docs and release
-
-- `docs/README.md` summarizes the package-local docs contract.
-- `API_COMPATIBILITY.md` records the supported public import roots and
-  top-level export policy.
-- `RELEASING.md` records the package-local release and PyPI publish flow.
-- `scripts/release_check.py` is the canonical release smoke entrypoint.
 
 ## External Consumer Quickstart
 
