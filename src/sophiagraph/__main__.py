@@ -27,13 +27,15 @@ from sophiagraph.workspace import (
     workspace_status_to_dict,
     workspace_workbench_to_dict,
 )
-from sophiagraph.workspace_sync import (
+from sophiagraph.workspace_notes import (
     WorkspaceFilePrimaryNoteOptions,
-    apply_workspace_sync,
     materialize_workspace_note,
+    workspace_file_primary_note_put,
+)
+from sophiagraph.workspace_sync import (
+    apply_workspace_sync,
     poll_workspace_sync,
     scan_workspace_sync,
-    workspace_file_primary_note_put,
     workspace_sync_status,
 )
 
@@ -359,12 +361,14 @@ def _run_workspace_cli(argv: list[str]) -> int:
         )
         if args.serve:
             result = serve_ui_preview(request, host=args.host, port=args.port)
-            _print_payload(result.to_dict() if args.json else result.url, json_mode=args.json)
+            _print_payload(
+                result.to_dict() if args.json else result.url, json_mode=args.json
+            )
             return 0
-        result = write_ui_preview(
-            request
+        result = write_ui_preview(request)
+        _print_payload(
+            result.to_dict() if args.json else result.output_path, json_mode=args.json
         )
-        _print_payload(result.to_dict() if args.json else result.output_path, json_mode=args.json)
         return 0
     raise SystemExit(f"unknown workspace command: {command}")
 
@@ -414,7 +418,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def ui_preview_main(argv: list[str] | None = None) -> int:
-    return _run_workspace_cli(["ui-preview", *list(sys.argv[1:] if argv is None else argv)])
+    return _run_workspace_cli(
+        ["ui-preview", *list(sys.argv[1:] if argv is None else argv)]
+    )
 
 
 if __name__ == "__main__":

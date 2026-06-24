@@ -23,6 +23,19 @@ InspectionFindingKind = Literal[
 RepairAction = Literal["update_link_target", "mark_resolved", "caller_patch"]
 RepairStatus = Literal["pending", "applied"]
 
+_FINDING_KINDS = frozenset(
+    {
+        "unresolved_link",
+        "orphan_record",
+        "duplicate_alias",
+        "stale_fact",
+        "broken_source_reference",
+        "open_conflict",
+    }
+)
+_REPAIR_ACTIONS = frozenset({"update_link_target", "mark_resolved", "caller_patch"})
+_REPAIR_STATUSES = frozenset({"pending", "applied"})
+
 
 def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}-{uuid5(NAMESPACE_URL, ':'.join(str(part) for part in parts))}"
@@ -40,14 +53,7 @@ class InspectionFinding:
     def __post_init__(self) -> None:
         if not self.finding_id:
             raise InvalidArgumentError("finding_id is required")
-        if self.kind not in {
-            "unresolved_link",
-            "orphan_record",
-            "duplicate_alias",
-            "stale_fact",
-            "broken_source_reference",
-            "open_conflict",
-        }:
+        if self.kind not in _FINDING_KINDS:
             raise InvalidArgumentError(f"invalid finding kind: {self.kind!r}")
         if not isinstance(self.namespace, MemoryNamespace):
             raise TypeError("namespace must be MemoryNamespace")
@@ -89,13 +95,13 @@ class RepairCandidate:
             raise InvalidArgumentError("candidate_id is required")
         if not self.finding_id:
             raise InvalidArgumentError("finding_id is required")
-        if self.action not in {"update_link_target", "mark_resolved", "caller_patch"}:
+        if self.action not in _REPAIR_ACTIONS:
             raise InvalidArgumentError(f"invalid repair action: {self.action!r}")
         if not isinstance(self.namespace, MemoryNamespace):
             raise TypeError("namespace must be MemoryNamespace")
         if not self.patch:
             raise InvalidArgumentError("repair candidates require explicit patch data")
-        if self.status not in {"pending", "applied"}:
+        if self.status not in _REPAIR_STATUSES:
             raise InvalidArgumentError(f"invalid repair status: {self.status!r}")
 
 
@@ -121,13 +127,15 @@ def build_inspection_report(
     freshness_entries: list[FreshnessLedgerEntry] | None = None,
     conflicts: list[SyncConflictRecord] | None = None,
 ) -> InspectionReport:
+    links = links or []
+    facts = facts or []
+    freshness_entries = freshness_entries or []
+    conflicts = conflicts or []
     findings: list[InspectionFinding] = []
     record_ids = {record.id for record in records}
-    linked_ids = {link.source_record_id for link in links or []}
-    linked_ids.update(
-        link.target_record_id for link in links or [] if link.target_record_id
-    )
-    for link in links or []:
+    linked_ids = {link.source_record_id for link in links}
+    linked_ids.update(link.target_record_id for link in links if link.target_record_id)
+    for link in links:
         if link.resolution_status == "unresolved" or (
             link.target_record_id and link.target_record_id not in record_ids
         ):
@@ -167,7 +175,7 @@ def build_inspection_report(
                     {"count": count},
                 )
             )
-    for fact in facts or []:
+    for fact in facts:
         if fact.invalidated_at or fact.valid_to:
             findings.append(
                 _finding(
@@ -178,7 +186,7 @@ def build_inspection_report(
                     {"predicate": fact.predicate},
                 )
             )
-    known_sources = {entry.source_id for entry in freshness_entries or []}
+    known_sources = {entry.source_id for entry in freshness_entries}
     if known_sources:
         for record in records:
             source_id = record.meta.get("source_id")
@@ -192,7 +200,7 @@ def build_inspection_report(
                         {"source_id": source_id},
                     )
                 )
-    for conflict in conflicts or []:
+    for conflict in conflicts:
         if conflict.status == "open":
             findings.append(
                 _finding(
@@ -244,9 +252,7 @@ def inspection_report_to_dict(report: InspectionReport) -> dict[str, Any]:
 
 
 def inspection_report_from_dict(data: dict[str, Any]) -> InspectionReport:
-    payload = dict(data)
-    if isinstance(payload.get("namespace"), dict):
-        payload["namespace"] = MemoryNamespace.from_dict(payload["namespace"])
+    payload = _hydrate_namespace(data)
     payload["findings"] = [
         inspection_finding_from_dict(item) if isinstance(item, dict) else item
         for item in payload.get("findings", [])
@@ -255,10 +261,7 @@ def inspection_report_from_dict(data: dict[str, Any]) -> InspectionReport:
 
 
 def inspection_finding_from_dict(data: dict[str, Any]) -> InspectionFinding:
-    payload = dict(data)
-    if isinstance(payload.get("namespace"), dict):
-        payload["namespace"] = MemoryNamespace.from_dict(payload["namespace"])
-    return InspectionFinding(**payload)
+    return InspectionFinding(**_hydrate_namespace(data))
 
 
 def repair_candidate_to_dict(candidate: RepairCandidate) -> dict[str, Any]:
@@ -266,10 +269,14 @@ def repair_candidate_to_dict(candidate: RepairCandidate) -> dict[str, Any]:
 
 
 def repair_candidate_from_dict(data: dict[str, Any]) -> RepairCandidate:
+    return RepairCandidate(**_hydrate_namespace(data))
+
+
+def _hydrate_namespace(data: dict[str, Any]) -> dict[str, Any]:
     payload = dict(data)
     if isinstance(payload.get("namespace"), dict):
         payload["namespace"] = MemoryNamespace.from_dict(payload["namespace"])
-    return RepairCandidate(**payload)
+    return payload
 
 
 __all__ = [

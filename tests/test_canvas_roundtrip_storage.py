@@ -146,11 +146,15 @@ def test_canvas_board_to_dict_round_trips_extended_fields() -> None:
 
 def test_canvas_board_from_camelcase_json_compat() -> None:
     raw_json = (
-        '{"nodes":[{"id":"n1","type":"text","x":0,"y":0,"width":1,"height":1}],'
+        '{"nodes":[{"id":"n1","type":"file","x":0,"y":0,"width":1,"height":1,'
+        '"recordId":"rec-1","subpath":"#part","label":"jump"}],'
         '"edges":[{"id":"e1","fromNode":"n1","toNode":"n1",'
         '"fromSide":"right","toEnd":"arrow"}]}'
     )
     board = CanvasBoard.from_json(raw_json, board_id="b", namespace=_ns())
+    assert board.nodes[0].record_id == "rec-1"
+    assert board.nodes[0].subpath == "#part"
+    assert board.nodes[0].label == "jump"
     assert board.edges[0].from_side == "right"
     assert board.edges[0].to_end == "arrow"
 

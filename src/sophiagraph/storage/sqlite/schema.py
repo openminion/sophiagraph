@@ -1,62 +1,15 @@
-"""SQLite schema, namespace, and FTS helpers for the durable store."""
+"""SQLite schema and migration helpers."""
 
 from __future__ import annotations
 
-import json
 import sqlite3
-from typing import Any
 
-from sophiagraph.models import KnowledgeDocumentBlock, MemoryNamespace, MemoryRecord
 from sophiagraph.portability.codec import json_dumps
-from sophiagraph.query import StructuralSearchQuery
+
+from .fts import ensure_fts_schema
+from .rows import NAMESPACE_COLUMNS, namespace_from_payload, row_json
 
 SCHEMA_VERSION = 18
-SQLITE_BUSY_TIMEOUT_MS = 5000
-SQLITE_CONNECT_TIMEOUT_SECONDS = SQLITE_BUSY_TIMEOUT_MS / 1000
-SQLITE_JOURNAL_MODE = "wal"
-SQLITE_SYNCHRONOUS = "normal"
-
-NAMESPACE_COLUMNS = (
-    "tenant_id",
-    "org_id",
-    "user_id",
-    "agent_id",
-    "session_id",
-    "conversation_id",
-    "project_id",
-    "graph_id",
-)
-
-
-def row_json(row: sqlite3.Row, key: str = "payload_json") -> dict[str, Any]:
-    raw = row[key]
-    return json.loads(str(raw)) if raw else {}
-
-
-def namespace_values(record: MemoryRecord) -> dict[str, str]:
-    return record.effective_namespace.as_dict()
-
-
-def namespace_from_payload(payload: dict[str, Any], scope: str) -> MemoryNamespace:
-    raw_namespace = payload.get("namespace")
-    if isinstance(raw_namespace, dict) and raw_namespace:
-        return MemoryNamespace.from_dict(raw_namespace)
-    return MemoryNamespace.from_scope(scope)
-
-
-def namespace_filter_sql(
-    namespaces: list[MemoryNamespace] | None,
-) -> tuple[str, list[Any]]:
-    if not namespaces:
-        return "", []
-    groups: list[str] = []
-    params: list[Any] = []
-    for namespace in namespaces:
-        values = namespace.as_dict()
-        clauses = [f"{column} = ?" for column in values]
-        groups.append("(" + " AND ".join(clauses) + ")")
-        params.extend(values.values())
-    return "(" + " OR ".join(groups) + ")", params
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
@@ -671,150 +624,6 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     )
 
 
-def ensure_fts_schema(conn: sqlite3.Connection) -> None:
-    try:
-        conn.execute(
-            """
-            CREATE VIRTUAL TABLE IF NOT EXISTS sophiagraph_record_fts
-            USING fts5(record_id UNINDEXED, searchable)
-            """
-        )
-        conn.execute(
-            """
-            CREATE VIRTUAL TABLE IF NOT EXISTS sophiagraph_block_fts
-            USING fts5(block_id UNINDEXED, record_id UNINDEXED, searchable)
-            """
-        )
-    except sqlite3.OperationalError:
-        return
-
-
-def record_searchable_text(record: MemoryRecord) -> str:
-    return " ".join(
-        str(part)
-        for part in (
-            record.title,
-            record.key,
-            record.scope,
-            record.type,
-            record.tags,
-            record.content,
-            record.meta,
-        )
-        if part is not None
-    )
-
-
-def replace_record_fts(
-    conn: sqlite3.Connection,
-    record: MemoryRecord,
-) -> None:
-    try:
-        conn.execute(
-            "DELETE FROM sophiagraph_record_fts WHERE record_id = ?",
-            (record.id,),
-        )
-        conn.execute(
-            """
-            INSERT INTO sophiagraph_record_fts(record_id, searchable)
-            VALUES (?, ?)
-            """,
-            (record.id, record_searchable_text(record)),
-        )
-    except sqlite3.OperationalError:
-        return
-
-
-def block_searchable_text(block: KnowledgeDocumentBlock) -> str:
-    return " ".join(
-        str(part)
-        for part in (
-            block.block_id,
-            block.document_id,
-            block.record_id,
-            block.block_type,
-            block.anchor,
-            block.excerpt,
-        )
-        if part is not None
-    )
-
-
-def replace_record_blocks_fts(
-    conn: sqlite3.Connection,
-    record_id: str,
-    blocks: list[KnowledgeDocumentBlock],
-) -> None:
-    try:
-        conn.execute(
-            "DELETE FROM sophiagraph_block_fts WHERE record_id = ?",
-            (record_id,),
-        )
-        conn.executemany(
-            """
-            INSERT INTO sophiagraph_block_fts(block_id, record_id, searchable)
-            VALUES (?, ?, ?)
-            """,
-            [
-                (block.block_id, block.record_id, block_searchable_text(block))
-                for block in blocks
-            ],
-        )
-    except sqlite3.OperationalError:
-        return
-
-
-def block_fts_candidate_record_ids(
-    conn: sqlite3.Connection,
-    query: StructuralSearchQuery,
-) -> set[str] | None:
-    terms = [query.block, query.section, query.task]
-    escaped = [
-        '"' + str(term).replace('"', '""') + '"'
-        for term in terms
-        if term is not None and str(term)
-    ]
-    if not escaped:
-        return None
-    try:
-        rows = conn.execute(
-            """
-            SELECT DISTINCT record_id FROM sophiagraph_block_fts
-             WHERE sophiagraph_block_fts MATCH ?
-            """,
-            (" AND ".join(escaped),),
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return None
-    return {str(row["record_id"]) for row in rows}
-
-
-def fts_candidate_record_ids(
-    conn: sqlite3.Connection,
-    query: StructuralSearchQuery,
-) -> set[str] | None:
-    terms = list(query.text_terms)
-    terms.extend(query.exact_phrases)
-    if query.content:
-        terms.append(query.content)
-    if not terms:
-        return None
-    escaped = ['"' + str(term).replace('"', '""') + '"' for term in terms if str(term)]
-    if not escaped:
-        return None
-    try:
-        rows = conn.execute(
-            """
-            SELECT record_id FROM sophiagraph_record_fts
-             WHERE sophiagraph_record_fts MATCH ?
-            """,
-            (" AND ".join(escaped),),
-        ).fetchall()
-    except sqlite3.OperationalError:
-        return None
-    return {str(row["record_id"]) for row in rows}
-
-
 def migrate_namespace_columns(conn: sqlite3.Connection) -> None:
     columns = {
         row["name"] for row in conn.execute("PRAGMA table_info(sophiagraph_records)")
@@ -854,22 +663,4 @@ def migrate_namespace_columns(conn: sqlite3.Connection) -> None:
         )
 
 
-__all__ = [
-    "SCHEMA_VERSION",
-    "SQLITE_BUSY_TIMEOUT_MS",
-    "SQLITE_CONNECT_TIMEOUT_SECONDS",
-    "SQLITE_JOURNAL_MODE",
-    "SQLITE_SYNCHRONOUS",
-    "NAMESPACE_COLUMNS",
-    "block_fts_candidate_record_ids",
-    "block_searchable_text",
-    "ensure_schema",
-    "fts_candidate_record_ids",
-    "namespace_filter_sql",
-    "namespace_from_payload",
-    "namespace_values",
-    "record_searchable_text",
-    "replace_record_fts",
-    "replace_record_blocks_fts",
-    "row_json",
-]
+__all__ = ["SCHEMA_VERSION", "ensure_schema"]

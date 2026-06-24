@@ -54,11 +54,12 @@ def test_python_m_sophiagraph_ui_preview_writes_html(tmp_path) -> None:
     assert payload["screen"] == "views"
     assert payload["output_path"] == str(output_path.resolve())
     assert payload["record_count"] == 2
-    assert "Saved Views" in html
-    assert "Preview Records" in html
+    assert "GraphFakos" in html
+    assert "Provider Status" in html
+    assert "Sophiagraph Durable Memory" in html
     assert "OpenMinion Integration" in html
     assert "Second-brain durable memory graph." in html
-    assert "sophiagraph-ui --workspace" in html
+    assert "Auth Decision" in html
 
 
 def test_sophiagraph_ui_preview_server_serves_visual_routes() -> None:
@@ -81,10 +82,10 @@ def test_sophiagraph_ui_preview_server_serves_visual_routes() -> None:
         server.server_close()
         thread.join(timeout=5)
 
-    assert "Saved Views" in views_html
+    assert "Provider Status" in views_html
     assert "OpenMinion Integration" in views_html
-    assert "href='/graph'" in views_html
-    assert "Graph View" in graph_html
+    assert "href='/graph" in views_html
+    assert "Neighborhood" in graph_html
 
 
 def test_console_script_contract_and_release_smoke_shape() -> None:

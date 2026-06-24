@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
 from sophiagraph.query import LinkQueryOptions, ListQueryOptions, StructuralSearchQuery
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
@@ -71,7 +72,7 @@ def test_vault_manifest_rejects_traversal_and_reports_duplicates() -> None:
     namespace = _namespace()
     options = _options(namespace)
 
-    with pytest.raises(Exception, match="relative"):
+    with pytest.raises(InvalidArgumentError, match="relative"):
         VaultFilePayload(path="../secret.md", content="nope")
 
     result = import_vault_files(

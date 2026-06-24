@@ -15,6 +15,17 @@ from sophiagraph.models.primitives import (
     _assert_scope,
 )
 
+MEMORY_TYPES = frozenset(get_args(MemoryType))
+MEMORY_TIERS = frozenset(get_args(MemoryTier))
+MEMORY_TIER_TRANSITION_REASONS = frozenset(get_args(MemoryTierTransitionReason))
+
+
+def _require_meta_dict(meta: dict[str, Any] | Any) -> None:
+    if not isinstance(meta, dict):
+        raise TypeError(
+            "meta must be a dict"
+        )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+
 
 @dataclass(frozen=True)
 class MemoryTierTransition:
@@ -35,22 +46,24 @@ class MemoryTierTransition:
         if not self.record_id:
             raise InvalidArgumentError("record_id is required")
         _assert_scope(self.scope)
-        _assert_literal(self.record_type, get_args(MemoryType), "record_type")
-        _assert_literal(self.from_tier, get_args(MemoryTier), "from_tier")
-        _assert_literal(self.to_tier, get_args(MemoryTier), "to_tier")
+        _assert_literal(self.record_type, MEMORY_TYPES, "record_type")
+        _assert_literal(self.from_tier, MEMORY_TIERS, "from_tier")
+        _assert_literal(self.to_tier, MEMORY_TIERS, "to_tier")
         _assert_literal(
             self.transition_reason,
-            get_args(MemoryTierTransitionReason),
+            MEMORY_TIER_TRANSITION_REASONS,
             "transition_reason",
         )
         if self.from_tier == self.to_tier:
             raise InvalidArgumentError("from_tier and to_tier must differ")
         if int(self.access_count) < 0:
             raise InvalidArgumentError("access_count must be non-negative")
-        if not isinstance(self.meta, dict):
-            raise TypeError(
-                "meta must be a dict"
-            )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+        _require_meta_dict(self.meta)
 
 
-__all__ = ["MemoryTierTransition"]
+__all__ = [
+    "MEMORY_TIERS",
+    "MEMORY_TIER_TRANSITION_REASONS",
+    "MEMORY_TYPES",
+    "MemoryTierTransition",
+]

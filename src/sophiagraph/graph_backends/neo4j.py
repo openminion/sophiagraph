@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-import importlib
 import json
 from typing import Any
 
 from .base import (
     GraphBackendCapabilities,
+    GraphExportEdge,
     GraphBackendQuery,
     GraphBackendResult,
     GraphBackendResultRow,
@@ -21,6 +21,7 @@ from .base import (
     schema_result_row,
     shortest_path_from_edges,
 )
+from .neo4j_support import as_optional_str, import_neo4j, row_namespace
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
 from sophiagraph.schema import GraphSchema
@@ -42,7 +43,7 @@ class Neo4jGraphBackendAdapter:
     ) -> None:
         if not uri:
             raise InvalidArgumentError("uri is required")
-        neo4j = _import_neo4j()
+        neo4j = import_neo4j()
         graph_database = getattr(neo4j, "GraphDatabase", None)
         if graph_database is None or not hasattr(graph_database, "driver"):
             raise ImportError(
@@ -218,7 +219,7 @@ class Neo4jGraphBackendAdapter:
         )
         if not rows:
             return None
-        payload = decode_json_object(_as_optional_str(rows[0].get("meta_value")))
+        payload = decode_json_object(as_optional_str(rows[0].get("meta_value")))
         return GraphSchema(**payload)
 
     def _query_neighbors(self, query: GraphBackendQuery) -> GraphBackendResult:
@@ -262,8 +263,8 @@ class Neo4jGraphBackendAdapter:
             relation_type = str(row["relation_type"])
             if query.relation_types and relation_type not in query.relation_types:
                 continue
-            target_namespace = _row_namespace(row, prefix="target_")
-            edge_namespace = _row_namespace(row, prefix="edge_")
+            target_namespace = row_namespace(row, prefix="target_")
+            edge_namespace = row_namespace(row, prefix="edge_")
             if not namespace_matches_filter(target_namespace, query.namespace):
                 continue
             if not namespace_matches_filter(edge_namespace, query.namespace):
@@ -274,14 +275,14 @@ class Neo4jGraphBackendAdapter:
                     edge_ids=[str(row["edge_id"])],
                     properties={
                         "labels": decode_json_list(
-                            _as_optional_str(row.get("labels_json"))
+                            as_optional_str(row.get("labels_json"))
                         ),
                         "relation_type": relation_type,
                         "target_properties": decode_json_object(
-                            _as_optional_str(row.get("target_properties_json"))
+                            as_optional_str(row.get("target_properties_json"))
                         ),
                         "edge_properties": decode_json_object(
-                            _as_optional_str(row.get("edge_properties_json"))
+                            as_optional_str(row.get("edge_properties_json"))
                         ),
                     },
                 )
@@ -319,17 +320,15 @@ class Neo4jGraphBackendAdapter:
         )
         result_rows: list[GraphBackendResultRow] = []
         for row in rows:
-            labels = decode_json_list(_as_optional_str(row.get("labels_json")))
+            labels = decode_json_list(as_optional_str(row.get("labels_json")))
             if query.node_labels and not any(
                 label in query.node_labels for label in labels
             ):
                 continue
-            namespace = _row_namespace(row, prefix="")
+            namespace = row_namespace(row, prefix="")
             if not namespace_matches_filter(namespace, query.namespace):
                 continue
-            properties = decode_json_object(
-                _as_optional_str(row.get("properties_json"))
-            )
+            properties = decode_json_object(as_optional_str(row.get("properties_json")))
             if not property_filters_match(properties, query.property_filters):
                 continue
             result_rows.append(
@@ -375,10 +374,9 @@ class Neo4jGraphBackendAdapter:
             )
         )
         edges = []
-        from .base import GraphExportEdge
 
         for row in rows:
-            namespace = MemoryNamespace.from_dict(_row_namespace(row, prefix=""))
+            namespace = MemoryNamespace.from_dict(row_namespace(row, prefix=""))
             if not namespace_matches_filter(namespace, query.namespace):
                 continue
             edges.append(
@@ -389,7 +387,7 @@ class Neo4jGraphBackendAdapter:
                     relation_type=str(row["relation_type"]),
                     namespace=namespace,
                     properties=decode_json_object(
-                        _as_optional_str(row.get("edge_properties_json"))
+                        as_optional_str(row.get("edge_properties_json"))
                     ),
                 )
             )
@@ -421,39 +419,6 @@ class Neo4jGraphBackendAdapter:
             keys = list(row.keys()) if hasattr(row, "keys") else []
             rows.append({str(key): row[key] for key in keys})
         return rows
-
-
-def _import_neo4j() -> Any:
-    try:
-        return importlib.import_module("neo4j")
-    except ImportError as exc:
-        raise ImportError(
-            "Neo4jGraphBackendAdapter requires the optional 'neo4j' dependency. "
-            "Install it with `pip install sophiagraph[neo4j]`."
-        ) from exc
-
-
-def _as_optional_str(value: Any) -> str | None:
-    if value is None:
-        return None
-    return str(value)
-
-
-def _row_namespace(row: dict[str, Any], *, prefix: str) -> dict[str, str]:
-    return {
-        field: str(row[f"{prefix}{field}"])
-        for field in (
-            "tenant_id",
-            "org_id",
-            "user_id",
-            "agent_id",
-            "session_id",
-            "conversation_id",
-            "project_id",
-            "graph_id",
-        )
-        if row.get(f"{prefix}{field}") is not None
-    }
 
 
 __all__ = ["Neo4jGraphBackendAdapter"]

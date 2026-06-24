@@ -22,7 +22,9 @@ classifiers = [
   "Topic :: Database",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = []
+dependencies = [
+  "graphfakos>=0.0.1,<1",
+]
 
 [project.urls]
 Repository = "https://github.com/openminion/sophiagraph"

@@ -4,15 +4,18 @@ Status: semantic alpha
 Scope: typed UI boundary contracts plus package-local visual preview
 
 `sophiagraph.ui` is the package-owned typed boundary for deterministic
-operator-facing memory and knowledge-graph screens.
+operator-facing memory and knowledge-graph screens. The package-local preview
+now renders through GraphFakos, the shared graph lens package.
 
 The ownership split is explicit:
 
 1. `sophiagraph` owns typed durable-memory contracts and the package-local UI
    boundary surface,
-2. `sophiagraph` also owns the local visual preview used for package smoke,
-   demo, and visual navigation of one workspace/demo graph,
-3. `sophiagraph-server` or another host runtime owns the hosted browser,
+2. `sophiagraph` owns the GraphFakos adapter used for package smoke, demo, and
+   visual navigation of one workspace/demo graph,
+3. `graphfakos` owns the reusable viewer shell, graph canvas, local server
+   primitive, static HTML export, and shared viewer assertions,
+4. `sophiagraph-server` or another host runtime owns the hosted browser,
    transport, auth, and operator experience.
 
 ## Current contract
@@ -22,9 +25,9 @@ The ownership split is explicit:
 - transport kind: `rest`
 - transport status: `designed_not_implemented`
 - current API seam: `sophiagraph-server`
-- reusable local server primitive: `sophiagraph.ui.local_server`
+- reusable local server primitive: `graphfakos.server`
 - local visual UI seam: `python3.11 -m sophiagraph ui-preview --serve`
-- shared pattern reference: `docs/reference/package-local-visual-ui-pattern.md`
+- shared viewer package: `graphfakos`
 
 ## Screen manifest
 
@@ -43,8 +46,8 @@ The current screen manifest stays intentionally structural:
 
 ## Local Visual UI
 
-The package ships a local browser UI server for the deterministic screen
-renderers:
+The package ships a local browser UI command for the GraphFakos-backed
+second-brain viewer:
 
 ```bash
 sophiagraph-ui \
@@ -76,7 +79,7 @@ module form is `python3.11 -m sophiagraph ui-preview`.
 ## Boundary
 
 This package does **not** currently ship a hosted browser app, Textual TUI,
-daemon, or admin UI. It ships typed UI contracts, deterministic render
-surfaces, the same reusable local visual server primitive used by PragmaGraph,
-and the local visual UI server above so the standalone package has one
-canonical import root for future visual/runtime work.
+daemon, or admin UI. It ships typed UI contracts, deterministic Sophiagraph to
+GraphFakos adapter mapping, compatibility wrappers for the local visual server
+primitive, and the local visual UI command above so the standalone package has
+one canonical import root for future visual/runtime work.

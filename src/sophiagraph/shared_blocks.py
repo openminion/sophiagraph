@@ -22,9 +22,21 @@ SharedBlockUsageAction = Literal[
     "conflict",
 ]
 
+SHARED_ATTACHMENT_STATUSES: frozenset[str] = frozenset({"active", "detached"})
+SHARED_MIRROR_STATUSES: frozenset[str] = frozenset({"fresh", "stale"})
+SHARED_BLOCK_CONFLICT_STATUSES: frozenset[str] = frozenset({"open", "resolved"})
+SHARED_BLOCK_USAGE_ACTIONS: frozenset[str] = frozenset(
+    {"attach", "read", "stale_detected", "edit_denied", "conflict"}
+)
+
 
 def _stable_id(prefix: str, *parts: str) -> str:
     return f"{prefix}-{uuid5(NAMESPACE_URL, ':'.join(str(part) for part in parts))}"
+
+
+def _require_meta_dict(meta: dict[str, Any] | Any) -> None:
+    if not isinstance(meta, dict):
+        raise TypeError("meta must be a dict")
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,8 +61,9 @@ class SharedBlockAttachment:
             raise InvalidArgumentError("attached_agent_id is required")
         if self.access_mode != "read_only":
             raise InvalidArgumentError("v1 shared block access_mode must be read_only")
-        if self.status not in {"active", "detached"}:
+        if self.status not in SHARED_ATTACHMENT_STATUSES:
             raise InvalidArgumentError(f"invalid attachment status: {self.status!r}")
+        _require_meta_dict(self.meta)
 
     @classmethod
     def create(
@@ -99,8 +112,11 @@ class SharedBlockMirror:
             raise TypeError("mirror_namespace must be MemoryNamespace")
         if not self.source_hash or not self.mirror_hash:
             raise InvalidArgumentError("source_hash and mirror_hash are required")
-        if self.status not in {"fresh", "stale"}:
+        if self.status not in SHARED_MIRROR_STATUSES:
             raise InvalidArgumentError(f"invalid mirror status: {self.status!r}")
+        if not self.last_synced_at:
+            raise InvalidArgumentError("last_synced_at is required")
+        _require_meta_dict(self.meta)
 
     @property
     def is_stale(self) -> bool:
@@ -131,8 +147,12 @@ class SharedBlockEditConflict:
             raise InvalidArgumentError("attempted_by is required")
         if not self.reason:
             raise InvalidArgumentError("reason is required")
-        if self.status not in {"open", "resolved"}:
+        if self.status not in SHARED_BLOCK_CONFLICT_STATUSES:
             raise InvalidArgumentError(f"invalid conflict status: {self.status!r}")
+        if not self.base_hash or not self.proposed_hash:
+            raise InvalidArgumentError("base_hash and proposed_hash are required")
+        if not self.created_at:
+            raise InvalidArgumentError("created_at is required")
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,16 +174,11 @@ class SharedBlockUsageEvent:
             raise TypeError("namespace must be MemoryNamespace")
         if not self.agent_id:
             raise InvalidArgumentError("agent_id is required")
-        if self.action not in {
-            "attach",
-            "read",
-            "stale_detected",
-            "edit_denied",
-            "conflict",
-        }:
+        if self.action not in SHARED_BLOCK_USAGE_ACTIONS:
             raise InvalidArgumentError(f"invalid usage action: {self.action!r}")
         if not self.occurred_at:
             raise InvalidArgumentError("occurred_at is required")
+        _require_meta_dict(self.meta)
 
 
 def mark_mirror_stale_if_needed(
@@ -252,6 +267,10 @@ def shared_usage_from_dict(data: dict[str, Any]) -> SharedBlockUsageEvent:
 
 
 __all__ = [
+    "SHARED_ATTACHMENT_STATUSES",
+    "SHARED_BLOCK_CONFLICT_STATUSES",
+    "SHARED_BLOCK_USAGE_ACTIONS",
+    "SHARED_MIRROR_STATUSES",
     "SharedAttachmentStatus",
     "SharedBlockAccessMode",
     "SharedBlockAttachment",

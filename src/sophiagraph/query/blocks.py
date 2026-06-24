@@ -298,6 +298,11 @@ DisagreementKind = Literal[
     "explicit_upstream_metadata",
     "exact_key_contradiction_fact",
 ]
+DISAGREEMENT_KINDS: tuple[str, ...] = (
+    "claim_key_polarity",
+    "explicit_upstream_metadata",
+    "exact_key_contradiction_fact",
+)
 
 
 @dataclass(frozen=True)
@@ -311,6 +316,18 @@ class DisagreementSignal:
     block_polarity: str | None = None
     retrieval_polarity: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.kind not in DISAGREEMENT_KINDS:
+            raise InvalidArgumentError(f"invalid disagreement kind: {self.kind!r}")
+        if not self.block_id:
+            raise InvalidArgumentError("block_id is required")
+        if not self.retrieval_record_id:
+            raise InvalidArgumentError("retrieval_record_id is required")
+        if not isinstance(self.details, dict):
+            raise TypeError(
+                "details must be a dict"
+            )  # allow-bare-raise: defensive type guard for typed signal details
 
 
 @dataclass(frozen=True)
@@ -365,6 +382,7 @@ def record_disagreement(
 
 __all__ = [
     "BLOCK_PRIORITY_ORDER",
+    "DISAGREEMENT_KINDS",
     "DisagreementKind",
     "DisagreementOutcome",
     "DisagreementSignal",

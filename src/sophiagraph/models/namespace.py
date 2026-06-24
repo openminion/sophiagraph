@@ -17,6 +17,12 @@ from sophiagraph.models.primitives import (
 )
 
 
+def _optional_namespace_id(value: Any) -> str | None:
+    if value is None or value == "":
+        return None
+    return str(value)
+
+
 @dataclass(frozen=True)
 class MemoryScope:
     """Canonical parser/coercer for memory scope strings."""
@@ -149,16 +155,14 @@ class MemoryNamespace:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "MemoryNamespace":
         return cls(
-            tenant_id=str(data["tenant_id"]) if data.get("tenant_id") else None,
-            org_id=str(data["org_id"]) if data.get("org_id") else None,
-            user_id=str(data["user_id"]) if data.get("user_id") else None,
-            agent_id=str(data["agent_id"]) if data.get("agent_id") else None,
-            session_id=str(data["session_id"]) if data.get("session_id") else None,
-            conversation_id=str(data["conversation_id"])
-            if data.get("conversation_id")
-            else None,
-            project_id=str(data["project_id"]) if data.get("project_id") else None,
-            graph_id=str(data["graph_id"]) if data.get("graph_id") else None,
+            tenant_id=_optional_namespace_id(data.get("tenant_id")),
+            org_id=_optional_namespace_id(data.get("org_id")),
+            user_id=_optional_namespace_id(data.get("user_id")),
+            agent_id=_optional_namespace_id(data.get("agent_id")),
+            session_id=_optional_namespace_id(data.get("session_id")),
+            conversation_id=_optional_namespace_id(data.get("conversation_id")),
+            project_id=_optional_namespace_id(data.get("project_id")),
+            graph_id=_optional_namespace_id(data.get("graph_id")),
         )
 
     @classmethod

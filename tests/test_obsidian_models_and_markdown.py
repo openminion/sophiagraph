@@ -7,6 +7,7 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
     ExplicitLinkResolver,
     KnowledgeDocument,
+    KnowledgeDocumentBlock,
     LinkResolutionCandidate,
     MemoryNamespace,
     MemoryRecord,
@@ -68,6 +69,43 @@ def test_document_rejects_unsafe_path() -> None:
             title="Abs",
             content_hash="abc123",
             namespace=_namespace(),
+        )
+
+
+def test_document_from_record_rejects_malformed_aliases_metadata() -> None:
+    namespace = _namespace()
+    record = MemoryRecord(
+        id="rec-1",
+        scope="agent:agent",
+        type="artifact_digest",
+        title="Roadmap",
+        content={"text": "document body"},
+        created_at="2026-05-23T00:00:00+00:00",
+        updated_at="2026-05-23T00:00:00+00:00",
+        namespace=namespace,
+        meta={
+            "document": {
+                "document_id": "doc-1",
+                "path": "Roadmap.md",
+                "title": "Roadmap",
+                "aliases": "Plan",
+                "content_hash": "abc123",
+            }
+        },
+    )
+
+    with pytest.raises(InvalidArgumentError, match="document aliases must be a list"):
+        KnowledgeDocument.from_record(record)
+
+
+def test_document_block_rejects_invalid_block_type() -> None:
+    with pytest.raises(InvalidArgumentError, match="invalid block_type"):
+        KnowledgeDocumentBlock(
+            block_id="block-1",
+            document_id="doc-1",
+            record_id="rec-1",
+            block_type="unknown",  # type: ignore[arg-type]
+            anchor="anchor",
         )
 
 

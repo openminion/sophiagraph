@@ -32,6 +32,7 @@ from sophiagraph.portability.models import (
 )
 from tests.fake_neo4j import install_fake_neo4j
 from sophiagraph.contracts.errors import (
+    InvalidArgumentError,
     SnapshotNameConflictError,
     WriteLeaseNotHeldError,
 )
@@ -71,6 +72,7 @@ def test_storage_operation_dtos_validate_fields() -> None:
         BackupDescriptor,
         BackupManifestEntry,
         MultiprocessLeaseToken,
+        RetentionSnapshot,
     )
 
     entry = BackupManifestEntry(
@@ -101,6 +103,35 @@ def test_storage_operation_dtos_validate_fields() -> None:
     assert descriptor.kind == "physical_memory"
     assert descriptor.manifest_entries[0].row_count == 2
     assert lease.owner == "tester"
+
+    with pytest.raises(InvalidArgumentError, match="backup_id is required"):
+        BackupDescriptor.from_dict(
+            {
+                "backup_id": None,
+                "kind": "physical_memory",
+                "backend_name": "memory",
+                "created_at": "2026-06-10T00:00:00+00:00",
+                "target_path": "/tmp/backup",
+            }
+        )
+
+    with pytest.raises(InvalidArgumentError, match="snapshot_id is required"):
+        RetentionSnapshot.from_dict(
+            {
+                "snapshot_id": None,
+                "name": "legal-hold",
+                "namespace": {"tenant_id": "tenant", "agent_id": "agent"},
+                "created_at": "2026-06-10T00:00:00+00:00",
+                "backup_descriptor": {
+                    "backup_id": "bk-1",
+                    "kind": "physical_memory",
+                    "backend_name": "memory",
+                    "created_at": "2026-06-10T00:00:00+00:00",
+                    "target_path": "/tmp/backup",
+                },
+                "payload": [],
+            }
+        )
 
 
 def test_create_backup_and_restore_roundtrip(store, tmp_path: Path) -> None:
@@ -228,9 +259,9 @@ def test_compaction_outcomes_cover_backends(tmp_path: Path, monkeypatch) -> None
     kuzu_outcome = compact_store(kuzu)
     assert kuzu_outcome.backend_name == "kuzu"
 
-    from sophiagraph.graph_backends import neo4j as neo4j_module
+    from sophiagraph.graph_backends import neo4j_support
 
-    install_fake_neo4j(monkeypatch, neo4j_module.importlib)
+    install_fake_neo4j(monkeypatch, neo4j_support.importlib)
     neo4j = Neo4jGraphBackendAdapter("neo4j://fixture")
     neo4j_outcome = compact_store(neo4j)
     assert neo4j_outcome.operator_action_required is not None

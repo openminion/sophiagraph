@@ -9,16 +9,18 @@ import sys
 
 from sophiagraph import (
     MemoryNamespace,
-    WorkspaceFilePrimaryNoteOptions,
     apply_workspace_sync,
     initialize_workspace,
-    materialize_workspace_note,
     open_workspace_store,
     poll_workspace_sync,
     scan_workspace_sync,
-    workspace_file_primary_note_put,
     workspace_note_put,
     workspace_sync_status,
+)
+from sophiagraph.workspace_notes import (
+    WorkspaceFilePrimaryNoteOptions,
+    materialize_workspace_note,
+    workspace_file_primary_note_put,
 )
 
 
@@ -209,20 +211,18 @@ def test_workspace_poll_cycles_are_bounded_and_stdlib_only(tmp_path: Path) -> No
     assert cycles[1].status.pending_delta_count == 0
     assert cycles[0] == type(cycles[0]).from_dict(cycles[0].to_dict())
 
-    source = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "sophiagraph"
-        / "workspace_sync.py"
-    ).read_text(encoding="utf-8")
-    tree = ast.parse(source)
     imports: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            imports.add(node.module)
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                imports.add(alias.name)
+    for module_name in ("workspace_sync.py", "workspace_notes.py"):
+        source = (
+            Path(__file__).resolve().parents[1] / "src" / "sophiagraph" / module_name
+        ).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                imports.add(node.module)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    imports.add(alias.name)
     forbidden = {"watchdog", "watchfiles", "threading", "subprocess", "asyncio"}
     leaked = imports & forbidden
     assert not leaked, (

@@ -4,19 +4,39 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from hashlib import sha256
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models.namespace import MemoryNamespace
+from sophiagraph.models.primitives import _assert_literal
 from sophiagraph.models.record import MemoryRecord
 
 DocumentSourceFormat = Literal["markdown", "text", "html", "json", "external"]
 DocumentBlockType = Literal["heading", "block", "paragraph", "property"]
 
+DOCUMENT_SOURCE_FORMATS = frozenset(get_args(DocumentSourceFormat))
+DOCUMENT_BLOCK_TYPES = frozenset(get_args(DocumentBlockType))
+
 
 def content_hash(content: str) -> str:
     """Return a stable SHA-256 hash for document content."""
     return sha256(content.encode("utf-8")).hexdigest()
+
+
+def _meta_string_list(value: Any, field_name: str) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise InvalidArgumentError(f"{field_name} must be a list")
+    return [str(item) for item in value]
+
+
+def _meta_dict(value: Any, field_name: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise InvalidArgumentError(f"{field_name} must be a dict")
+    return dict(value)
 
 
 @dataclass(frozen=True)
@@ -48,6 +68,17 @@ class KnowledgeDocument:
             raise InvalidArgumentError("title is required")
         if not self.content_hash:
             raise InvalidArgumentError("content_hash is required")
+        _assert_literal(
+            self.source_format, get_args(DocumentSourceFormat), "source_format"
+        )
+        if not isinstance(self.aliases, list):
+            raise TypeError(
+                "aliases must be a list"
+            )  # allow-bare-raise: defensive dataclass guard
+        if not isinstance(self.provenance, dict):
+            raise TypeError(
+                "provenance must be a dict"
+            )  # allow-bare-raise: defensive dataclass guard
         if not isinstance(self.namespace, MemoryNamespace):
             raise TypeError(
                 "namespace must be MemoryNamespace"
@@ -64,13 +95,13 @@ class KnowledgeDocument:
             record_id=record.id,
             path=str(meta.get("path") or ""),
             title=str(meta.get("title") or record.title or ""),
-            aliases=[str(item) for item in meta.get("aliases", [])],
+            aliases=_meta_string_list(meta.get("aliases"), "document aliases"),
             content_hash=str(meta.get("content_hash") or ""),
             source_format=str(meta.get("source_format") or "markdown"),  # type: ignore[arg-type]
             namespace=record.effective_namespace,
             created_at=record.created_at,
             updated_at=record.updated_at,
-            provenance=dict(meta.get("provenance") or {}),
+            provenance=_meta_dict(meta.get("provenance"), "document provenance"),
         )
 
     def as_record_meta(self) -> dict[str, Any]:
@@ -107,6 +138,7 @@ class KnowledgeDocumentBlock:
             raise InvalidArgumentError("document_id is required")
         if not self.record_id:
             raise InvalidArgumentError("record_id is required")
+        _assert_literal(self.block_type, get_args(DocumentBlockType), "block_type")
         if not self.anchor:
             raise InvalidArgumentError("anchor is required")
         if self.line_start is not None and self.line_start < 1:
@@ -122,6 +154,8 @@ class KnowledgeDocumentBlock:
 
 
 __all__ = [
+    "DOCUMENT_BLOCK_TYPES",
+    "DOCUMENT_SOURCE_FORMATS",
     "DocumentBlockType",
     "DocumentSourceFormat",
     "KnowledgeDocument",

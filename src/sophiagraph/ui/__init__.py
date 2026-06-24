@@ -9,6 +9,7 @@ from .contracts import (
     build_default_ui_boundary,
     build_ui_screen_manifest,
 )
+from .graphfakos_adapter import SophiagraphViewerProvider
 from .local_server import (
     LocalVisualHttpServer,
     LocalVisualServerResult,
@@ -17,14 +18,16 @@ from .local_server import (
     serve_local_visual_server,
 )
 from .preview import (
-    PreviewScreen,
-    UiPreviewRender,
-    UiPreviewRequest,
-    UiPreviewResult,
     make_ui_preview_server,
     render_ui_preview,
     serve_ui_preview,
     write_ui_preview,
+)
+from .preview_types import (
+    PreviewScreen,
+    UiPreviewRender,
+    UiPreviewRequest,
+    UiPreviewResult,
 )
 from .render import (
     render_candidate_review_html,
@@ -89,6 +92,7 @@ __all__ = [
     "SavedViewWorkbenchRequest",
     "SavedViewWorkbenchScreen",
     "SchemaDeveloperScreen",
+    "SophiagraphViewerProvider",
     "TimelineScreen",
     "UiAppState",
     "UiPreviewRender",

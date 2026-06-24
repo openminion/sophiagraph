@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 import json
+from typing import Any
 from typing import Literal
 
 from sophiagraph.contracts.errors import InvalidArgumentError
@@ -16,6 +17,14 @@ CanvasEdgeEnd = Literal["none", "arrow"]
 
 _CANVAS_EDGE_SIDES = frozenset({"top", "right", "bottom", "left"})
 _CANVAS_EDGE_ENDS = frozenset({"none", "arrow"})
+
+
+def _field(data: dict[str, Any], snake: str, camel: str | None = None) -> Any:
+    if snake in data:
+        return data[snake]
+    if camel is not None and camel in data:
+        return data[camel]
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,27 +123,27 @@ class CanvasBoard:
                 y=int(item["y"]),
                 width=int(item["width"]),
                 height=int(item["height"]),
-                text=item.get("text"),
-                file=item.get("file"),
-                url=item.get("url"),
-                record_id=item.get("record_id"),
-                color=item.get("color"),
+                text=_field(item, "text"),
+                file=_field(item, "file"),
+                url=_field(item, "url"),
+                record_id=_field(item, "record_id", "recordId"),
+                color=_field(item, "color"),
+                subpath=_field(item, "subpath"),
+                label=_field(item, "label"),
             )
             for item in data.get("nodes", [])
         ]
         edges = [
             CanvasEdge(
                 id=str(item["id"]),
-                from_node=str(
-                    item["fromNode"] if "fromNode" in item else item["from_node"]
-                ),
-                to_node=str(item["toNode"] if "toNode" in item else item["to_node"]),
-                label=item.get("label"),
-                color=item.get("color"),
-                from_side=item.get("fromSide") or item.get("from_side"),
-                to_side=item.get("toSide") or item.get("to_side"),
-                from_end=item.get("fromEnd") or item.get("from_end"),
-                to_end=item.get("toEnd") or item.get("to_end"),
+                from_node=str(_field(item, "from_node", "fromNode")),
+                to_node=str(_field(item, "to_node", "toNode")),
+                label=_field(item, "label"),
+                color=_field(item, "color"),
+                from_side=_field(item, "from_side", "fromSide"),
+                to_side=_field(item, "to_side", "toSide"),
+                from_end=_field(item, "from_end", "fromEnd"),
+                to_end=_field(item, "to_end", "toEnd"),
             )
             for item in data.get("edges", [])
         ]

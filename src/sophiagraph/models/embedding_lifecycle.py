@@ -29,6 +29,18 @@ EMBEDDING_STALENESS_REASONS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _string_field(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _optional_string_field(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
 def namespace_key(namespace: MemoryNamespace) -> str:
     """Return a deterministic namespace key for cursor and storage use."""
 
@@ -65,8 +77,8 @@ class VectorSpaceModelDescriptor:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "VectorSpaceModelDescriptor":
         return cls(
-            provider=str(data.get("provider", "")),
-            model=str(data.get("model", "")),
+            provider=_string_field(data.get("provider")),
+            model=_string_field(data.get("model")),
             dimension=int(data.get("dimension", 0) or 0),
         )
 
@@ -123,7 +135,7 @@ class ActiveEmbeddingModelSet:
         raw_models = data.get("active_models")
         return cls(
             namespace=MemoryNamespace.from_dict(raw_namespace),
-            vector_space=str(data.get("vector_space", "")),
+            vector_space=_string_field(data.get("vector_space")),
             active_models=tuple(
                 VectorSpaceModelDescriptor.from_dict(item)
                 for item in raw_models
@@ -131,7 +143,7 @@ class ActiveEmbeddingModelSet:
             )
             if isinstance(raw_models, list)
             else (),
-            updated_at=str(data.get("updated_at", "")),
+            updated_at=_string_field(data.get("updated_at")),
         )
 
 
@@ -212,22 +224,18 @@ class StaleEmbeddingFinding:
             raise InvalidArgumentError("namespace is required")
         raw_reasons = data.get("reasons")
         return cls(
-            record_id=str(data.get("record_id", "")),
-            vector_space=str(data.get("vector_space", "")),
+            record_id=_string_field(data.get("record_id")),
+            vector_space=_string_field(data.get("vector_space")),
             namespace=MemoryNamespace.from_dict(raw_namespace),
-            embedding_provider=str(data.get("embedding_provider", "")),
-            embedding_model=str(data.get("embedding_model", "")),
+            embedding_provider=_string_field(data.get("embedding_provider")),
+            embedding_model=_string_field(data.get("embedding_model")),
             embedding_dimension=int(data.get("embedding_dimension", 0) or 0),
-            embedding_updated_at=str(data.get("embedding_updated_at", "")),
+            embedding_updated_at=_string_field(data.get("embedding_updated_at")),
             reasons=tuple(str(item) for item in raw_reasons)
             if isinstance(raw_reasons, list)
             else (),
-            record_updated_at=str(data.get("record_updated_at"))
-            if data.get("record_updated_at") is not None
-            else None,
-            external_vector_id=str(data.get("external_vector_id"))
-            if data.get("external_vector_id") is not None
-            else None,
+            record_updated_at=_optional_string_field(data.get("record_updated_at")),
+            external_vector_id=_optional_string_field(data.get("external_vector_id")),
         )
 
 
@@ -267,8 +275,8 @@ class ReembedCursor:
             raise InvalidArgumentError("namespace is required")
         return cls(
             namespace=MemoryNamespace.from_dict(raw_namespace),
-            vector_space=str(data.get("vector_space", "")),
-            last_record_id=str(data.get("last_record_id", "")),
+            vector_space=_string_field(data.get("vector_space")),
+            last_record_id=_string_field(data.get("last_record_id")),
         )
 
 
@@ -391,7 +399,7 @@ class ReembedPlan:
             raise InvalidArgumentError("target_model is required")
         return cls(
             namespace=MemoryNamespace.from_dict(raw_namespace),
-            vector_space=str(data.get("vector_space", "")),
+            vector_space=_string_field(data.get("vector_space")),
             target_model=VectorSpaceModelDescriptor.from_dict(raw_target_model),
             stale_findings=tuple(
                 StaleEmbeddingFinding.from_dict(item)

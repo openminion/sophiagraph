@@ -33,6 +33,33 @@ PROPERTY_VALUE_TYPES: Final[frozenset[str]] = frozenset(
 )
 
 
+def _require_unique_property_names(
+    properties: list["PropertySchema"],
+    owner_name: str,
+) -> None:
+    seen: set[str] = set()
+    for prop in properties:
+        if prop.name in seen:
+            raise InvalidArgumentError(
+                f"{owner_name} has duplicate name: {prop.name!r}"
+            )
+        seen.add(prop.name)
+
+
+def _require_unique_named_entries(
+    entries: list[Any],
+    owner_name: str,
+    *,
+    attr_name: str = "name",
+) -> None:
+    seen: set[str] = set()
+    for entry in entries:
+        key = getattr(entry, attr_name)
+        if key in seen:
+            raise InvalidArgumentError(f"{owner_name} has duplicate name: {key!r}")
+        seen.add(key)
+
+
 @dataclass(frozen=True)
 class CategorySchema:
     """One named category inside an ontology."""
@@ -76,13 +103,10 @@ class EntityTypeSchema:
     def __post_init__(self) -> None:
         if not self.name:
             raise InvalidArgumentError("EntityTypeSchema.name is required")
-        seen: set[str] = set()
-        for prop in self.properties:
-            if prop.name in seen:
-                raise InvalidArgumentError(
-                    f"EntityTypeSchema.properties has duplicate name: {prop.name!r}"
-                )
-            seen.add(prop.name)
+        _require_unique_property_names(
+            self.properties,
+            "EntityTypeSchema.properties",
+        )
 
 
 @dataclass(frozen=True)
@@ -98,13 +122,10 @@ class EdgeTypeSchema:
     def __post_init__(self) -> None:
         if not self.name:
             raise InvalidArgumentError("EdgeTypeSchema.name is required")
-        seen: set[str] = set()
-        for prop in self.properties:
-            if prop.name in seen:
-                raise InvalidArgumentError(
-                    f"EdgeTypeSchema.properties has duplicate name: {prop.name!r}"
-                )
-            seen.add(prop.name)
+        _require_unique_property_names(
+            self.properties,
+            "EdgeTypeSchema.properties",
+        )
 
 
 @dataclass(frozen=True)
@@ -137,19 +158,12 @@ class OntologyDefinition:
                 f"compatibility {self.compatibility!r} not in "
                 f"{sorted(ONTOLOGY_COMPATIBILITIES)}"
             )
-        for collection, label, name_attr in (
-            (self.categories, "categories", "name"),
-            (self.entity_types, "entity_types", "name"),
-            (self.edge_types, "edge_types", "name"),
+        for collection, label in (
+            (self.categories, "OntologyDefinition.categories"),
+            (self.entity_types, "OntologyDefinition.entity_types"),
+            (self.edge_types, "OntologyDefinition.edge_types"),
         ):
-            seen: set[str] = set()
-            for entry in collection:
-                key = getattr(entry, name_attr)
-                if key in seen:
-                    raise InvalidArgumentError(
-                        f"OntologyDefinition.{label} has duplicate name: {key!r}"
-                    )
-                seen.add(key)
+            _require_unique_named_entries(collection, label)
         if not isinstance(self.meta, Mapping):
             raise InvalidArgumentError("meta must be a Mapping[str, Any]")
 

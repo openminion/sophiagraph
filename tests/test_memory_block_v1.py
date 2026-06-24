@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from sophiagraph.contracts.errors import (
@@ -221,7 +223,7 @@ class TestDtoStructuralValidation:
 
     def test_block_is_frozen_dataclass(self) -> None:
         block = _block()
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             block.content = "mutated"  # type: ignore[misc]
 
 

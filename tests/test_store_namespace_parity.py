@@ -67,6 +67,20 @@ def _link(source: str, target: str, namespace: MemoryNamespace) -> StructuralLin
     )
 
 
+def test_namespace_from_dict_rejects_none_coercion_for_required_presence() -> None:
+    namespace = MemoryNamespace.from_dict(
+        {
+            "tenant_id": "tenant",
+            "agent_id": "alpha",
+            "conversation_id": None,
+            "graph_id": "main",
+        }
+    )
+
+    assert namespace.conversation_id is None
+    assert namespace.agent_id == "alpha"
+
+
 def test_shared_store_contract_parity_for_crud_query_export_import(
     store, tmp_path
 ) -> None:

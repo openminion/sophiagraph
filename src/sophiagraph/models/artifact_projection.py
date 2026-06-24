@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import Any, Final, Literal
 
 from sophiagraph.contracts.errors import InvalidArgumentError
@@ -33,6 +34,19 @@ ArtifactProjectionFreshness = Literal[
 ARTIFACT_PROJECTION_FRESHNESS_STATES: Final[frozenset[str]] = frozenset(
     {"current", "source_replaced", "superseded", "missing_derived_text"}
 )
+_HEX64_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def _optional_int(data: dict[str, Any], key: str) -> int | None:
+    return int(data[key]) if data.get(key) is not None else None
+
+
+def _optional_str(data: dict[str, Any], key: str) -> str | None:
+    return str(data[key]) if data.get(key) is not None else None
+
+
+def _meta_dict(data: dict[str, Any]) -> dict[str, Any]:
+    return dict(data.get("meta", {})) if isinstance(data.get("meta"), dict) else {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,29 +131,15 @@ class ArtifactCitation:
             citation_id=str(data.get("citation_id", "")),
             artifact_id=str(data.get("artifact_id", "")),
             kind=str(data.get("kind", "")),  # type: ignore[arg-type]
-            page_index=(
-                int(data["page_index"]) if data.get("page_index") is not None else None
-            ),
-            region_id=(
-                str(data["region_id"]) if data.get("region_id") is not None else None
-            ),
-            segment_id=(
-                str(data["segment_id"]) if data.get("segment_id") is not None else None
-            ),
-            start_ms=int(data["start_ms"])
-            if data.get("start_ms") is not None
-            else None,
-            end_ms=int(data["end_ms"]) if data.get("end_ms") is not None else None,
-            start_char=(
-                int(data["start_char"]) if data.get("start_char") is not None else None
-            ),
-            end_char=(
-                int(data["end_char"]) if data.get("end_char") is not None else None
-            ),
-            label=str(data["label"]) if data.get("label") is not None else None,
-            meta=dict(data.get("meta", {}))
-            if isinstance(data.get("meta"), dict)
-            else {},
+            page_index=_optional_int(data, "page_index"),
+            region_id=_optional_str(data, "region_id"),
+            segment_id=_optional_str(data, "segment_id"),
+            start_ms=_optional_int(data, "start_ms"),
+            end_ms=_optional_int(data, "end_ms"),
+            start_char=_optional_int(data, "start_char"),
+            end_char=_optional_int(data, "end_char"),
+            label=_optional_str(data, "label"),
+            meta=_meta_dict(data),
         )
 
 
@@ -182,17 +182,15 @@ class ArtifactProjectionSegment:
         raw_citations = data.get("citations", [])
         return cls(
             segment_id=str(data.get("segment_id", "")),
-            ordinal=max(0, int(data.get("ordinal", 0) or 0)),
+            ordinal=int(data.get("ordinal", 0) or 0),
             text=str(data.get("text", "")),
             citations=tuple(
                 ArtifactCitation.from_dict(item)
                 for item in raw_citations
                 if isinstance(item, dict)
             ),
-            label=str(data["label"]) if data.get("label") is not None else None,
-            meta=dict(data.get("meta", {}))
-            if isinstance(data.get("meta"), dict)
-            else {},
+            label=_optional_str(data, "label"),
+            meta=_meta_dict(data),
         )
 
 
@@ -227,7 +225,7 @@ class ArtifactTextProjection:
             )
         if not self.adapter_id:
             raise InvalidArgumentError("adapter_id is required")
-        if len(self.source_sha256) != 64:
+        if not _HEX64_PATTERN.match(self.source_sha256):
             raise InvalidArgumentError("source_sha256 must be a 64-char hex digest")
         if not self.source_mime:
             raise InvalidArgumentError("source_mime is required")
@@ -301,19 +299,12 @@ class ArtifactTextProjection:
                 for item in raw_segments
                 if isinstance(item, dict)
             ),
-            superseded_by_projection_id=(
-                str(data["superseded_by_projection_id"])
-                if data.get("superseded_by_projection_id") is not None
-                else None
+            superseded_by_projection_id=_optional_str(
+                data,
+                "superseded_by_projection_id",
             ),
-            superseded_at=(
-                str(data["superseded_at"])
-                if data.get("superseded_at") is not None
-                else None
-            ),
-            meta=dict(data.get("meta", {}))
-            if isinstance(data.get("meta"), dict)
-            else {},
+            superseded_at=_optional_str(data, "superseded_at"),
+            meta=_meta_dict(data),
         )
 
 

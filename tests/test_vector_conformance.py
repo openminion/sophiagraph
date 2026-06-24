@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 import math
 from pathlib import Path
 
@@ -161,7 +162,7 @@ class TestVectorBackendConformanceCase:
 
     def test_case_is_frozen(self):
         case = _sample_case()
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             case.case_id = "other"  # type: ignore[misc]
 
     def test_missing_case_id_raises(self):
@@ -370,7 +371,7 @@ class TestRunConformanceHarness:
 
     def test_report_is_frozen(self):
         report = run_conformance_harness(BUILTIN_VECTOR_BACKEND, [])
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             report.case_results = ()  # type: ignore[misc]
 
 

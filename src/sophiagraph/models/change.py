@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models.namespace import MemoryNamespace
@@ -46,7 +46,9 @@ ChangeObjectType = Literal[
     "active_embedding_model_set",
     "retention_snapshot",
 ]
+CHANGE_OBJECT_TYPES = frozenset(get_args(ChangeObjectType))
 ChangeOperation = Literal["put", "delete", "import"]
+CHANGE_OPERATIONS = frozenset(get_args(ChangeOperation))
 
 
 def default_change_namespace() -> MemoryNamespace:
@@ -72,46 +74,9 @@ class SophiaGraphChangeEvent:
             raise InvalidArgumentError("event_id is required")
         if not self.object_id:
             raise InvalidArgumentError("object_id is required")
-        if self.object_type not in {
-            "record",
-            "relation",
-            "link",
-            "candidate",
-            "tier_transition",
-            "block",
-            "memory_block",
-            "view",
-            "canvas",
-            "schema",
-            "entity",
-            "entity_alias",
-            "fact",
-            "contradiction",
-            "entity_summary",
-            "episode",
-            "episode_step",
-            "outcome",
-            "decision",
-            "procedure",
-            "raw_episode",
-            "fact_convergence_link",
-            "ontology",
-            "lifecycle_policy",
-            "artifact",
-            "artifact_projection",
-            "sync_conflict",
-            "freshness_entry",
-            "source_registry",
-            "source_ingest",
-            "shared_block_attachment",
-            "shared_block_mirror",
-            "shared_block_conflict",
-            "shared_block_usage",
-            "active_embedding_model_set",
-            "retention_snapshot",
-        }:
+        if self.object_type not in CHANGE_OBJECT_TYPES:
             raise InvalidArgumentError(f"invalid object_type: {self.object_type!r}")
-        if self.operation not in {"put", "delete", "import"}:
+        if self.operation not in CHANGE_OPERATIONS:
             raise InvalidArgumentError(f"invalid operation: {self.operation!r}")
         if not self.changed_at:
             raise InvalidArgumentError("changed_at is required")
@@ -124,6 +89,8 @@ class SophiaGraphChangeEvent:
 
 
 __all__ = [
+    "CHANGE_OBJECT_TYPES",
+    "CHANGE_OPERATIONS",
     "ChangeObjectType",
     "ChangeOperation",
     "SophiaGraphChangeEvent",

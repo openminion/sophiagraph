@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import pytest
 
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryBlock, MemoryNamespace
 from sophiagraph.shared_blocks import (
+    SharedBlockAttachment,
     SharedBlockMirror,
     SharedBlockUsageEvent,
     create_shared_block_conflict,
     mark_mirror_stale_if_needed,
 )
-from sophiagraph.shared_blocks import SharedBlockAttachment
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
 
 
@@ -73,13 +74,59 @@ def test_shared_read_only_attachments_and_usage_round_trip(store) -> None:
 
 
 def test_shared_block_access_mode_is_default_deny() -> None:
-    with pytest.raises(Exception, match="read_only"):
+    with pytest.raises(InvalidArgumentError, match="read_only"):
         SharedBlockAttachment(
             attachment_id="bad",
             block_id="block-policy",
             namespace=_ns(),
             attached_agent_id="agent",
             access_mode="writable",  # type: ignore[arg-type]
+        )
+
+
+def test_shared_block_payloads_require_typed_meta_and_required_fields() -> None:
+    with pytest.raises(TypeError, match="meta must be a dict"):
+        SharedBlockAttachment(
+            attachment_id="bad-meta",
+            block_id="block-policy",
+            namespace=_ns(),
+            attached_agent_id="agent",
+            meta=[],  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(InvalidArgumentError, match="last_synced_at is required"):
+        SharedBlockMirror(
+            mirror_id="mirror-missing-time",
+            block_id="block-policy",
+            source_namespace=_ns("owner"),
+            mirror_namespace=_ns("agent"),
+            source_hash="hash-1",
+            mirror_hash="hash-1",
+            last_synced_at="",
+        )
+
+    with pytest.raises(
+        InvalidArgumentError, match="base_hash and proposed_hash are required"
+    ):
+        create_shared_block_conflict(
+            block_id="block-policy",
+            namespace=_ns("agent"),
+            attempted_by="agent",
+            reason="read_only_shared_block",
+            base_hash="",
+            proposed_hash="hash-2",
+            created_at="2026-05-31T00:10:00+00:00",
+        )
+
+    with pytest.raises(TypeError, match="meta must be a dict"):
+        SharedBlockUsageEvent(
+            event_id="usage-bad-meta",
+            block_id="block-policy",
+            namespace=_ns("a"),
+            agent_id="a",
+            action="read",
+            occurred_at="2026-05-31T00:03:00+00:00",
+            meta=[],  # type: ignore[arg-type]
         )
 
 

@@ -70,6 +70,26 @@ SUMMARY_INVALIDATION_REASONS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _require_namespace(namespace: MemoryNamespace) -> None:
+    if not isinstance(namespace, MemoryNamespace):
+        raise InvalidArgumentError("namespace must be MemoryNamespace")
+
+
+def _require_mapping(value: Mapping[str, Any], field_name: str) -> None:
+    if not isinstance(value, Mapping):
+        raise InvalidArgumentError(f"{field_name} must be a Mapping[str, Any]")
+
+
+def _require_provenance(provenance: EntityFactProvenance | None) -> None:
+    if provenance is not None and not isinstance(provenance, EntityFactProvenance):
+        raise InvalidArgumentError("provenance must be EntityFactProvenance")
+
+
+def _require_confidence(value: float, field_name: str = "confidence") -> None:
+    if not (0.0 <= value <= 1.0):
+        raise InvalidArgumentError(f"{field_name} must be in [0.0, 1.0]")
+
+
 @dataclass(frozen=True)
 class EntityFactProvenance:
     """Caller-supplied provenance for entity/fact DTOs."""
@@ -88,8 +108,7 @@ class EntityFactProvenance:
             raise InvalidArgumentError("provenance.source_id is required")
         if not self.actor:
             raise InvalidArgumentError("provenance.actor is required")
-        if not isinstance(self.extra, Mapping):
-            raise InvalidArgumentError("provenance.extra must be a Mapping[str, Any]")
+        _require_mapping(self.extra, "provenance.extra")
 
 
 @dataclass(frozen=True)
@@ -112,14 +131,10 @@ class Entity:
             raise InvalidArgumentError("entity_id is required")
         if not self.canonical_name:
             raise InvalidArgumentError("canonical_name is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
-        if not isinstance(self.provenance, EntityFactProvenance):
-            raise InvalidArgumentError("provenance must be EntityFactProvenance")
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
-        if not (0.0 <= self.confidence <= 1.0):
-            raise InvalidArgumentError("confidence must be in [0.0, 1.0]")
+        _require_namespace(self.namespace)
+        _require_provenance(self.provenance)
+        _require_mapping(self.meta, "meta")
+        _require_confidence(self.confidence)
 
 
 @dataclass(frozen=True)
@@ -145,12 +160,9 @@ class EntityAlias:
             raise InvalidArgumentError("entity_id is required")
         if not self.original_entity_id:
             raise InvalidArgumentError("original_entity_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
-        if not isinstance(self.provenance, EntityFactProvenance):
-            raise InvalidArgumentError("provenance must be EntityFactProvenance")
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+        _require_namespace(self.namespace)
+        _require_provenance(self.provenance)
+        _require_mapping(self.meta, "meta")
 
 
 @dataclass(frozen=True)
@@ -179,8 +191,7 @@ class Fact:
     def __post_init__(self) -> None:
         if not self.fact_id:
             raise InvalidArgumentError("fact_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
+        _require_namespace(self.namespace)
         if not self.subject_entity_id:
             raise InvalidArgumentError("subject_entity_id is required")
         if not self.predicate:
@@ -189,12 +200,8 @@ class Fact:
             raise InvalidArgumentError(
                 "fact requires either object_entity_id or object_literal"
             )
-        if self.provenance is not None and not isinstance(
-            self.provenance, EntityFactProvenance
-        ):
-            raise InvalidArgumentError("provenance must be EntityFactProvenance")
-        if not (0.0 <= self.confidence <= 1.0):
-            raise InvalidArgumentError("confidence must be in [0.0, 1.0]")
+        _require_provenance(self.provenance)
+        _require_confidence(self.confidence)
         if (
             self.valid_from is not None
             and self.valid_to is not None
@@ -208,8 +215,7 @@ class Fact:
                 raise InvalidArgumentError(
                     "source_episode_ids must contain non-empty strings"
                 )
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+        _require_mapping(self.meta, "meta")
 
     @property
     def is_invalidated(self) -> bool:
@@ -233,8 +239,7 @@ class Contradiction:
     def __post_init__(self) -> None:
         if not self.contradiction_id:
             raise InvalidArgumentError("contradiction_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
+        _require_namespace(self.namespace)
         if not self.target_fact_id:
             raise InvalidArgumentError("target_fact_id is required")
         if not self.contradicting_fact_id:
@@ -251,8 +256,7 @@ class Contradiction:
             raise InvalidArgumentError("deciding_actor is required")
         if not self.decided_at:
             raise InvalidArgumentError("decided_at is required")
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+        _require_mapping(self.meta, "meta")
 
 
 @dataclass(frozen=True)
@@ -279,14 +283,12 @@ class EntitySummary:
             raise InvalidArgumentError("summary_id is required")
         if not self.entity_id:
             raise InvalidArgumentError("entity_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
+        _require_namespace(self.namespace)
         if not self.summary_text:
             raise InvalidArgumentError(
                 "summary_text is required (the package never generates it)"
             )
-        if not isinstance(self.provenance, EntityFactProvenance):
-            raise InvalidArgumentError("provenance must be EntityFactProvenance")
+        _require_provenance(self.provenance)
         if self.authorship not in SUMMARY_AUTHORSHIPS:
             raise InvalidArgumentError(
                 f"invalid summary authorship: {self.authorship!r}"
@@ -317,8 +319,7 @@ class EntitySummary:
             raise InvalidArgumentError(
                 "privacy_policy must be PrivacyPolicyState or None"
             )
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+        _require_mapping(self.meta, "meta")
 
     @property
     def is_invalidated(self) -> bool:

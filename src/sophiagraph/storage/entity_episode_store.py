@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from sophiagraph.contracts.errors import InvalidSupersessionError
+from sophiagraph.contracts.errors import InvalidArgumentError, InvalidSupersessionError
 from sophiagraph.models import (
     Contradiction,
     Decision,
@@ -33,6 +33,22 @@ class RawEpisodeListOptions:
     occurred_before: str | None = None
     include_invalidated: bool = False
     limit: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.namespaces is not None and any(
+            not isinstance(namespace, MemoryNamespace) for namespace in self.namespaces
+        ):
+            raise InvalidArgumentError("namespaces must contain MemoryNamespace values")
+        if self.limit is not None and self.limit <= 0:
+            raise InvalidArgumentError("limit must be positive")
+        if (
+            self.occurred_after is not None
+            and self.occurred_before is not None
+            and self.occurred_after > self.occurred_before
+        ):
+            raise InvalidArgumentError(
+                "occurred_after must be less than or equal to occurred_before"
+            )
 
 
 def entity_passes(

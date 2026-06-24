@@ -161,8 +161,6 @@ def _assert_iterable(
             )  # allow-bare-raise: defensive type guard in dataclass __post_init__
 
 
-_coerce_temporal_dt = None
-
 __all__ = [
     "Scope",
     "ScopeKind",

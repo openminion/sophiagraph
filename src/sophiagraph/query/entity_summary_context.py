@@ -45,6 +45,28 @@ SUMMARY_CONTEXT_OMISSION_REASONS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _require_non_empty_string_list(
+    values: Sequence[str] | None,
+    field_name: str,
+) -> None:
+    if values is None:
+        return
+    if any(not isinstance(value, str) or not value.strip() for value in values):
+        raise InvalidArgumentError(f"{field_name} cannot contain empty values")
+
+
+def _require_namespace_list(values: Sequence[MemoryNamespace] | None) -> None:
+    if values is None:
+        return
+    if any(not isinstance(value, MemoryNamespace) for value in values):
+        raise InvalidArgumentError("namespaces must contain MemoryNamespace values")
+
+
+def _require_mapping(value: Mapping[str, Any], field_name: str) -> None:
+    if not isinstance(value, Mapping):
+        raise InvalidArgumentError(f"{field_name} must be a mapping")
+
+
 @dataclass(frozen=True)
 class SummaryContextRequest:
     """One deterministic summary-context retrieval request."""
@@ -60,6 +82,9 @@ class SummaryContextRequest:
             raise InvalidArgumentError(
                 "summary context requires summary_ids or entity_ids"
             )
+        _require_non_empty_string_list(self.summary_ids, "summary_ids")
+        _require_non_empty_string_list(self.entity_ids, "entity_ids")
+        _require_namespace_list(self.namespaces)
         if not isinstance(self.budget, ContextBudget):
             raise InvalidArgumentError("budget must be a ContextBudget")
 
@@ -88,6 +113,15 @@ class SummaryContextItem:
             raise InvalidArgumentError("namespace must be a MemoryNamespace")
         if not isinstance(self.summary_text, str) or not self.summary_text:
             raise InvalidArgumentError("summary_text is required")
+        if not self.authorship:
+            raise InvalidArgumentError("authorship is required")
+        if not self.created_at:
+            raise InvalidArgumentError("created_at is required")
+        if not self.updated_at:
+            raise InvalidArgumentError("updated_at is required")
+        _require_non_empty_string_list(self.source_record_ids, "source_record_ids")
+        _require_mapping(self.provenance, "provenance")
+        _require_mapping(self.detail, "detail")
 
 
 @dataclass(frozen=True)
@@ -104,6 +138,7 @@ class SummaryContextOmission:
             raise InvalidArgumentError("summary_id is required")
         if self.reason not in SUMMARY_CONTEXT_OMISSION_REASONS:
             raise InvalidArgumentError(f"invalid omission reason: {self.reason!r}")
+        _require_mapping(self.detail, "detail")
 
 
 @dataclass(frozen=True)

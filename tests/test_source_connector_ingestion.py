@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.connectors import (
     SourceIngestEnvelope,
     SourceRegistryEntry,
@@ -97,7 +98,7 @@ def test_connector_ingest_rejects_namespace_mismatch() -> None:
         content_hash="hash-1",
     )
 
-    with pytest.raises(Exception, match="namespace"):
+    with pytest.raises(InvalidArgumentError, match="namespace"):
         decide_source_ingest(source, envelope)
 
 
@@ -113,7 +114,7 @@ def test_metadata_only_source_rejects_payload_body() -> None:
         permission_scope="metadata_only",
     )
 
-    with pytest.raises(Exception, match="metadata_only"):
+    with pytest.raises(InvalidArgumentError, match="metadata_only"):
         decide_source_ingest(source, envelope)
 
 

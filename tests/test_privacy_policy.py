@@ -119,6 +119,26 @@ def test_privacy_policy_round_trips_through_record_meta() -> None:
     assert policy.retention_class == "redact_and_retain"
 
 
+def test_privacy_from_dict_rejects_none_required_strings_and_bad_details() -> None:
+    with pytest.raises(InvalidArgumentError, match="policy_id is required"):
+        PrivacyPolicyState.from_dict(
+            {
+                "policy_id": None,
+                "consent": {"status": "granted"},
+                "retrieval_visibility": "visible",
+                "export_visibility": "visible",
+                "retention_class": "retain",
+                "erase_intent": "none",
+                "decision_reason": "explicit_allow",
+                "source_owner": "openminion",
+                "applied_at": utc_now_iso(),
+            }
+        )
+
+    with pytest.raises(InvalidArgumentError, match="details must be a dict"):
+        ConsentState.from_dict({"status": "granted", "details": ["bad"]})
+
+
 @pytest.mark.parametrize("backend", ["memory", "sqlite"])
 def test_privacy_policy_storage_and_bundle_round_trip(
     backend: str, tmp_path: Path

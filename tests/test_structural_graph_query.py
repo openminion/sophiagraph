@@ -4,6 +4,7 @@ from dataclasses import asdict
 
 import pytest
 
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
     MemoryNamespace,
     MemoryRecord,
@@ -205,7 +206,7 @@ def test_global_mode_does_not_map_to_backend_query() -> None:
         scopes=["agent:agent"],
     )
 
-    with pytest.raises(Exception, match="only pattern-mode"):
+    with pytest.raises(InvalidArgumentError, match="only pattern-mode"):
         structural_graph_query_to_backend_query(request)
 
 

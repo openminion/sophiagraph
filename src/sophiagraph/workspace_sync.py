@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from time import sleep
 from typing import Any, Literal
 
@@ -14,7 +14,6 @@ from sophiagraph.freshness import (
     FreshnessLedgerEntry,
     FreshnessStatus,
 )
-from sophiagraph.human import archive_human_note, note_record_id_for
 from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.sync import (
@@ -26,11 +25,11 @@ from sophiagraph.sync import (
 )
 from sophiagraph.temporal import utc_now_iso_seconds
 from sophiagraph.vault import VaultFilePayload, VaultImportOptions, import_vault_files
-from sophiagraph.workspace import (
-    collect_workspace_import_files,
-    load_workspace_import_profile,
-    load_workspace_metadata,
-    open_workspace_store,
+from sophiagraph.workspace import collect_workspace_import_files
+from sophiagraph.workspace_common import (
+    normalize_workspace_relative_path,
+    normalize_workspace_root,
+    open_workspace_sync_context,
 )
 
 WorkspaceFileDeltaKind = Literal[
@@ -44,33 +43,16 @@ WorkspaceFileDeltaKind = Literal[
 _WORKSPACE_SYNC_META_KEY = "workspace_sync"
 
 
-def _normalize_root(root: str | Path) -> Path:
-    return Path(root).expanduser().resolve()
-
-
 def _normalized_root_label(root: Path) -> str:
     return root.as_posix()
 
 
-def _validate_relative_path(path: str) -> str:
-    if not path:
-        raise InvalidArgumentError("relative_path is required")
-    normalized = PurePosixPath(path).as_posix()
-    if (
-        normalized.startswith("/")
-        or normalized.startswith("../")
-        or "/../" in normalized
-    ):
-        raise InvalidArgumentError("relative_path must stay under the source root")
-    return normalized
-
-
 def _workspace_file_source_id(relative_path: str) -> str:
-    return f"workspace-file:{_validate_relative_path(relative_path)}"
+    return f"workspace-file:{normalize_workspace_relative_path(relative_path)}"
 
 
 def _workspace_root_source_id(source_root: str | Path) -> str:
-    normalized = _normalized_root_label(_normalize_root(source_root))
+    normalized = _normalized_root_label(normalize_workspace_root(source_root))
     digest = sha256(normalized.encode("utf-8")).hexdigest()[:16]
     return f"workspace-root:{digest}"
 
@@ -83,12 +65,6 @@ def _combined_hash(payloads: list[VaultFilePayload]) -> str:
         digest.update(payload.content_hash.encode("utf-8"))
         digest.update(b"\0")
     return digest.hexdigest()
-
-
-def _record_text(record: MemoryRecord) -> str:
-    if isinstance(record.content, str):
-        return record.content
-    return str(record.content.get("source_text") or record.content.get("text") or "")
 
 
 def _record_vault_hash(record: MemoryRecord | None) -> str | None:
@@ -127,7 +103,7 @@ def _relative_path_from_source_id(source_id: str) -> str:
         raise InvalidArgumentError(
             "workspace file source ids must start with workspace-file:"
         )
-    return _validate_relative_path(source_id.split("workspace-file:", 1)[1])
+    return normalize_workspace_relative_path(source_id.split("workspace-file:", 1)[1])
 
 
 def _entry_sort_key(entry: FreshnessLedgerEntry) -> tuple[str, str]:
@@ -143,15 +119,6 @@ def _record_for_entry(
         if record is not None:
             return record
     return None
-
-
-def _workspace_sync_options(
-    workspace_root: str | Path,
-) -> tuple[SophiaGraphStore, Any, Any]:
-    metadata = load_workspace_metadata(workspace_root)
-    profile = load_workspace_import_profile(workspace_root)
-    store = open_workspace_store(workspace_root)
-    return store, metadata, profile
 
 
 def _vault_import_options(metadata: Any, profile: Any) -> VaultImportOptions:
@@ -233,21 +200,6 @@ def _sync_request_for_entry(
     )
 
 
-def _markdown_for_note(
-    *,
-    title: str,
-    body: str,
-    tags: tuple[str, ...],
-) -> str:
-    lines = ["---", f"title: {title}"]
-    if tags:
-        lines.append("tags:")
-        for tag in tags:
-            lines.append(f"  - {tag}")
-    lines.extend(["---", f"# {title}", "", body.rstrip(), ""])
-    return "\n".join(lines)
-
-
 @dataclass(frozen=True, slots=True)
 class WorkspaceSourceLedgerEntry:
     namespace: MemoryNamespace
@@ -263,7 +215,9 @@ class WorkspaceSourceLedgerEntry:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, "relative_path", _validate_relative_path(self.relative_path)
+            self,
+            "relative_path",
+            normalize_workspace_relative_path(self.relative_path),
         )
         if not isinstance(self.namespace, MemoryNamespace):
             raise TypeError("namespace must be MemoryNamespace")
@@ -273,7 +227,7 @@ class WorkspaceSourceLedgerEntry:
             raise InvalidArgumentError(f"invalid status: {self.status!r}")
 
     def to_freshness_entry(self, *, source_root: str | Path) -> FreshnessLedgerEntry:
-        root = _normalize_root(source_root)
+        root = normalize_workspace_root(source_root)
         return FreshnessLedgerEntry.create(
             namespace=self.namespace,
             source_kind="file",
@@ -359,13 +313,15 @@ class WorkspaceFileDelta:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, "relative_path", _validate_relative_path(self.relative_path)
+            self,
+            "relative_path",
+            normalize_workspace_relative_path(self.relative_path),
         )
         if self.previous_relative_path is not None:
             object.__setattr__(
                 self,
                 "previous_relative_path",
-                _validate_relative_path(self.previous_relative_path),
+                normalize_workspace_relative_path(self.previous_relative_path),
             )
         if self.kind not in {"created", "modified", "deleted", "renamed", "conflict"}:
             raise InvalidArgumentError(f"invalid delta kind: {self.kind!r}")
@@ -561,52 +517,6 @@ class WorkspaceSyncStatus:
 
 
 @dataclass(frozen=True, slots=True)
-class WorkspaceFilePrimaryNoteOptions:
-    note_key: str
-    title: str
-    body: str
-    tags: tuple[str, ...] = ()
-    relative_path: str | None = None
-
-    def __post_init__(self) -> None:
-        if not self.note_key:
-            raise InvalidArgumentError("note_key is required")
-        if not self.title:
-            raise InvalidArgumentError("title is required")
-        if not self.body:
-            raise InvalidArgumentError("body is required")
-        if self.relative_path is not None:
-            object.__setattr__(
-                self, "relative_path", _validate_relative_path(self.relative_path)
-            )
-
-
-@dataclass(frozen=True, slots=True)
-class WorkspaceFilePrimaryNoteResult:
-    relative_path: str
-    record_id: str
-    written_at: str
-    apply_result: WorkspaceSyncApplyResult
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "relative_path": self.relative_path,
-            "record_id": self.record_id,
-            "written_at": self.written_at,
-            "apply_result": self.apply_result.to_dict(),
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WorkspaceFilePrimaryNoteResult":
-        return cls(
-            relative_path=str(data["relative_path"]),
-            record_id=str(data["record_id"]),
-            written_at=str(data["written_at"]),
-            apply_result=WorkspaceSyncApplyResult.from_dict(data["apply_result"]),
-        )
-
-
-@dataclass(frozen=True, slots=True)
 class WorkspacePollCycle:
     cycle_index: int
     status: WorkspaceSyncStatus
@@ -646,8 +556,8 @@ def scan_workspace_sync(
     workspace_root: str | Path,
     source_root: str | Path,
 ) -> WorkspaceSyncPlan:
-    source_root_path = _normalize_root(source_root)
-    store, metadata, _profile = _workspace_sync_options(workspace_root)
+    source_root_path = normalize_workspace_root(source_root)
+    store, metadata, _profile = open_workspace_sync_context(workspace_root)
     observed_at = utc_now_iso_seconds()
     payloads = _build_file_payload_map(source_root_path)
     ledger_by_path = _workspace_sync_entries(
@@ -863,7 +773,7 @@ def scan_workspace_sync(
         )
     )
     return WorkspaceSyncPlan(
-        workspace_root=str(_normalize_root(workspace_root)),
+        workspace_root=str(normalize_workspace_root(workspace_root)),
         source_root=str(source_root_path),
         namespace=metadata.namespace,
         observed_at=observed_at,
@@ -908,8 +818,8 @@ def apply_workspace_sync(
     *,
     plan: WorkspaceSyncPlan | None = None,
 ) -> WorkspaceSyncApplyResult:
-    source_root_path = _normalize_root(source_root)
-    store, metadata, profile = _workspace_sync_options(workspace_root)
+    source_root_path = normalize_workspace_root(source_root)
+    store, metadata, profile = open_workspace_sync_context(workspace_root)
     active_plan = plan or scan_workspace_sync(workspace_root, source_root_path)
     payloads = _build_file_payload_map(source_root_path)
     applied_at = utc_now_iso_seconds()
@@ -1037,7 +947,7 @@ def apply_workspace_sync(
     )
     source_entry_id = store.put_source_entry(source_entry)
     return WorkspaceSyncApplyResult(
-        workspace_root=str(_normalize_root(workspace_root)),
+        workspace_root=str(normalize_workspace_root(workspace_root)),
         source_root=str(source_root_path),
         namespace=metadata.namespace,
         applied_at=applied_at,
@@ -1057,8 +967,8 @@ def workspace_sync_status(
     *,
     plan: WorkspaceSyncPlan | None = None,
 ) -> WorkspaceSyncStatus:
-    source_root_path = _normalize_root(source_root)
-    store, metadata, _profile = _workspace_sync_options(workspace_root)
+    source_root_path = normalize_workspace_root(source_root)
+    store, metadata, _profile = open_workspace_sync_context(workspace_root)
     entries = list(
         _workspace_sync_entries(
             store, namespace=metadata.namespace, source_root=source_root_path
@@ -1092,7 +1002,7 @@ def workspace_sync_status(
         ]
     )
     return WorkspaceSyncStatus(
-        workspace_root=str(_normalize_root(workspace_root)),
+        workspace_root=str(normalize_workspace_root(workspace_root)),
         source_root=str(source_root_path),
         namespace=metadata.namespace,
         tracked_count=len(entries),
@@ -1143,144 +1053,16 @@ def poll_workspace_sync(
     return tuple(cycles_out)
 
 
-def _update_record_human_note_meta(
-    store: SophiaGraphStore,
-    *,
-    record_id: str,
-    note_key: str,
-) -> MemoryRecord:
-    record = store.get_record(record_id)
-    if record is None:
-        raise NotFoundError(f"record not found after sync: {record_id}")
-    updated = replace(
-        record,
-        meta={
-            **dict(record.meta),
-            "human_note": {
-                **dict(record.meta.get("human_note") or {}),
-                "note_key": note_key,
-                "workspace": "local_human_notes",
-                "archived": False,
-            },
-        },
-    )
-    store.put_record(updated)
-    return updated
-
-
-def _archive_legacy_note_if_needed(
-    store: SophiaGraphStore,
-    *,
-    scope: str,
-    namespace: MemoryNamespace,
-    note_key: str,
-    replacement_record_id: str,
-) -> None:
-    legacy_id = note_record_id_for(scope, namespace, note_key)
-    if legacy_id == replacement_record_id:
-        return
-    legacy_record = store.get_record(legacy_id)
-    if legacy_record is None:
-        return
-    note_meta = legacy_record.meta.get("human_note")
-    if not isinstance(note_meta, dict):
-        return
-    archive_human_note(
-        store,
-        record_id=legacy_id,
-        archived_at=utc_now_iso_seconds(),
-        reason="materialized into file-primary workspace sync record",
-    )
-
-
-def workspace_file_primary_note_put(
-    workspace_root: str | Path,
-    source_root: str | Path,
-    *,
-    options: WorkspaceFilePrimaryNoteOptions,
-) -> WorkspaceFilePrimaryNoteResult:
-    source_root_path = _normalize_root(source_root)
-    source_root_path.mkdir(parents=True, exist_ok=True)
-    relative_path = options.relative_path or f"notes/{options.note_key}.md"
-    relative_path = _validate_relative_path(relative_path)
-    if not relative_path.endswith(".md"):
-        raise InvalidArgumentError("file-primary note paths must end with .md")
-    markdown = _markdown_for_note(
-        title=options.title,
-        body=options.body,
-        tags=options.tags,
-    )
-    target = source_root_path / Path(relative_path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    written_at = utc_now_iso_seconds()
-    target.write_text(markdown, encoding="utf-8")
-    apply_result = apply_workspace_sync(workspace_root, source_root_path)
-    record_id = apply_result.path_record_ids.get(relative_path)
-    if record_id is None:
-        raise NotFoundError(f"synced record missing for {relative_path}")
-    store, metadata, _profile = _workspace_sync_options(workspace_root)
-    updated = _update_record_human_note_meta(
-        store,
-        record_id=record_id,
-        note_key=options.note_key,
-    )
-    _archive_legacy_note_if_needed(
-        store,
-        scope=metadata.scope,
-        namespace=metadata.namespace,
-        note_key=options.note_key,
-        replacement_record_id=updated.id,
-    )
-    return WorkspaceFilePrimaryNoteResult(
-        relative_path=relative_path,
-        record_id=updated.id,
-        written_at=written_at,
-        apply_result=apply_result,
-    )
-
-
-def materialize_workspace_note(
-    workspace_root: str | Path,
-    source_root: str | Path,
-    *,
-    record_id: str,
-    relative_path: str | None = None,
-) -> WorkspaceFilePrimaryNoteResult:
-    store, _metadata, _profile = _workspace_sync_options(workspace_root)
-    record = store.get_record(record_id)
-    if record is None:
-        raise NotFoundError(f"record not found: {record_id}")
-    note_meta = record.meta.get("human_note")
-    if not isinstance(note_meta, dict):
-        raise InvalidArgumentError("record is not a human-managed note")
-    note_key = str(note_meta.get("note_key") or record.key or record.id)
-    return workspace_file_primary_note_put(
-        workspace_root,
-        source_root,
-        options=WorkspaceFilePrimaryNoteOptions(
-            note_key=note_key,
-            title=str(record.title or note_key),
-            body=_record_text(record),
-            tags=tuple(record.tags),
-            relative_path=relative_path or f"notes/{note_key}.md",
-        ),
-    )
-
-
 __all__ = [
     "WorkspaceFileDelta",
     "WorkspaceFileDeltaKind",
-    "WorkspaceFilePrimaryNoteOptions",
-    "WorkspaceFilePrimaryNoteResult",
     "WorkspacePollCycle",
     "WorkspaceSourceLedgerEntry",
     "WorkspaceSyncApplyResult",
     "WorkspaceSyncPlan",
     "WorkspaceSyncStatus",
     "apply_workspace_sync",
-    "materialize_workspace_note",
     "poll_workspace_sync",
     "scan_workspace_sync",
-    "workspace_file_primary_note_put",
     "workspace_sync_status",
 ]
