@@ -39,6 +39,9 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.workspace`
 - `sophiagraph.workspace_sync`
 - `sophiagraph.okf`
+- `sophiagraph.candidate_review`
+- `sophiagraph.workspace_history`
+- `sophiagraph.templates`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -200,6 +203,33 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.write_okf_bundle(...)`
 - `sophiagraph.import_okf_bundle_into_store(...)`
 - `sophiagraph.build_okf_navigation_packet(...)`
+- `sophiagraph.CandidateQueueOptions`
+- `sophiagraph.CandidateQueueItem`
+- `sophiagraph.CandidateReviewDecision`
+- `sophiagraph.CandidatePromotionPlan`
+- `sophiagraph.CandidatePromotionResult`
+- `sophiagraph.list_candidate_queue(...)`
+- `sophiagraph.apply_candidate_review(...)`
+- `sophiagraph.build_candidate_promotion_plan(...)`
+- `sophiagraph.apply_candidate_promotion_plan(...)`
+- `sophiagraph.WorkspaceRevision`
+- `sophiagraph.WorkspaceHistoryOptions`
+- `sophiagraph.WorkspaceDiffEntry`
+- `sophiagraph.WorkspaceDiffSummary`
+- `sophiagraph.WorkspaceRestorePlan`
+- `sophiagraph.WorkspaceRestoreResult`
+- `sophiagraph.capture_workspace_revision(...)`
+- `sophiagraph.list_workspace_history(...)`
+- `sophiagraph.diff_workspace_revisions(...)`
+- `sophiagraph.build_workspace_restore_plan(...)`
+- `sophiagraph.apply_workspace_restore_plan(...)`
+- `sophiagraph.TemplateField`
+- `sophiagraph.ObjectTemplate`
+- `sophiagraph.CreationForm`
+- `sophiagraph.CreationPlan`
+- `sophiagraph.CreationApplyResult`
+- `sophiagraph.build_creation_plan(...)`
+- `sophiagraph.apply_creation_plan(...)`
 - `sophiagraph.StructuralGraphQueryRequest`
 - `sophiagraph.StructuralGraphQueryResult`
 - `sophiagraph.StructuralGraphPlannerStage`

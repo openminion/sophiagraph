@@ -84,7 +84,7 @@ def test_sophiagraph_ui_preview_server_serves_visual_routes() -> None:
 
     assert "Provider Status" in views_html
     assert "OpenMinion Integration" in views_html
-    assert "href='/graph'" in views_html
+    assert "href='/graph" in views_html
     assert "Neighborhood" in graph_html
 
 

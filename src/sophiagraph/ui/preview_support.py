@@ -92,8 +92,11 @@ def screen_from_path(path: str) -> PreviewScreen | None:
 def server_html(html: str) -> str:
     replacements = {
         "href='/provider_status'": "href='/schema'",
+        "href='/provider_status?": "href='/schema?",
         "href='/context_preview'": "href='/candidates'",
+        "href='/context_preview?": "href='/candidates?",
         "href='/neighborhood'": "href='/graph'",
+        "href='/neighborhood?": "href='/graph?",
     }
     for source, target in replacements.items():
         html = html.replace(source, target)

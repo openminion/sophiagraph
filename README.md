@@ -72,6 +72,9 @@ and should be treated as a scam.
   deterministic live workspace sync, UI boundary contracts in
   `sophiagraph.ui`, and the `sophiagraph.okf` bundle profile for import/export
   workflows
+- Human workflow helpers: candidate review/promotion queues, workspace
+  history/recovery previews, and typed object templates for explicit
+  creation flows
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 

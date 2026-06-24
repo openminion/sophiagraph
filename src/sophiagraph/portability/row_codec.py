@@ -61,6 +61,8 @@ def _artifact_refs_from_payload(raw_refs: Any) -> list[ArtifactRef]:
 
 
 def _review_from_payload(raw_review: Any) -> CandidateReview | None:
+    if isinstance(raw_review, CandidateReview):
+        return raw_review
     if not isinstance(raw_review, dict):
         return None
     return CandidateReview(
