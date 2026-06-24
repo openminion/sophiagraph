@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-import importlib
 import json
 from pathlib import Path
 from typing import Any
@@ -24,9 +23,15 @@ from .base import (
     schema_result_row,
     shortest_path_from_edges,
 )
-from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
 from sophiagraph.schema import GraphSchema
+from .kuzu_support import (
+    as_optional_str,
+    import_kuzu,
+    load_schema_from_json,
+    memory_namespace_from_row,
+    row_namespace,
+)
 
 _NODE_TABLE = "SGNode"
 _EDGE_TABLE = "SGEdge"
@@ -39,7 +44,7 @@ class KuzuGraphBackendAdapter:
     def __init__(self, db_path: str | Path) -> None:
         self._db_path = Path(db_path)
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        kuzu = _import_kuzu()
+        kuzu = import_kuzu()
         self._db = kuzu.Database(str(self._db_path))
         self._conn = kuzu.Connection(self._db)
         self._capabilities = GraphBackendCapabilities(
@@ -255,8 +260,8 @@ class KuzuGraphBackendAdapter:
             relation_type = str(row["relation_type"])
             if query.relation_types and relation_type not in query.relation_types:
                 continue
-            target_namespace = _row_namespace(row, prefix="target_")
-            edge_namespace = _row_namespace(row, prefix="edge_")
+            target_namespace = row_namespace(row, prefix="target_")
+            edge_namespace = row_namespace(row, prefix="edge_")
             if not namespace_matches_filter(target_namespace, query.namespace):
                 continue
             if not namespace_matches_filter(edge_namespace, query.namespace):
@@ -267,16 +272,14 @@ class KuzuGraphBackendAdapter:
                     edge_ids=[str(row["edge_id"])],
                     properties={
                         "relation_type": relation_type,
-                        "labels": decode_json_list(
-                            _as_optional_str(row["labels_json"])
-                        ),
+                        "labels": decode_json_list(as_optional_str(row["labels_json"])),
                         "target_namespace": target_namespace,
                         "edge_namespace": edge_namespace,
                         "target_properties": decode_json_object(
-                            _as_optional_str(row["target_properties_json"])
+                            as_optional_str(row["target_properties_json"])
                         ),
                         "edge_properties": decode_json_object(
-                            _as_optional_str(row["edge_properties_json"])
+                            as_optional_str(row["edge_properties_json"])
                         ),
                     },
                 )
@@ -320,17 +323,15 @@ class KuzuGraphBackendAdapter:
         rows = self._rows_as_dict(self._execute(statement, params))
         normalized: list[GraphBackendResultRow] = []
         for row in rows:
-            properties = decode_json_object(_as_optional_str(row["properties_json"]))
+            properties = decode_json_object(as_optional_str(row["properties_json"]))
             if not property_filters_match(properties, query.property_filters):
                 continue
             normalized.append(
                 GraphBackendResultRow(
                     node_ids=[str(row["node_id"])],
                     properties={
-                        "labels": decode_json_list(
-                            _as_optional_str(row["labels_json"])
-                        ),
-                        "namespace": _row_namespace(row, prefix=""),
+                        "labels": decode_json_list(as_optional_str(row["labels_json"])),
+                        "namespace": row_namespace(row, prefix=""),
                         **properties,
                     },
                 )
@@ -366,31 +367,7 @@ class KuzuGraphBackendAdapter:
         )
         if not rows:
             return None
-        raw = _as_optional_str(rows[0]["meta_value"])
-        if not raw:
-            return None
-        data = json.loads(raw)
-        if not isinstance(data, dict):
-            raise InvalidArgumentError("stored schema payload must be a dict")
-        return GraphSchema(
-            node_labels=[str(item) for item in data.get("node_labels", [])],
-            relation_types=[str(item) for item in data.get("relation_types", [])],
-            property_keys={
-                str(key): [str(item) for item in values]
-                for key, values in dict(data.get("property_keys", {})).items()
-            },
-            namespace_dimensions=[
-                str(item) for item in data.get("namespace_dimensions", [])
-            ],
-            edge_constraints=[
-                {str(key): str(value) for key, value in item.items()}
-                for item in data.get("edge_constraints", [])
-                if isinstance(item, dict)
-            ],
-            conflicts=[
-                item for item in data.get("conflicts", []) if isinstance(item, dict)
-            ],
-        )
+        return load_schema_from_json(as_optional_str(rows[0]["meta_value"]))
 
     def _all_edges(
         self, *, namespace_filter: MemoryNamespace | None = None
@@ -418,7 +395,7 @@ class KuzuGraphBackendAdapter:
         )
         edges: list[GraphExportEdge] = []
         for row in rows:
-            namespace = _memory_namespace_from_row(row, prefix="")
+            namespace = memory_namespace_from_row(row, prefix="")
             if namespace_filter is not None and not namespace.matches(namespace_filter):
                 continue
             edges.append(
@@ -429,7 +406,7 @@ class KuzuGraphBackendAdapter:
                     relation_type=str(row["relation_type"]),
                     namespace=namespace,
                     properties=decode_json_object(
-                        _as_optional_str(row["edge_properties_json"])
+                        as_optional_str(row["edge_properties_json"])
                     ),
                 )
             )
@@ -448,44 +425,6 @@ class KuzuGraphBackendAdapter:
             values = result.get_next()
             rows.append(dict(zip(columns, values, strict=True)))
         return rows
-
-
-def _import_kuzu():
-    try:
-        return importlib.import_module("kuzu")
-    except ImportError as exc:
-        raise ImportError(
-            "KuzuGraphBackendAdapter requires the optional 'kuzu' dependency. "
-            "Install it with `pip install sophiagraph[kuzu]`."
-        ) from exc
-
-
-def _as_optional_str(value: Any) -> str | None:
-    if value is None:
-        return None
-    return str(value)
-
-
-def _row_namespace(row: dict[str, Any], *, prefix: str) -> dict[str, str]:
-    return {
-        field: str(row[f"{prefix}{field}"])
-        for field in (
-            "tenant_id",
-            "org_id",
-            "user_id",
-            "agent_id",
-            "session_id",
-            "conversation_id",
-            "project_id",
-            "graph_id",
-        )
-        if row.get(f"{prefix}{field}") is not None
-    }
-
-
-def _memory_namespace_from_row(row: dict[str, Any], *, prefix: str) -> MemoryNamespace:
-    values = _row_namespace(row, prefix=prefix)
-    return MemoryNamespace.from_dict(values)
 
 
 __all__ = ["KuzuGraphBackendAdapter"]

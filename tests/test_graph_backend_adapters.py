@@ -95,9 +95,9 @@ def backend(request, tmp_path: Path, monkeypatch):
         adapter.upsert_batch(batch)
         return adapter
     if request.param == "neo4j":
-        from sophiagraph.graph_backends import neo4j as neo4j_module
+        from sophiagraph.graph_backends import neo4j_support
 
-        install_fake_neo4j(monkeypatch, neo4j_module.importlib)
+        install_fake_neo4j(monkeypatch, neo4j_support.importlib)
         adapter = Neo4jGraphBackendAdapter("neo4j://fixture")
         adapter.upsert_batch(batch)
         return adapter
@@ -203,23 +203,23 @@ def test_fake_backend_negotiates_pattern_query_support() -> None:
 def test_kuzu_adapter_requires_optional_dependency_message(
     monkeypatch, tmp_path: Path
 ) -> None:
-    from sophiagraph.graph_backends import kuzu as kuzu_module
+    from sophiagraph.graph_backends import kuzu_support
 
     def _raise(name: str):
         raise ImportError(name)
 
-    monkeypatch.setattr(kuzu_module.importlib, "import_module", _raise)
+    monkeypatch.setattr(kuzu_support.importlib, "import_module", _raise)
     with pytest.raises(ImportError, match=r"sophiagraph\[kuzu\]"):
         KuzuGraphBackendAdapter(tmp_path / "missing.kuzu")
 
 
 def test_neo4j_adapter_requires_optional_dependency_message(monkeypatch) -> None:
-    from sophiagraph.graph_backends import neo4j as neo4j_module
+    from sophiagraph.graph_backends import neo4j_support
 
     def _raise(name: str):
         raise ImportError(name)
 
-    monkeypatch.setattr(neo4j_module.importlib, "import_module", _raise)
+    monkeypatch.setattr(neo4j_support.importlib, "import_module", _raise)
     with pytest.raises(ImportError, match=r"sophiagraph\[neo4j\]"):
         Neo4jGraphBackendAdapter("neo4j://missing")
 

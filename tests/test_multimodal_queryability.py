@@ -184,6 +184,23 @@ def test_projection_enums_and_citation_union_are_closed() -> None:
         )
 
 
+def test_projection_segment_from_dict_preserves_invalid_negative_ordinal() -> None:
+    with pytest.raises(InvalidArgumentError, match="ordinal must be non-negative"):
+        ArtifactProjectionSegment.from_dict(
+            {
+                "segment_id": "seg-1",
+                "ordinal": -1,
+                "text": "bad",
+                "citations": [],
+            }
+        )
+
+
+def test_projection_rejects_non_hex_source_sha256() -> None:
+    with pytest.raises(InvalidArgumentError, match="source_sha256"):
+        _projection(source_sha256="z" * 64)
+
+
 def test_artifact_projection_round_trips_and_marks_superseded(store) -> None:
     store.put_record(_record("rec-1", "Contract terms and payment schedule."))
     store.put_artifact(_artifact())

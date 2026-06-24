@@ -34,12 +34,6 @@ def policy() -> LifecyclePolicy:
 
 
 @pytest.fixture
-def policy_id_for_test_agent() -> str:
-    """The auto-generated policy_id for MemoryNamespace(agent_id='test-agent')."""
-    return "default:agent_id=test-agent"
-
-
-@pytest.fixture
 def store_with_records() -> SophiaGraphMemoryStore:
     store = SophiaGraphMemoryStore()
     # 3 records all under agent-test namespace

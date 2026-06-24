@@ -102,20 +102,22 @@ from sophiagraph.workspace import (
     workspace_status_to_dict,
     workspace_workbench_to_dict,
 )
-from sophiagraph.workspace_sync import (
-    WorkspaceFileDelta,
+from sophiagraph.workspace_notes import (
     WorkspaceFilePrimaryNoteOptions,
     WorkspaceFilePrimaryNoteResult,
+    materialize_workspace_note,
+    workspace_file_primary_note_put,
+)
+from sophiagraph.workspace_sync import (
+    WorkspaceFileDelta,
     WorkspacePollCycle,
     WorkspaceSourceLedgerEntry,
     WorkspaceSyncApplyResult,
     WorkspaceSyncPlan,
     WorkspaceSyncStatus,
     apply_workspace_sync,
-    materialize_workspace_note,
     poll_workspace_sync,
     scan_workspace_sync,
-    workspace_file_primary_note_put,
     workspace_sync_status,
 )
 from sophiagraph.inspection import (

@@ -17,6 +17,7 @@ from sophiagraph.models import (
     RawEpisode,
 )
 from sophiagraph.models.entity_fact import EntityFactProvenance
+from sophiagraph.storage.entity_episode_store import RawEpisodeListOptions
 
 
 def _ns_a() -> MemoryNamespace:
@@ -142,6 +143,25 @@ def test_raw_episode_kinds_enum_is_closed() -> None:
         "validation_result",
         "import_event",
     }
+
+
+def test_raw_episode_list_options_validate_namespaces_limit_and_time_window() -> None:
+    with pytest.raises(
+        InvalidArgumentError, match="namespaces must contain MemoryNamespace values"
+    ):
+        RawEpisodeListOptions(namespaces=[_ns_a(), "bad"])  # type: ignore[list-item]
+
+    with pytest.raises(InvalidArgumentError, match="limit must be positive"):
+        RawEpisodeListOptions(limit=0)
+
+    with pytest.raises(
+        InvalidArgumentError,
+        match="occurred_after must be less than or equal to occurred_before",
+    ):
+        RawEpisodeListOptions(
+            occurred_after="2026-05-29T10:05:00",
+            occurred_before="2026-05-29T10:00:00",
+        )
 
 
 def test_fact_source_episode_ids_round_trip(store) -> None:

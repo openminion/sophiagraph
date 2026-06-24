@@ -20,15 +20,38 @@ def _run(cmd: list[str], *, cwd: Path, extra_env: dict[str, str] | None = None) 
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
 
 
+def _graphfakos_root(root: Path) -> Path | None:
+    candidate = root.parent / "graphfakos"
+    return candidate if (candidate / "pyproject.toml").exists() else None
+
+
+def _test_pythonpath(root: Path) -> str:
+    paths = [str(root / "src")]
+    graphfakos_root = _graphfakos_root(root)
+    if graphfakos_root:
+        paths.insert(0, str(graphfakos_root / "src"))
+    return os.pathsep.join(paths)
+
+
+def _ensure_graphfakos_dist(root: Path, python: str) -> Path | None:
+    graphfakos_root = _graphfakos_root(root)
+    if graphfakos_root is None:
+        return None
+    _run([python, "-m", "build"], cwd=graphfakos_root)
+    return graphfakos_root / "dist"
+
+
 def _assert_package_docs_shape(root: Path) -> None:
     required_paths = [
         root / "docs" / "README.md",
-        root / "docs" / "reference" / "certification-readiness-matrix.md",
-        root / "docs" / "reference" / "standalone-claim-alignment.md",
-        root / "docs" / "reference" / "retrieval-boundary.md",
-        root / "docs" / "reference" / "vector-conformance.md",
-        root / "docs" / "reference" / "workspace-mode.md",
-        root / "docs" / "reference" / "ui-contracts.md",
+        root / "docs" / "certification-readiness-matrix.md",
+        root / "docs" / "human-management.md",
+        root / "docs" / "retrieval-boundary.md",
+        root / "docs" / "source-tree-owner-map.md",
+        root / "docs" / "standalone-claim-alignment.md",
+        root / "docs" / "ui-contracts.md",
+        root / "docs" / "vector-conformance.md",
+        root / "docs" / "workspace-mode.md",
         root / "src" / "sophiagraph" / "README.md",
     ]
     missing = [
@@ -59,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     _run(
         [python, "-m", "pytest", "-q"],
         cwd=root,
-        extra_env={"PYTHONPATH": str(root / "src")},
+        extra_env={"PYTHONPATH": _test_pythonpath(root)},
     )
     _run([python, "-m", "build"], cwd=root)
     if not args.skip_twine:
@@ -81,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
                 cwd=root,
             )
     if not args.skip_wheel_smoke:
+        graphfakos_dist = _ensure_graphfakos_dist(root, python)
         with tempfile.TemporaryDirectory(prefix="sophiagraph-release-") as tmpdir:
             tmp = Path(tmpdir)
             venv_dir = tmp / "venv"
@@ -91,7 +115,11 @@ def main(argv: list[str] | None = None) -> int:
             smoke = venv_dir / "bin" / "sophiagraph-smoke"
             ui_preview = venv_dir / "bin" / "sophiagraph-ui"
             wheel = sorted((root / "dist").glob("sophiagraph-*.whl"))[-1]
-            _run([str(pip), "install", str(wheel)], cwd=root)
+            install_cmd = [str(pip), "install"]
+            if graphfakos_dist is not None:
+                install_cmd.extend(["--find-links", str(graphfakos_dist)])
+            install_cmd.append(str(wheel))
+            _run(install_cmd, cwd=root)
             _run(
                 [
                     str(wheel_python),

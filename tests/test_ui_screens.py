@@ -9,6 +9,7 @@ from sophiagraph import (
     ConnectorReplayRequest,
     KnowledgeDocumentBlock,
     KnowledgeExplorerRequest,
+    ListQueryOptions,
     MemoryCandidate,
     LocalSyncRequest,
     MemoryNamespace,
@@ -164,9 +165,7 @@ def test_ui_mvp_screens_render_structural_content() -> None:
         report_id="repair-ui",
         namespace=_ns(),
         generated_at="2026-06-06T02:00:00+00:00",
-        records=store.list_records(
-            __import__("sophiagraph").ListQueryOptions(scopes=["agent:ui"])
-        ),
+        records=store.list_records(ListQueryOptions(scopes=["agent:ui"])),
         links=store.get_outgoing_links("auth"),
         conflicts=[
             detect_sync_conflict(
@@ -216,8 +215,7 @@ def test_ui_mvp_screens_render_structural_content() -> None:
 
     explorer_html = render_screen_html(explorer)
     assert "Knowledge Explorer" in explorer_html
-    assert "OpenMinion Integration" in explorer_html
-    assert "Second-brain durable memory graph." in explorer_html
+    assert "OpenMinion Integration" not in explorer_html
     detail_html = render_screen_html(detail)
     graph_html = render_screen_html(graph)
     operations_html = render_screen_html(operations)
@@ -353,7 +351,7 @@ def test_ui_secondary_screens_cover_community_timeline_and_schema() -> None:
     )
     timeline = build_timeline_screen(
         store,
-        __import__("sophiagraph").ListQueryOptions(
+        ListQueryOptions(
             scopes=["agent:ui"],
             namespaces=[_ns()],
             include_invalidated=True,

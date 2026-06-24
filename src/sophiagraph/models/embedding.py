@@ -10,6 +10,34 @@ from sophiagraph.models.namespace import MemoryNamespace
 from sophiagraph.models.primitives import _assert_namespace_id
 
 
+def _string_field(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _optional_string_field(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _metadata_dict(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise InvalidArgumentError("metadata must be a dict")
+    return dict(value)
+
+
+def _vector_list(value: Any) -> list[float] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise InvalidArgumentError("vector must be a list")
+    return [float(item) for item in value]
+
+
 @dataclass(frozen=True, slots=True)
 class MemoryEmbedding:
     record_id: str
@@ -98,26 +126,18 @@ def memory_embedding_from_dict(data: dict[str, Any]) -> MemoryEmbedding:
         namespace = MemoryNamespace.from_dict(raw_namespace)
     else:
         raise InvalidArgumentError("namespace is required")
-    raw_vector = data.get("vector")
-    vector = None
-    if isinstance(raw_vector, list):
-        vector = [float(value) for value in raw_vector]
     return MemoryEmbedding(
-        record_id=str(data.get("record_id", "")),
-        vector_space=str(data.get("vector_space", "")),
+        record_id=_string_field(data.get("record_id")),
+        vector_space=_string_field(data.get("vector_space")),
         dimension=int(data.get("dimension", 0) or 0),
-        provider=str(data.get("provider", "")),
-        model=str(data.get("model", "")),
+        provider=_string_field(data.get("provider")),
+        model=_string_field(data.get("model")),
         namespace=namespace,
-        created_at=str(data.get("created_at", "")),
-        updated_at=str(data.get("updated_at", "")),
-        vector=vector,
-        external_vector_id=str(data.get("external_vector_id"))
-        if data.get("external_vector_id") is not None
-        else None,
-        metadata=dict(data.get("metadata", {}))
-        if isinstance(data.get("metadata"), dict)
-        else {},
+        created_at=_string_field(data.get("created_at")),
+        updated_at=_string_field(data.get("updated_at")),
+        vector=_vector_list(data.get("vector")),
+        external_vector_id=_optional_string_field(data.get("external_vector_id")),
+        metadata=_metadata_dict(data.get("metadata")),
     )
 
 

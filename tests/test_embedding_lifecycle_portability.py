@@ -4,7 +4,12 @@ import io
 import json
 import tarfile
 
-from sophiagraph import ActiveEmbeddingModelSet, MemoryNamespace, SophiaGraphMemoryStore
+from sophiagraph import (
+    ActiveEmbeddingModelSet,
+    MemoryNamespace,
+    SophiaGraphMemoryStore,
+    VectorSpaceModelDescriptor,
+)
 from sophiagraph.portability.codec import read_bundle_snapshot, write_bundle_snapshot
 from sophiagraph.portability.models import (
     MemoryBundleExportOptions,
@@ -17,8 +22,6 @@ def _ns() -> MemoryNamespace:
 
 
 def _active_set() -> ActiveEmbeddingModelSet:
-    from sophiagraph import VectorSpaceModelDescriptor
-
     return ActiveEmbeddingModelSet(
         namespace=_ns(),
         vector_space="semantic",

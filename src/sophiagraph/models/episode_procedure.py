@@ -75,6 +75,24 @@ PROCEDURE_PROMOTION_TIERS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _require_namespace(namespace: MemoryNamespace) -> None:
+    if not isinstance(namespace, MemoryNamespace):
+        raise InvalidArgumentError("namespace must be MemoryNamespace")
+
+
+def _require_mapping(value: Mapping[str, Any], field_name: str) -> None:
+    if not isinstance(value, Mapping):
+        raise InvalidArgumentError(f"{field_name} must be a Mapping[str, Any]")
+
+
+def _require_string_list(items: list[str], field_name: str) -> None:
+    if not isinstance(items, list):
+        raise InvalidArgumentError(f"{field_name} must be a list")
+    for item in items:
+        if not isinstance(item, str) or not item:
+            raise InvalidArgumentError(f"{field_name} must contain non-empty strings")
+
+
 @dataclass(frozen=True)
 class Episode:
     """One bounded unit of agent experience (a task run, a chat turn group)."""
@@ -95,8 +113,7 @@ class Episode:
     def __post_init__(self) -> None:
         if not self.episode_id:
             raise InvalidArgumentError("episode_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
+        _require_namespace(self.namespace)
         if not self.title:
             raise InvalidArgumentError("title is required")
         if self.status not in EPISODE_STATUSES:
@@ -105,19 +122,9 @@ class Episode:
             raise InvalidArgumentError("started_at is required")
         if self.ended_at is not None and self.ended_at < self.started_at:
             raise InvalidArgumentError("ended_at must be >= started_at")
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
-        for collection_name, items in (
-            ("artifact_ids", self.artifact_ids),
-            ("tool_ids", self.tool_ids),
-        ):
-            if not isinstance(items, list):
-                raise InvalidArgumentError(f"{collection_name} must be a list")
-            for item in items:
-                if not isinstance(item, str) or not item:
-                    raise InvalidArgumentError(
-                        f"{collection_name} must contain non-empty strings"
-                    )
+        _require_mapping(self.meta, "meta")
+        _require_string_list(self.artifact_ids, "artifact_ids")
+        _require_string_list(self.tool_ids, "tool_ids")
 
 
 @dataclass(frozen=True)
@@ -142,16 +149,14 @@ class EpisodeStep:
             raise InvalidArgumentError("step_id is required")
         if not self.episode_id:
             raise InvalidArgumentError("episode_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
+        _require_namespace(self.namespace)
         if self.kind not in STEP_KINDS:
             raise InvalidArgumentError(f"invalid step kind: {self.kind!r}")
         if self.sequence < 0:
             raise InvalidArgumentError("sequence must be >= 0")
         if not self.occurred_at:
             raise InvalidArgumentError("occurred_at is required")
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+        _require_mapping(self.meta, "meta")
 
 
 @dataclass(frozen=True)
@@ -174,16 +179,14 @@ class Outcome:
     def __post_init__(self) -> None:
         if not self.outcome_id:
             raise InvalidArgumentError("outcome_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
+        _require_namespace(self.namespace)
         if self.status not in OUTCOME_STATUSES:
             raise InvalidArgumentError(f"invalid outcome status: {self.status!r}")
         if not self.occurred_at:
             raise InvalidArgumentError("occurred_at is required")
         if not self.episode_id and not self.step_id:
             raise InvalidArgumentError("outcome requires either episode_id or step_id")
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+        _require_mapping(self.meta, "meta")
 
 
 @dataclass(frozen=True)
@@ -205,23 +208,15 @@ class Decision:
     def __post_init__(self) -> None:
         if not self.decision_id:
             raise InvalidArgumentError("decision_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
+        _require_namespace(self.namespace)
         if not self.title:
             raise InvalidArgumentError("title is required")
         if not self.chosen:
             raise InvalidArgumentError("chosen is required")
         if not self.occurred_at:
             raise InvalidArgumentError("occurred_at is required")
-        if not isinstance(self.alternatives, list):
-            raise InvalidArgumentError("alternatives must be a list")
-        for alt in self.alternatives:
-            if not isinstance(alt, str) or not alt:
-                raise InvalidArgumentError(
-                    "alternatives must contain non-empty strings"
-                )
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+        _require_string_list(self.alternatives, "alternatives")
+        _require_mapping(self.meta, "meta")
 
 
 @dataclass(frozen=True)
@@ -259,8 +254,7 @@ class Procedure:
     def __post_init__(self) -> None:
         if not self.procedure_id:
             raise InvalidArgumentError("procedure_id is required")
-        if not isinstance(self.namespace, MemoryNamespace):
-            raise InvalidArgumentError("namespace must be MemoryNamespace")
+        _require_namespace(self.namespace)
         if not self.title:
             raise InvalidArgumentError("title is required")
         if self.promotion_tier not in PROCEDURE_PROMOTION_TIERS:
@@ -274,15 +268,8 @@ class Procedure:
         for s in self.steps:
             if not isinstance(s, ProcedureStep):
                 raise InvalidArgumentError("steps must be ProcedureStep instances")
-        if not isinstance(self.source_episode_ids, list):
-            raise InvalidArgumentError("source_episode_ids must be a list")
-        for episode_id in self.source_episode_ids:
-            if not isinstance(episode_id, str) or not episode_id:
-                raise InvalidArgumentError(
-                    "source_episode_ids must contain non-empty strings"
-                )
-        if not isinstance(self.meta, Mapping):
-            raise InvalidArgumentError("meta must be a Mapping[str, Any]")
+        _require_string_list(self.source_episode_ids, "source_episode_ids")
+        _require_mapping(self.meta, "meta")
 
 
 __all__ = [

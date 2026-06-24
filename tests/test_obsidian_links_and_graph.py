@@ -4,7 +4,9 @@ import pytest
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
+    ExplicitLinkResolver,
     KnowledgeDocumentBlock,
+    LinkResolutionCandidate,
     MemoryNamespace,
     MemoryRecord,
     StructuralLink,
@@ -106,6 +108,31 @@ def test_backlinks_outgoing_and_namespace_isolation(store) -> None:
     assert [link.link_id for link in outgoing] == ["link-a-b"]
     assert outgoing[0].context_before == " before "
     assert [link.link_id for link in backlinks] == ["link-a-b"]
+
+
+def test_explicit_link_resolver_rejects_malformed_alias_lists() -> None:
+    with pytest.raises(InvalidArgumentError, match="aliases must be a list"):
+        LinkResolutionCandidate(
+            record_id="rec-1",
+            path="Roadmap.md",
+            title="Roadmap",
+            aliases="Plan",  # type: ignore[arg-type]
+            namespace=_namespace(),
+        )
+
+    resolver = ExplicitLinkResolver(
+        [
+            LinkResolutionCandidate(
+                record_id="rec-1",
+                path="Roadmap.md",
+                title="Roadmap",
+                aliases=["Plan"],
+                namespace=_namespace(),
+            )
+        ]
+    )
+
+    assert resolver.resolve("plan", namespace=_namespace()).target_record_id == "rec-1"
 
 
 def test_local_graph_handles_depth_cycles_and_snapshot(store) -> None:

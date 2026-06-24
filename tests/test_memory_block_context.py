@@ -275,6 +275,39 @@ def test_claim_key_polarity_requires_both_polarities() -> None:
         )
 
 
+def test_disagreement_signal_validates_kind_and_required_ids() -> None:
+    with pytest.raises(InvalidArgumentError, match="invalid disagreement kind"):
+        DisagreementSignal(  # type: ignore[arg-type]
+            kind="semantic_guess",
+            block_id="blk-mission",
+            retrieval_record_id="rec-99",
+        )
+
+    with pytest.raises(InvalidArgumentError, match="block_id is required"):
+        DisagreementSignal(
+            kind="explicit_upstream_metadata",
+            block_id="",
+            retrieval_record_id="rec-99",
+        )
+
+    with pytest.raises(InvalidArgumentError, match="retrieval_record_id is required"):
+        DisagreementSignal(
+            kind="explicit_upstream_metadata",
+            block_id="blk-mission",
+            retrieval_record_id="",
+        )
+
+
+def test_disagreement_signal_requires_detail_dict() -> None:
+    with pytest.raises(TypeError, match="details must be a dict"):
+        DisagreementSignal(
+            kind="explicit_upstream_metadata",
+            block_id="blk-mission",
+            retrieval_record_id="rec-99",
+            details=[],  # type: ignore[arg-type]
+        )
+
+
 def test_claim_key_polarity_rejects_identical_polarities() -> None:
     with pytest.raises(InvalidArgumentError):
         record_disagreement(

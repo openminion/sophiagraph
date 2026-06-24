@@ -16,6 +16,7 @@ from sophiagraph import (
     apply_decision_to_record_meta,
     evaluate_policy,
 )
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
 from sophiagraph.models.record import MemoryRecord
 
@@ -170,8 +171,6 @@ def test_apply_decision_no_transition_does_not_record_reason() -> None:
 
 
 def test_apply_decision_rejects_non_decision() -> None:
-    from sophiagraph.contracts.errors import InvalidArgumentError
-
     with pytest.raises(InvalidArgumentError):
         apply_decision_to_record_meta({}, "not_a_decision")  # type: ignore[arg-type]
 

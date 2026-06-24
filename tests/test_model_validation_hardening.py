@@ -158,6 +158,16 @@ def test_relation_and_tier_transition_reject_invalid_values() -> None:
             created_at="2026-05-25T00:00:00+00:00",
         )
 
+    with pytest.raises(TypeError, match="meta must be a dict"):
+        MemoryRelation(
+            relation_id="rel-bad-meta",
+            source_record_id="rec-1",
+            target_record_id="rec-2",
+            relation_type="supports",
+            created_at="2026-05-25T00:00:00+00:00",
+            meta=[],  # type: ignore[arg-type]
+        )
+
     transition = MemoryTierTransition(
         transition_id="tier-1",
         record_id="rec-1",
@@ -173,3 +183,6 @@ def test_relation_and_tier_transition_reject_invalid_values() -> None:
 
     with pytest.raises(InvalidArgumentError, match="access_count"):
         replace(transition, access_count=-1)
+
+    with pytest.raises(TypeError, match="meta must be a dict"):
+        replace(transition, meta=[])  # type: ignore[arg-type]

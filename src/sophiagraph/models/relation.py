@@ -8,6 +8,15 @@ from typing import Any, get_args
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models.primitives import MemoryRelationType, _assert_literal
 
+MEMORY_RELATION_TYPES = frozenset(get_args(MemoryRelationType))
+
+
+def _require_meta_dict(meta: dict[str, Any] | Any) -> None:
+    if not isinstance(meta, dict):
+        raise TypeError(
+            "meta must be a dict"
+        )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+
 
 @dataclass(frozen=True)
 class MemoryRelation:
@@ -29,15 +38,12 @@ class MemoryRelation:
             raise InvalidArgumentError("relation endpoints must differ")
         _assert_literal(
             self.relation_type,
-            get_args(MemoryRelationType),
+            MEMORY_RELATION_TYPES,
             "relation_type",
         )
         if not self.created_at:
             raise InvalidArgumentError("created_at is required")
-        if not isinstance(self.meta, dict):
-            raise TypeError(
-                "meta must be a dict"
-            )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+        _require_meta_dict(self.meta)
 
 
-__all__ = ["MemoryRelation"]
+__all__ = ["MEMORY_RELATION_TYPES", "MemoryRelation"]

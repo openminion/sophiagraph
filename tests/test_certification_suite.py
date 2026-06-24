@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -128,9 +129,6 @@ def test_cert_namespace_isolation_filters_records(store) -> None:
             namespace=ns_b,
         )
     )
-    # cross-namespace lookup must NOT return beta-rec
-    from sophiagraph.query import ListQueryOptions
-
     rows_a = store.list_records(
         ListQueryOptions(scopes=["session:s"], namespaces=[ns_a])
     )
@@ -171,7 +169,6 @@ def test_cert_duplicate_replay_is_idempotent_on_lifecycle_decision(store) -> Non
     policy = register_default_lifecycle_policy(store)
     record = store.get_record("cert-rec-0")
     assert record is not None
-    from dataclasses import replace
 
     aged = replace(record, updated_at=days_ago_iso(40))
     decision = evaluate_policy(aged, policy, utc_now_iso())

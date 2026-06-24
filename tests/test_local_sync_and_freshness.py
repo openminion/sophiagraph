@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.freshness import FreshnessLedgerEntry, decide_replay
 from sophiagraph.models import MemoryNamespace
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
@@ -95,7 +96,7 @@ def test_sync_resolution_requires_explicit_patch() -> None:
     )
     assert result.conflict is not None
 
-    with pytest.raises(Exception, match="patch"):
+    with pytest.raises(InvalidArgumentError, match="patch"):
         SyncResolution(
             conflict_id=result.conflict.conflict_id,
             action="caller_patch",

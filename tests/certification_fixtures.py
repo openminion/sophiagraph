@@ -21,13 +21,15 @@ from sophiagraph.models import (
     PropertySchema,
 )
 
+_CERT_BASE_TIME = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
+
 
 def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return _CERT_BASE_TIME.isoformat()
 
 
 def days_ago_iso(days: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    return (_CERT_BASE_TIME - timedelta(days=days)).isoformat()
 
 
 def cert_namespace(
@@ -38,7 +40,7 @@ def cert_namespace(
     return MemoryNamespace(agent_id=agent_id, session_id=session_id)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SeedRecord:
     record_id: str
     content: str

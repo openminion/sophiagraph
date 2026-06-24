@@ -13,6 +13,7 @@ from sophiagraph import (
     ReembedPlan,
     SophiaGraphMemoryStore,
     SophiaGraphSqliteStore,
+    StaleEmbeddingFinding,
     VectorSpaceModelDescriptor,
     build_reembed_plan,
     detect_stale_embeddings,
@@ -133,6 +134,27 @@ def test_embedding_lifecycle_dtos_validate_and_export_publicly() -> None:
     assert "ActiveEmbeddingModelSet" in sophiagraph.__all__
     assert "detect_stale_embeddings" in sophiagraph.__all__
     assert "build_reembed_plan" in sophiagraph.__all__
+
+
+def test_embedding_lifecycle_from_dict_rejects_none_for_required_strings() -> None:
+    with pytest.raises(InvalidArgumentError, match="provider is required"):
+        VectorSpaceModelDescriptor.from_dict(
+            {"provider": None, "model": "model-v2", "dimension": 4}
+        )
+
+    with pytest.raises(InvalidArgumentError, match="embedding_provider is required"):
+        StaleEmbeddingFinding.from_dict(
+            {
+                "record_id": "rec-1",
+                "vector_space": "semantic",
+                "namespace": _ns().as_dict(),
+                "embedding_provider": None,
+                "embedding_model": "model-v2",
+                "embedding_dimension": 4,
+                "embedding_updated_at": "2026-06-05T00:00:00+00:00",
+                "reasons": ["MODEL_NOT_IN_ACTIVE_SET"],
+            }
+        )
 
 
 def test_detect_stale_embeddings_covers_all_structural_reasons_and_namespace_isolation(

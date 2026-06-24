@@ -6,10 +6,14 @@ import tomllib
 import pytest
 
 from sophiagraph.contracts.errors import InvalidArgumentError
-from sophiagraph.models import MemoryEmbedding, MemoryNamespace
+from sophiagraph.models import (
+    MemoryEmbedding,
+    MemoryNamespace,
+    memory_embedding_from_dict,
+)
 from sophiagraph.query import EmbeddingListOptions
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
-from sophiagraph.storage.sqlite.support import SCHEMA_VERSION
+from sophiagraph.storage.sqlite.schema import SCHEMA_VERSION
 
 
 def _namespace(agent_id: str = "agent") -> MemoryNamespace:
@@ -77,6 +81,39 @@ def test_embedding_dto_requires_explicit_metadata_and_consistent_dimension() -> 
 
     with pytest.raises(TypeError, match="namespace"):
         _embedding(namespace="agent")  # type: ignore[arg-type]
+
+
+def test_embedding_from_dict_rejects_malformed_metadata_and_missing_provider() -> None:
+    with pytest.raises(InvalidArgumentError, match="provider is required"):
+        memory_embedding_from_dict(
+            {
+                "record_id": "rec-1",
+                "vector_space": "space",
+                "dimension": 3,
+                "provider": None,
+                "model": "model",
+                "namespace": _namespace().as_dict(),
+                "created_at": "2026-05-25T00:00:00+00:00",
+                "updated_at": "2026-05-25T00:00:00+00:00",
+                "vector": [0.1, 0.2, 0.3],
+            }
+        )
+
+    with pytest.raises(InvalidArgumentError, match="metadata must be a dict"):
+        memory_embedding_from_dict(
+            {
+                "record_id": "rec-1",
+                "vector_space": "space",
+                "dimension": 3,
+                "provider": "provider",
+                "model": "model",
+                "namespace": _namespace().as_dict(),
+                "created_at": "2026-05-25T00:00:00+00:00",
+                "updated_at": "2026-05-25T00:00:00+00:00",
+                "vector": [0.1, 0.2, 0.3],
+                "metadata": ["bad"],
+            }
+        )
 
 
 def test_memory_and_sqlite_store_embedding_roundtrip_and_namespace_filters(
@@ -179,6 +216,10 @@ def test_embedding_hooks_do_not_add_provider_dependencies() -> None:
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
     )
 
-    assert pyproject["project"]["dependencies"] == []
+    assert pyproject["project"]["dependencies"] == ["graphfakos>=0.0.1,<1"]
+    assert not any(
+        dependency.startswith(("openai", "cohere", "sentence-transformers"))
+        for dependency in pyproject["project"]["dependencies"]
+    )
     assert "MemoryEmbedding" in sophiagraph.__all__
     assert "EmbeddingListOptions" in sophiagraph.__all__

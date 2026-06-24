@@ -13,6 +13,7 @@ from sophiagraph import (
 from sophiagraph.contracts.errors import (
     MEMORY_BLOCK_EDIT_DENIED,
     MemoryBlockEditDeniedError,
+    MemoryBlockModeNotYetSupportedError,
     NotFoundError,
 )
 from sophiagraph.models import (
@@ -153,8 +154,6 @@ def test_stored_dto_round_trips_deferred_modes(store) -> None:
     assert loaded.mode == "shared"
     assert loaded.content == "(deferred-mode payload — DTO round-trips)"
     # ...but the activation gate must still reject it:
-    from sophiagraph.contracts.errors import MemoryBlockModeNotYetSupportedError
-
     with pytest.raises(MemoryBlockModeNotYetSupportedError):
         validate_block_for_creation(loaded)
 

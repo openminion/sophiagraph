@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.freshness import FreshnessLedgerEntry
 from sophiagraph.inspection import (
     RepairCandidate,
@@ -112,7 +113,7 @@ def test_repair_candidate_requires_explicit_candidate_id() -> None:
         patch={"target_record_id": "rec-b"},
     )
 
-    with pytest.raises(Exception, match="candidate_id"):
+    with pytest.raises(InvalidArgumentError, match="candidate_id"):
         apply_repair_candidate(
             candidate,
             candidate_id="repair-other",

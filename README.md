@@ -45,8 +45,8 @@ and should be treated as a scam.
 - Current public package line: `0.0.1` alpha
 - Best fit when: you want durable memory records, relations, provenance, trust,
   and exportable graph state outside a host runtime
-- Backends today: a package-local SQLite engine plus an in-memory backend for
-  tests and ephemeral consumers
+- Backends today: a package-local SQLite engine, an in-memory backend for
+  tests and ephemeral consumers, plus optional Kuzu and Neo4j graph adapters
 - Public shape: typed memory models, storage contracts, governance helpers,
   portability bundles, workspace helpers, and package-local UI preview
   boundaries
@@ -67,7 +67,7 @@ and should be treated as a scam.
   policy evaluation, artifact records, and JSON Canvas contracts
 - Interop and repair: connector ingestion envelopes, sync conflict DTOs,
   structural inspection reports, repair candidates, shared memory-block
-  primitives, and optional graph-backend adapter contracts
+  primitives, and optional Kuzu/Neo4j graph-backend adapters
 - Local operations: note-management helpers, workspace/workbench helpers,
   deterministic live workspace sync, UI boundary contracts in
   `sophiagraph.ui`, and the `sophiagraph.okf` bundle profile for import/export
@@ -113,9 +113,13 @@ This package does **not** provide:
 - direct embedding-provider calls, automatic re-embedding, or model-selection
   recommendations (hosts own provider execution and scheduling)
 
-The current visual explorer contract lives in `sophiagraph.ui`. Browser-facing
-runtime transport is still expected to route through `sophiagraph-server` over
-the REST design pinned by SSSF-02 rather than private in-process imports.
+The current visual explorer command lives in `sophiagraph.ui` and renders
+through GraphFakos, the shared graph lens package. Sophiagraph owns the
+second-brain adapter and durable-memory semantics; GraphFakos owns the reusable
+viewer shell, graph canvas, local server primitive, and static export surface.
+Browser-facing runtime transport is still expected to route through
+`sophiagraph-server` over the REST design pinned by SSSF-02 rather than private
+in-process imports.
 
 You can run the package-local visual UI today:
 

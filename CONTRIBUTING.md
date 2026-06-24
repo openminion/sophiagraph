@@ -37,6 +37,7 @@ sophiagraph/
 │   ├── audit/  contracts/  trust/  temporal/
 │   ├── graph_backends/  portability/  ui/
 │   ├── workspace.py  workspace_sync.py
+│   ├── workspace_notes.py  workspace_common.py
 │   ├── human.py  sync.py  freshness.py
 │   └── okf.py
 ├── tests/                      # package tests and fixture-backed coverage

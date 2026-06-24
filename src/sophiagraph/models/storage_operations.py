@@ -14,6 +14,57 @@ BACKUP_KINDS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _string_field(payload: dict[str, Any], field_name: str) -> str:
+    value = payload.get(field_name)
+    if not isinstance(value, str):
+        return ""
+    return value
+
+
+def _non_negative_int_field(payload: dict[str, Any], field_name: str) -> int | None:
+    value = payload.get(field_name)
+    if value is None:
+        return None
+    return int(value)
+
+
+def _dict_field(payload: dict[str, Any], field_name: str) -> dict[str, Any]:
+    value = payload.get(field_name)
+    if not isinstance(value, dict):
+        return {}
+    return dict(value)
+
+
+def _namespace_field(payload: dict[str, Any], field_name: str) -> MemoryNamespace:
+    value = payload.get(field_name)
+    if not isinstance(value, dict):
+        return MemoryNamespace.from_dict({})
+    return MemoryNamespace.from_dict(dict(value))
+
+
+def _namespaces_from_payload(payload: dict[str, Any]) -> list[MemoryNamespace]:
+    return [
+        MemoryNamespace.from_dict(item)
+        for item in payload.get("namespaces", [])
+        if isinstance(item, dict)
+    ]
+
+
+def _manifest_entries_from_payload(
+    payload: dict[str, Any],
+) -> list["BackupManifestEntry"]:
+    return [
+        BackupManifestEntry(
+            table_group=_string_field(item, "table_group"),
+            row_count=int(item.get("row_count", 0) or 0),
+            sha256=_string_field(item, "sha256"),
+            byte_size=int(item.get("byte_size", 0) or 0),
+        )
+        for item in payload.get("manifest_entries", [])
+        if isinstance(item, dict)
+    ]
+
+
 @dataclass(frozen=True, slots=True)
 class BackupManifestEntry:
     table_group: str
@@ -81,36 +132,16 @@ class BackupDescriptor:
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "BackupDescriptor":
-        namespaces = [
-            MemoryNamespace.from_dict(item)
-            for item in payload.get("namespaces", [])
-            if isinstance(item, dict)
-        ]
         return cls(
-            backup_id=str(payload.get("backup_id", "")),
-            kind=str(payload.get("kind", "")),  # type: ignore[arg-type]
-            backend_name=str(payload.get("backend_name", "")),
-            created_at=str(payload.get("created_at", "")),
-            target_path=str(payload.get("target_path", "")),
-            manifest_entries=[
-                BackupManifestEntry(
-                    table_group=str(item.get("table_group", "")),
-                    row_count=int(item.get("row_count", 0) or 0),
-                    sha256=str(item.get("sha256", "")),
-                    byte_size=int(item.get("byte_size", 0) or 0),
-                )
-                for item in payload.get("manifest_entries", [])
-                if isinstance(item, dict)
-            ],
-            wal_frame_position=(
-                int(payload["wal_frame_position"])
-                if payload.get("wal_frame_position") is not None
-                else None
-            ),
-            namespaces=namespaces or None,
-            metadata=dict(payload.get("metadata", {}))
-            if isinstance(payload.get("metadata"), dict)
-            else {},
+            backup_id=_string_field(payload, "backup_id"),
+            kind=_string_field(payload, "kind"),  # type: ignore[arg-type]
+            backend_name=_string_field(payload, "backend_name"),
+            created_at=_string_field(payload, "created_at"),
+            target_path=_string_field(payload, "target_path"),
+            manifest_entries=_manifest_entries_from_payload(payload),
+            wal_frame_position=_non_negative_int_field(payload, "wal_frame_position"),
+            namespaces=_namespaces_from_payload(payload) or None,
+            metadata=_dict_field(payload, "metadata"),
         )
 
 
@@ -215,27 +246,15 @@ class RetentionSnapshot:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "RetentionSnapshot":
         return cls(
-            snapshot_id=str(payload.get("snapshot_id", "")),
-            name=str(payload.get("name", "")),
-            namespace=MemoryNamespace.from_dict(
-                dict(payload.get("namespace", {}))
-                if isinstance(payload.get("namespace"), dict)
-                else {}
-            ),
-            created_at=str(payload.get("created_at", "")),
-            as_of_cursor=(
-                int(payload["as_of_cursor"])
-                if payload.get("as_of_cursor") is not None
-                else None
-            ),
+            snapshot_id=_string_field(payload, "snapshot_id"),
+            name=_string_field(payload, "name"),
+            namespace=_namespace_field(payload, "namespace"),
+            created_at=_string_field(payload, "created_at"),
+            as_of_cursor=_non_negative_int_field(payload, "as_of_cursor"),
             backup_descriptor=BackupDescriptor.from_dict(
-                dict(payload.get("backup_descriptor", {}))
-                if isinstance(payload.get("backup_descriptor"), dict)
-                else {}
+                _dict_field(payload, "backup_descriptor")
             ),
-            payload=dict(payload.get("payload", {}))
-            if isinstance(payload.get("payload"), dict)
-            else {},
+            payload=_dict_field(payload, "payload"),
         )
 
 

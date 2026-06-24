@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 import re
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models.namespace import MemoryNamespace
@@ -18,6 +18,17 @@ LinkKind = Literal[
 ]
 LinkResolutionStatus = Literal["resolved", "unresolved", "ambiguous", "external"]
 ContextUnit = Literal["characters", "lines"]
+
+LINK_KINDS = frozenset(get_args(LinkKind))
+LINK_RESOLUTION_STATUSES = frozenset(get_args(LinkResolutionStatus))
+
+
+def _require_string_list(value: list[str], field_name: str) -> None:
+    if not isinstance(value, list):
+        raise InvalidArgumentError(f"{field_name} must be a list")
+    for item in value:
+        if not isinstance(item, str) or not item:
+            raise InvalidArgumentError(f"{field_name} must contain non-empty strings")
 
 
 def normalize_link_target(target: str) -> str:
@@ -62,20 +73,9 @@ class StructuralLink:
             raise InvalidArgumentError("source_record_id is required")
         if not normalize_link_target(self.raw_target):
             raise InvalidArgumentError("raw_target is required")
-        if self.link_kind not in {
-            "wikilink",
-            "markdown",
-            "embed",
-            "property",
-            "external",
-        }:
+        if self.link_kind not in LINK_KINDS:
             raise InvalidArgumentError(f"invalid link_kind: {self.link_kind!r}")
-        if self.resolution_status not in {
-            "resolved",
-            "unresolved",
-            "ambiguous",
-            "external",
-        }:
+        if self.resolution_status not in LINK_RESOLUTION_STATUSES:
             raise InvalidArgumentError(
                 f"invalid resolution_status: {self.resolution_status!r}"
             )
@@ -135,6 +135,13 @@ class LinkResolutionCandidate:
             raise InvalidArgumentError("path is required")
         if not self.title:
             raise InvalidArgumentError("title is required")
+        _require_string_list(self.aliases, "aliases")
+        if self.namespace is not None and not isinstance(
+            self.namespace, MemoryNamespace
+        ):
+            raise TypeError(
+                "namespace must be MemoryNamespace when set"
+            )  # allow-bare-raise: defensive dataclass guard
 
 
 @dataclass(frozen=True)
@@ -153,6 +160,7 @@ class LinkResolution:
             raise InvalidArgumentError(
                 "ambiguous result requires at least two candidates"
             )
+        _require_string_list(self.ambiguous_record_ids, "ambiguous_record_ids")
 
 
 @dataclass(frozen=True)
@@ -277,6 +285,8 @@ __all__ = [
     "ContextUnit",
     "ExplicitLinkResolver",
     "LinkKind",
+    "LINK_KINDS",
+    "LINK_RESOLUTION_STATUSES",
     "LinkResolution",
     "LinkResolutionCandidate",
     "LinkResolutionDiagnostic",

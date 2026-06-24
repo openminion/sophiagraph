@@ -110,6 +110,26 @@ RETENTION_OUTCOME_KINDS: Final[frozenset[str]] = frozenset(
 )
 
 
+def _string_field(value: Any, default: str = "") -> str:
+    if value is None:
+        return default
+    return str(value)
+
+
+def _optional_string_field(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _dict_field(value: Any, field_name: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise InvalidArgumentError(f"{field_name} must be a dict")
+    return dict(value)
+
+
 @dataclass(frozen=True)
 class ConsentState:
     status: ConsentStatus
@@ -138,25 +158,11 @@ class ConsentState:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ConsentState":
         return cls(
-            status=str(payload.get("status", "unknown")),  # type: ignore[arg-type]
-            granted_at=(
-                str(payload.get("granted_at"))
-                if payload.get("granted_at") is not None
-                else None
-            ),
-            revoked_at=(
-                str(payload.get("revoked_at"))
-                if payload.get("revoked_at") is not None
-                else None
-            ),
-            source_owner=(
-                str(payload.get("source_owner"))
-                if payload.get("source_owner") is not None
-                else None
-            ),
-            details=dict(payload.get("details", {}))
-            if isinstance(payload.get("details"), dict)
-            else {},
+            status=_string_field(payload.get("status"), "unknown"),  # type: ignore[arg-type]
+            granted_at=_optional_string_field(payload.get("granted_at")),
+            revoked_at=_optional_string_field(payload.get("revoked_at")),
+            source_owner=_optional_string_field(payload.get("source_owner")),
+            details=_dict_field(payload.get("details"), "details"),
         )
 
 
@@ -200,18 +206,10 @@ class RedactionTarget:
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "RedactionTarget":
         return cls(
-            kind=str(payload.get("kind", "")),  # type: ignore[arg-type]
-            key=str(payload.get("key")) if payload.get("key") is not None else None,
-            block_id=(
-                str(payload.get("block_id"))
-                if payload.get("block_id") is not None
-                else None
-            ),
-            artifact_ref=(
-                str(payload.get("artifact_ref"))
-                if payload.get("artifact_ref") is not None
-                else None
-            ),
+            kind=_string_field(payload.get("kind")),  # type: ignore[arg-type]
+            key=_optional_string_field(payload.get("key")),
+            block_id=_optional_string_field(payload.get("block_id")),
+            artifact_ref=_optional_string_field(payload.get("artifact_ref")),
         )
 
 
@@ -257,8 +255,8 @@ class RedactionPlan:
     def from_dict(cls, payload: dict[str, Any]) -> "RedactionPlan":
         raw_targets = payload.get("targets")
         return cls(
-            plan_id=str(payload.get("plan_id", "")),
-            reason=str(payload.get("reason", "")),  # type: ignore[arg-type]
+            plan_id=_string_field(payload.get("plan_id")),
+            reason=_string_field(payload.get("reason")),  # type: ignore[arg-type]
             targets=tuple(
                 RedactionTarget.from_dict(item)
                 for item in raw_targets
@@ -266,15 +264,9 @@ class RedactionPlan:
             )
             if isinstance(raw_targets, list)
             else (),
-            replace_with=str(payload.get("replace_with", "[redacted]")),
-            applied_by=(
-                str(payload.get("applied_by"))
-                if payload.get("applied_by") is not None
-                else None
-            ),
-            details=dict(payload.get("details", {}))
-            if isinstance(payload.get("details"), dict)
-            else {},
+            replace_with=_string_field(payload.get("replace_with"), "[redacted]"),
+            applied_by=_optional_string_field(payload.get("applied_by")),
+            details=_dict_field(payload.get("details"), "details"),
         )
 
 
@@ -350,21 +342,19 @@ class PrivacyPolicyState:
             raise InvalidArgumentError("consent is required")
         raw_redaction = payload.get("redaction_plan")
         return cls(
-            policy_id=str(payload.get("policy_id", "")),
+            policy_id=_string_field(payload.get("policy_id")),
             consent=ConsentState.from_dict(raw_consent),
-            retrieval_visibility=str(payload.get("retrieval_visibility", "")),  # type: ignore[arg-type]
-            export_visibility=str(payload.get("export_visibility", "")),  # type: ignore[arg-type]
-            retention_class=str(payload.get("retention_class", "")),  # type: ignore[arg-type]
-            erase_intent=str(payload.get("erase_intent", "none")),  # type: ignore[arg-type]
-            decision_reason=str(payload.get("decision_reason", "")),  # type: ignore[arg-type]
-            source_owner=str(payload.get("source_owner", "")),
-            applied_at=str(payload.get("applied_at", "")),
+            retrieval_visibility=_string_field(payload.get("retrieval_visibility")),  # type: ignore[arg-type]
+            export_visibility=_string_field(payload.get("export_visibility")),  # type: ignore[arg-type]
+            retention_class=_string_field(payload.get("retention_class")),  # type: ignore[arg-type]
+            erase_intent=_string_field(payload.get("erase_intent"), "none"),  # type: ignore[arg-type]
+            decision_reason=_string_field(payload.get("decision_reason")),  # type: ignore[arg-type]
+            source_owner=_string_field(payload.get("source_owner")),
+            applied_at=_string_field(payload.get("applied_at")),
             redaction_plan=RedactionPlan.from_dict(raw_redaction)
             if isinstance(raw_redaction, dict)
             else None,
-            details=dict(payload.get("details", {}))
-            if isinstance(payload.get("details"), dict)
-            else {},
+            details=_dict_field(payload.get("details"), "details"),
         )
 
 

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from sophiagraph.audit import PolicyDecision
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
     ConsentState,
     EntitySummary,
@@ -85,8 +86,28 @@ def store(request, tmp_path: Path):
 
 
 def test_summary_context_request_requires_ids() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidArgumentError):
         SummaryContextRequest()
+
+
+def test_summary_context_request_rejects_empty_ids_and_bad_namespaces() -> None:
+    with pytest.raises(
+        InvalidArgumentError, match="summary_ids cannot contain empty values"
+    ):
+        SummaryContextRequest(summary_ids=["sum-1", ""])
+
+    with pytest.raises(
+        InvalidArgumentError, match="entity_ids cannot contain empty values"
+    ):
+        SummaryContextRequest(entity_ids=["entity-1", " "])
+
+    with pytest.raises(
+        InvalidArgumentError, match="namespaces must contain MemoryNamespace"
+    ):
+        SummaryContextRequest(
+            summary_ids=["sum-1"],
+            namespaces=[_ns(), "bad"],  # type: ignore[list-item]
+        )
 
 
 def test_summary_context_assembles_explicit_ids_in_order(store) -> None:
@@ -217,3 +238,32 @@ def test_summary_context_applies_item_budget(store) -> None:
     assert result.items[0].summary_text == "Summary"
     assert result.items[0].detail["truncated"] is True
     assert [item.reason for item in result.omitted] == ["budget_exceeded"]
+
+
+def test_summary_context_item_and_omission_validate_payload_shapes() -> None:
+    from sophiagraph.query.entity_summary_context import (
+        SummaryContextItem,
+        SummaryContextOmission,
+    )
+
+    with pytest.raises(
+        InvalidArgumentError, match="source_record_ids cannot contain empty values"
+    ):
+        SummaryContextItem(
+            summary_id="sum-1",
+            entity_id="entity-1",
+            namespace=_ns(),
+            summary_text="Summary text",
+            authorship="system",
+            created_at="2026-06-14T00:00:00+00:00",
+            updated_at="2026-06-15T00:00:00+00:00",
+            source_record_ids=("rec-1", ""),
+        )
+
+    with pytest.raises(InvalidArgumentError, match="detail must be a mapping"):
+        SummaryContextOmission(
+            summary_id="sum-1",
+            entity_id="entity-1",
+            reason="not_found",
+            detail=[],  # type: ignore[arg-type]
+        )

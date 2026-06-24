@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -13,7 +14,7 @@ def test_basic_usage_example_runs() -> None:
         check=True,
         capture_output=True,
         text=True,
-        env={**__import__("os").environ, "PYTHONPATH": str(root / "src")},
+        env={**os.environ, "PYTHONPATH": str(root / "src")},
     )
     payload = json.loads(result.stdout)
     assert payload["listed_count"] == 1

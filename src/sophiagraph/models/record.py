@@ -24,6 +24,38 @@ from sophiagraph.models.primitives import (
 from sophiagraph.temporal import coerce_temporal_dt
 
 
+def _require_namespace(namespace: MemoryNamespace | None) -> None:
+    if namespace is not None and not isinstance(namespace, MemoryNamespace):
+        raise TypeError(
+            "namespace must be MemoryNamespace"
+        )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+
+
+def _require_meta_dict(meta: dict[str, Any]) -> None:
+    if not isinstance(meta, dict):
+        raise TypeError(
+            "meta must be a dict"
+        )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+
+
+def _require_artifact_refs(refs: list["ArtifactRef"]) -> None:
+    for ref in refs:
+        if not isinstance(ref, ArtifactRef):
+            raise TypeError(
+                "evidence_refs must contain ArtifactRef instances"
+            )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+
+
+def _assert_literal_list(
+    values: list[str] | None,
+    allowed: tuple[str, ...],
+    label: str,
+) -> None:
+    if values:
+        for value in values:
+            _assert_literal(value, allowed, label)
+
+
 @dataclass(frozen=True)
 class ArtifactRef:
     ref: str
@@ -109,21 +141,9 @@ class MemoryRecord:
             raise InvalidArgumentError("access_count must be non-negative")
         _assert_iterable(self.tags, "tags", str)
         _assert_iterable(self.entities, "entities", str)
-        for ref in self.evidence_refs:
-            if not isinstance(ref, ArtifactRef):
-                raise TypeError(
-                    "evidence_refs must contain ArtifactRef instances"
-                )  # allow-bare-raise: defensive type guard in dataclass __post_init__
-        if self.namespace is not None and not isinstance(
-            self.namespace, MemoryNamespace
-        ):
-            raise TypeError(
-                "namespace must be MemoryNamespace"
-            )  # allow-bare-raise: defensive type guard in dataclass __post_init__
-        if not isinstance(self.meta, dict):
-            raise TypeError(
-                "meta must be a dict"
-            )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+        _require_artifact_refs(self.evidence_refs)
+        _require_namespace(self.namespace)
+        _require_meta_dict(self.meta)
 
     @property
     def effective_namespace(self) -> MemoryNamespace:
@@ -149,14 +169,10 @@ class RetrievalFilters:
             raise InvalidArgumentError("at least one scope is required")
         for scope in self.scopes:
             _assert_scope(scope)
-        if self.types:
-            for mem_type in self.types:
-                _assert_literal(mem_type, get_args(MemoryType), "type")
+        _assert_literal_list(self.types, get_args(MemoryType), "type")
         if self.min_confidence is not None:
             _assert_confidence(self.min_confidence)
-        if self.source_allowlist:
-            for source in self.source_allowlist:
-                _assert_literal(source, get_args(MemorySource), "source")
+        _assert_literal_list(self.source_allowlist, get_args(MemorySource), "source")
         if self.limit is not None and self.limit <= 0:
             raise InvalidArgumentError("limit must be positive")
 
