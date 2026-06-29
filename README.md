@@ -75,6 +75,9 @@ and should be treated as a scam.
 - Human workflow helpers: candidate review/promotion queues, workspace
   history/recovery previews, and typed object templates for explicit
   creation flows
+- Workspace collaboration and sharing: explicit federated workspace query
+  packets, structural citations, role/review gates, saved-view rollups,
+  publish/share profile shaping, and profile-pack interoperability plans
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 

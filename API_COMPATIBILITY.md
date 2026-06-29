@@ -42,6 +42,11 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.candidate_review`
 - `sophiagraph.workspace_history`
 - `sophiagraph.templates`
+- `sophiagraph.federation`
+- `sophiagraph.workspace_roles`
+- `sophiagraph.view_composition`
+- `sophiagraph.publishing`
+- `sophiagraph.profile_packs`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -230,6 +235,43 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.CreationApplyResult`
 - `sophiagraph.build_creation_plan(...)`
 - `sophiagraph.apply_creation_plan(...)`
+- `sophiagraph.FederatedWorkspaceRef`
+- `sophiagraph.FederatedWorkspaceQuery`
+- `sophiagraph.FederatedWorkspaceResult`
+- `sophiagraph.FederatedKnowledgeHit`
+- `sophiagraph.FederatedCitation`
+- `sophiagraph.FederatedOmission`
+- `sophiagraph.run_federated_workspace_query(...)`
+- `sophiagraph.WorkspaceRoleBinding`
+- `sophiagraph.WorkspaceActionRequest`
+- `sophiagraph.WorkspaceGateDecision`
+- `sophiagraph.WorkspaceReviewRequest`
+- `sophiagraph.WorkspaceReviewDecision`
+- `sophiagraph.evaluate_workspace_action(...)`
+- `sophiagraph.create_workspace_review_request(...)`
+- `sophiagraph.apply_workspace_review_decision(...)`
+- `sophiagraph.SavedViewDefinition`
+- `sophiagraph.SavedViewFilter`
+- `sophiagraph.SavedViewFilterGroup`
+- `sophiagraph.SavedViewResult`
+- `sophiagraph.SavedViewRow`
+- `sophiagraph.SavedViewSummary`
+- `sophiagraph.RelationRollupDefinition`
+- `sophiagraph.RelationRollupResult`
+- `sophiagraph.EmbeddedQueryPanel`
+- `sophiagraph.LiveQueryPanelResult`
+- `sophiagraph.evaluate_relation_rollup(...)`
+- `sophiagraph.evaluate_live_query_panels(...)`
+- `sophiagraph.PublishProfile`
+- `sophiagraph.PublishPlan`
+- `sophiagraph.DeliveryHandoff`
+- `sophiagraph.build_publish_plan(...)`
+- `sophiagraph.build_delivery_handoff(...)`
+- `sophiagraph.ProfilePack`
+- `sophiagraph.ProfileFieldMapping`
+- `sophiagraph.ProfilePackPlan`
+- `sophiagraph.ProfilePackDiagnostic`
+- `sophiagraph.build_profile_pack_plan(...)`
 - `sophiagraph.StructuralGraphQueryRequest`
 - `sophiagraph.StructuralGraphQueryResult`
 - `sophiagraph.StructuralGraphPlannerStage`
@@ -308,6 +350,11 @@ Public-contract confidence should be enforced by tests that cover:
     resumable re-embed plans, and orphan vector-id lifecycle helpers.
 24. persistent local workspace metadata/profile/status flows plus explicit
     local markdown/canvas import planning and application.
+25. explicit federated workspace query attribution and structural citations.
+26. local-first workspace roles, review gates, and review audit events.
+27. relation rollups and embedded live-query panels over saved views.
+28. publish/share profile shaping and runtime-neutral delivery handoffs.
+29. profile-pack mapping plans with lossy and unknown-field diagnostics.
 
 ## Internal compatibility shims
 
