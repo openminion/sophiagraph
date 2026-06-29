@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 from uuid import uuid4
 
+from sophiagraph.benchmarks import run_default_benchmark_suite
 from sophiagraph.human import HumanWorkbenchPacket
 from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.storage import create_sqlite_store, default_db_path
@@ -201,6 +202,18 @@ def _build_workspace_parser() -> argparse.ArgumentParser:
     ui_parser.add_argument("--host", default="127.0.0.1")
     ui_parser.add_argument("--port", type=int, default=8765)
     ui_parser.add_argument("--json", action="store_true")
+
+    benchmark_parser = subparsers.add_parser("benchmark")
+    benchmark_parser.add_argument(
+        "--format",
+        choices=("json", "markdown"),
+        default="json",
+    )
+    benchmark_parser.add_argument(
+        "--without-openminion-direct",
+        action="store_true",
+        help="omit OpenMinion direct-library handoff metadata fixture",
+    )
     return parser
 
 
@@ -370,6 +383,15 @@ def _run_workspace_cli(argv: list[str]) -> int:
             result.to_dict() if args.json else result.output_path, json_mode=args.json
         )
         return 0
+    if command == "benchmark":
+        scorecard = run_default_benchmark_suite(
+            include_openminion_direct=not args.without_openminion_direct
+        )
+        if args.format == "markdown":
+            print(scorecard.to_markdown(), end="")
+        else:
+            print(scorecard.to_json())
+        return 0
     raise SystemExit(f"unknown workspace command: {command}")
 
 
@@ -412,6 +434,7 @@ def main(argv: list[str] | None = None) -> int:
         "workspace-file-note-put",
         "workspace-note-materialize",
         "ui-preview",
+        "benchmark",
     }:
         return _run_workspace_cli(args)
     return _run_smoke_cli(args)

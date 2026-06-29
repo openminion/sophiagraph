@@ -47,6 +47,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.view_composition`
 - `sophiagraph.publishing`
 - `sophiagraph.profile_packs`
+- `sophiagraph.benchmarks`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -272,6 +273,16 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.ProfilePackPlan`
 - `sophiagraph.ProfilePackDiagnostic`
 - `sophiagraph.build_profile_pack_plan(...)`
+- `sophiagraph.BenchmarkSuite`
+- `sophiagraph.BenchmarkCase`
+- `sophiagraph.BenchmarkExpectation`
+- `sophiagraph.BenchmarkCaseResult`
+- `sophiagraph.BenchmarkScorecard`
+- `sophiagraph.BenchmarkUnsupportedReason`
+- `sophiagraph.run_benchmark_suite(...)`
+- `sophiagraph.run_default_benchmark_suite(...)`
+- `sophiagraph.scorecard_to_json(...)`
+- `sophiagraph.scorecard_to_markdown(...)`
 - `sophiagraph.StructuralGraphQueryRequest`
 - `sophiagraph.StructuralGraphQueryResult`
 - `sophiagraph.StructuralGraphPlannerStage`
@@ -355,6 +366,7 @@ Public-contract confidence should be enforced by tests that cover:
 27. relation rollups and embedded live-query panels over saved views.
 28. publish/share profile shaping and runtime-neutral delivery handoffs.
 29. profile-pack mapping plans with lossy and unknown-field diagnostics.
+30. deterministic benchmark/conformance scorecards over public package surfaces.
 
 ## Internal compatibility shims
 

@@ -78,6 +78,9 @@ and should be treated as a scam.
 - Workspace collaboration and sharing: explicit federated workspace query
   packets, structural citations, role/review gates, saved-view rollups,
   publish/share profile shaping, and profile-pack interoperability plans
+- Public proof: deterministic benchmark/conformance scorecards over package
+  APIs with explicit unsupported-by-design outcomes and optional report handoff
+  metadata for external eval tooling
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 
@@ -760,6 +763,9 @@ Stable top-level exports for external consumers:
 - `sophiagraph.portability`
 - `sophiagraph.trust`
 - `sophiagraph.coerce_temporal_dt`
+- `sophiagraph.run_default_benchmark_suite(...)`
+- `sophiagraph.scorecard_to_json(...)`
+- `sophiagraph.scorecard_to_markdown(...)`
 
 Supported import roots:
 
@@ -776,6 +782,25 @@ Supported import roots:
 - `sophiagraph.trust`
 - `sophiagraph.temporal`
 - `sophiagraph.contracts`
+- `sophiagraph.benchmarks`
+
+## Public conformance scorecard
+
+Run the package-local deterministic conformance scorecard:
+
+```bash
+python3.11 -m sophiagraph benchmark
+```
+
+Emit a Markdown summary for release notes or PR evidence:
+
+```bash
+python3.11 -m sophiagraph benchmark --format markdown
+```
+
+The scorecard uses structural fixtures over public package APIs. It records
+unsupported-by-design behavior explicitly and does not call provider SDKs,
+generate prose judgments, or import host packages.
 
 ## OpenMinion submission integration
 
