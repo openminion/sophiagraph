@@ -1,0 +1,82 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dev environment
+        run: make dev-install
+
+      - name: Validate pre-commit config
+        run: ./.venv/bin/python3.11 -m pre_commit validate-config
+
+      - name: Run pre-commit on changed files
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
+            base_commit="$(git merge-base HEAD FETCH_HEAD)"
+            ./.venv/bin/python3.11 -m pre_commit run \
+              --from-ref "${base_commit}" \
+              --to-ref HEAD \
+              --show-diff-on-failure
+            exit 0
+          fi
+          if [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
+            ./.venv/bin/python3.11 -m pre_commit run \
+              --from-ref "${BEFORE_SHA}" \
+              --to-ref HEAD \
+              --show-diff-on-failure
+            exit 0
+          fi
+          files=(
+            .pre-commit-config.yaml
+            .github/workflows/quality.yml
+            CONTRIBUTING.md
+            docs/getting-started.md
+            Makefile
+            scripts/validate_commit_message.py
+          )
+          ./.venv/bin/python3.11 -m pre_commit run \
+            --files "${files[@]}" \
+            --show-diff-on-failure
+
+      - name: Validate pushed commit messages
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          commits=()
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
+            base_commit="$(git merge-base HEAD FETCH_HEAD)"
+            mapfile -t commits < <(git rev-list --reverse "${base_commit}..HEAD")
+          elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
+            mapfile -t commits < <(git rev-list --reverse "${BEFORE_SHA}..HEAD")
+          fi
+          if [[ ${#commits[@]} -eq 0 ]]; then
+            commits=(HEAD)
+          fi
+          for commit in "${commits[@]}"; do
+            subject="$(git log -1 --format=%s "${commit}")"
+            echo "Checking ${commit}: ${subject}"
+            ./.venv/bin/python3.11 scripts/validate_commit_message.py --subject "${subject}"
+          done
