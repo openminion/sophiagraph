@@ -3,15 +3,18 @@ VENV := $(REPO_ROOT)/.venv
 DEV_STAMP := $(VENV)/.baseline-tools-installed
 PYTHON := $(VENV)/bin/python3.11
 PIP := $(PYTHON) -m pip
+PRE_COMMIT := $(PYTHON) -m pre_commit
 PYTEST := $(PYTHON) -m pytest
 RUFF := $(PYTHON) -m ruff
 
-.PHONY: help venv dev-install fix format format-check lint test check release-check
+.PHONY: help venv dev-install hooks-install hooks-run fix format format-check lint test check release-check
 
 help:
 	@printf '%s\n' \
 		'Targets:' \
 		'  make dev-install   Create/update .venv and install sophiagraph with dev extras' \
+		'  make hooks-install Install pre-commit hooks into .git/hooks' \
+		'  make hooks-run     Run pre-commit across the sophiagraph repo' \
 		'  make fix           Apply Ruff formatting and autofixes' \
 		'  make format        Run Ruff formatter' \
 		'  make format-check  Check formatting without changing files' \
@@ -29,6 +32,12 @@ $(DEV_STAMP): pyproject.toml | venv
 	@touch "$(DEV_STAMP)"
 
 dev-install: $(DEV_STAMP)
+
+hooks-install: $(DEV_STAMP)
+	$(PRE_COMMIT) install
+
+hooks-run: $(DEV_STAMP)
+	$(PRE_COMMIT) run --all-files
 
 fix: $(DEV_STAMP)
 	$(RUFF) format "$(REPO_ROOT)"
