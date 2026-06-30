@@ -191,6 +191,10 @@ def _build_workspace_parser() -> argparse.ArgumentParser:
         default="explore",
     )
     ui_parser.add_argument("--html-out", default="sophiagraph-ui-preview.html")
+    ui_parser.add_argument("--artifact-out", default="")
+    ui_parser.add_argument("--embed-out", default="")
+    ui_parser.add_argument("--report-out", default="")
+    ui_parser.add_argument("--markdown-report-out", default="")
     ui_parser.add_argument("--scope", default="agent:demo")
     ui_parser.add_argument("--query", default="")
     ui_parser.add_argument("--record-id")
@@ -364,6 +368,10 @@ def _run_workspace_cli(argv: list[str]) -> int:
             screen=args.screen,
             workspace=args.workspace,
             output_path=args.html_out,
+            artifact_path=args.artifact_out,
+            embed_path=args.embed_out,
+            report_path=args.report_out,
+            markdown_report_path=args.markdown_report_out,
             scope=args.scope,
             query=args.query,
             record_id=args.record_id,

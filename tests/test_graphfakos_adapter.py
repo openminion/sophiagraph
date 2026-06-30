@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from graphfakos import GraphFakosRequest, render_static_html
+from graphfakos import FileGraphProvider, GraphFakosRequest, render_static_html
+from graphfakos.artifacts import write_graph_artifact
+from graphfakos.provider import load_provider_graph
 from graphfakos.testing import assert_graph_viewer_contract
 
 from sophiagraph.models import (
@@ -119,3 +121,39 @@ def test_sophiagraph_adapter_returns_second_brain_graphfakos_graph() -> None:
         expected_node="Auth Decision",
         expected_edge="supports",
     )
+
+
+def test_sophiagraph_adapter_artifact_round_trip_matches_loaded_graph(tmp_path) -> None:
+    namespace = MemoryNamespace(agent_id="codex", graph_id="main")
+    store = SophiaGraphMemoryStore()
+    store.put_record(
+        MemoryRecord(
+            id="auth",
+            scope="agent:codex",
+            type="fact",
+            key="auth",
+            title="Auth Decision",
+            content={"text": "Use JWT auth for the operator console."},
+            namespace=namespace,
+            source="validated",
+            confidence=0.91,
+            created_at="2026-06-22T00:00:00+00:00",
+            updated_at="2026-06-22T00:00:00+00:00",
+        )
+    )
+    provider = SophiagraphViewerProvider(
+        store=store,
+        scope="agent:codex",
+        namespace=namespace,
+    )
+    request = GraphFakosRequest(screen="provider_status")
+    graph = load_provider_graph(provider, request)
+    artifact_path = tmp_path / "sophiagraph-artifact.json"
+    write_graph_artifact(graph, str(artifact_path))
+    replay_provider = FileGraphProvider(str(artifact_path))
+    replay_graph = load_provider_graph(replay_provider, request)
+    replay_html = render_static_html(replay_provider, request)
+
+    assert replay_graph.to_dict() == graph.to_dict()
+    assert "Sophiagraph Durable Memory" in replay_html
+    assert "Auth Decision" in replay_html

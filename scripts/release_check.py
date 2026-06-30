@@ -33,12 +33,16 @@ def _test_pythonpath(root: Path) -> str:
     return os.pathsep.join(paths)
 
 
-def _ensure_graphfakos_dist(root: Path, python: str) -> Path | None:
+def _ensure_graphfakos_wheel(root: Path, python: str) -> Path | None:
     graphfakos_root = _graphfakos_root(root)
     if graphfakos_root is None:
         return None
+    shutil.rmtree(graphfakos_root / "build", ignore_errors=True)
+    shutil.rmtree(graphfakos_root / "dist", ignore_errors=True)
+    for egg_info in graphfakos_root.glob("src/*.egg-info"):
+        shutil.rmtree(egg_info, ignore_errors=True)
     _run([python, "-m", "build"], cwd=graphfakos_root)
-    return graphfakos_root / "dist"
+    return sorted((graphfakos_root / "dist").glob("graphfakos-*.whl"))[-1]
 
 
 def _assert_package_docs_shape(root: Path) -> None:
@@ -104,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
                 cwd=root,
             )
     if not args.skip_wheel_smoke:
-        graphfakos_dist = _ensure_graphfakos_dist(root, python)
+        graphfakos_wheel = _ensure_graphfakos_wheel(root, python)
         with tempfile.TemporaryDirectory(prefix="sophiagraph-release-") as tmpdir:
             tmp = Path(tmpdir)
             venv_dir = tmp / "venv"
@@ -112,12 +116,13 @@ def main(argv: list[str] | None = None) -> int:
             _run([python, "-m", "venv", str(venv_dir)], cwd=root)
             pip = venv_dir / "bin" / "pip"
             wheel_python = venv_dir / "bin" / "python"
+            graphfakos_ui = venv_dir / "bin" / "graphfakos-ui"
             smoke = venv_dir / "bin" / "sophiagraph-smoke"
             ui_preview = venv_dir / "bin" / "sophiagraph-ui"
             wheel = sorted((root / "dist").glob("sophiagraph-*.whl"))[-1]
             install_cmd = [str(pip), "install"]
-            if graphfakos_dist is not None:
-                install_cmd.extend(["--find-links", str(graphfakos_dist)])
+            if graphfakos_wheel is not None:
+                install_cmd.append(str(graphfakos_wheel))
             install_cmd.append(str(wheel))
             _run(install_cmd, cwd=root)
             _run(
@@ -147,6 +152,27 @@ def main(argv: list[str] | None = None) -> int:
                     "views",
                     "--html-out",
                     str(tmp / "sophiagraph-ui.html"),
+                    "--artifact-out",
+                    str(tmp / "sophiagraph-artifact.json"),
+                    "--embed-out",
+                    str(tmp / "sophiagraph-embed.html"),
+                    "--report-out",
+                    str(tmp / "sophiagraph-report.json"),
+                    "--markdown-report-out",
+                    str(tmp / "sophiagraph-report.md"),
+                    "--json",
+                ],
+                cwd=root,
+            )
+            _run(
+                [
+                    str(graphfakos_ui),
+                    "--graph-json",
+                    str(tmp / "sophiagraph-artifact.json"),
+                    "--screen",
+                    "provider_status",
+                    "--html-out",
+                    str(tmp / "sophiagraph-artifact-replay.html"),
                     "--json",
                 ],
                 cwd=root,
