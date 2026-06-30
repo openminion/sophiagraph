@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-import webbrowser
-
+from graphfakos import GraphPreviewOutputPaths, write_provider_preview_outputs
 from graphfakos.server import (
     LocalViewerHttpServer as LocalVisualHttpServer,
     LocalViewerServerResult as LocalVisualServerResult,
@@ -29,19 +27,40 @@ from .preview_types import (
 
 
 def write_ui_preview(request: UiPreviewRequest) -> UiPreviewResult:
-    rendered = render_ui_preview(request)
-    output_path = Path(request.output_path).expanduser().resolve(strict=False)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(rendered.html, encoding="utf-8")
-    opened = False
-    if request.open_browser:
-        opened = webbrowser.open(output_path.as_uri())
+    store, namespace, scope = store_for_request(request)
+    record_id = request.record_id or first_record_id(store, scope, namespace)
+    provider = SophiagraphViewerProvider(
+        store=store,
+        scope=scope,
+        namespace=namespace,
+    )
+    graph_request = graphfakos_request(request, record_id=record_id)
+    payload = write_provider_preview_outputs(
+        provider,
+        graph_request,
+        GraphPreviewOutputPaths(
+            html_path=request.output_path,
+            artifact_path=request.artifact_path,
+            embed_path=request.embed_path,
+            report_path=request.report_path,
+            markdown_report_path=request.markdown_report_path,
+        ),
+        open_browser=request.open_browser,
+    )
     return UiPreviewResult(
-        output_path=str(output_path),
-        screen=rendered.screen,
-        workspace=rendered.workspace,
-        record_count=rendered.record_count,
-        opened=opened,
+        output_path=str(payload["output_path"]),
+        screen=str(payload["screen"]),
+        workspace=request.workspace,
+        record_count=store.record_count(),
+        provider_id=str(payload["provider_id"]),
+        node_count=int(payload["node_count"]),
+        edge_count=int(payload["edge_count"]),
+        route=str(payload["route"]),
+        artifact=payload.get("artifact"),
+        embed=payload.get("embed"),
+        report=payload.get("report"),
+        markdown_report=payload.get("markdown_report"),
+        opened=bool(payload["opened"]),
     )
 
 
