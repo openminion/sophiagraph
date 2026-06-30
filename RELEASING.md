@@ -23,6 +23,8 @@ A publishable release must satisfy all of the following:
 9. Both wheel and sdist build successfully.
 10. A clean install smoke passes from a fresh virtualenv using the built wheel.
 11. The package still has no imports from host frameworks such as OpenMinion.
+12. GitHub Actions release automation, when used, completes the same local
+    validation sequence before publishing.
 
 ## Version Bump
 
@@ -75,7 +77,14 @@ Expected smoke result:
 
 ## Publish Sequence
 
-Example sequence once validation is green:
+Preferred release path uses GitHub Actions trusted publishing:
+
+1. Run the local release check.
+2. Dispatch the `Release` workflow with `target=testpypi`.
+3. Install and smoke-test the TestPyPI artifact.
+4. Dispatch the same workflow with `target=pypi`, or push a `v*` tag.
+
+Manual fallback sequence once validation is green:
 
 ```bash
 python3.11 -m build
@@ -111,9 +120,23 @@ Use PyPI API tokens through `TWINE_USERNAME=__token__` and
 production upload, the project name `sophiagraph` is owned by the publishing
 PyPI account/organization for future releases.
 
+## GitHub Actions Trusted Publishing
+
+The release workflow expects PyPI trusted publishing to be configured for this
+repository:
+
+- TestPyPI environment: `testpypi`
+- PyPI environment: `pypi`
+- workflow file: `.github/workflows/release.yml`
+
+The workflow builds artifacts, runs hooks/check/release smoke, uploads `dist/*`
+as a GitHub artifact, then publishes through `pypa/gh-action-pypi-publish`.
+No PyPI token should be committed to source control.
+
 ## Notes
 
 1. This package intentionally omits repository/homepage metadata until the canonical public release URLs are locked.
 2. `sophiagraph` may be published independently; host frameworks consume it as a durable wisdom graph substrate.
 3. Generated caches and `*.egg-info` directories are build artifacts and should not be kept as source-of-truth package content.
 4. For fast local verification, `python3.11 scripts/release_check.py --skip-twine` is acceptable when `twine` is not available, but full release sign-off should run the default command.
+5. Release workflow behavior is documented in `docs/ci-and-release-automation.md`.

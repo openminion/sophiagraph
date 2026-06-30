@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main, dev]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -78,3 +79,9 @@ jobs:
             echo "Checking ${commit}: ${subject}"
             ./.venv/bin/python3.11 scripts/validate_commit_message.py --subject "${subject}"
           done
+
+      - name: Run package check
+        run: make check
+
+      - name: Run release smoke
+        run: ./.venv/bin/python3.11 scripts/release_check.py --skip-twine

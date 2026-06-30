@@ -41,8 +41,20 @@ Before substantial code changes, read:
 Preferred PR shape:
 
 1. short, GitHub-native title,
-2. flat bullet summary of what changed,
-3. short validation block with exact commands.
+2. flat line-item bullets that summarize what changed,
+3. plain `Validation` label followed by exact command bullets.
+
+Example:
+
+`Add typed privacy policy substrate`
+
+- add typed privacy policy surfaces
+- align standalone package docs
+- keep the public API boundary explicit
+
+Validation
+- `make lint`
+- `make test`
 
 ## Commit message shape
 

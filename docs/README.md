@@ -16,6 +16,20 @@ This directory holds the public package documentation for standalone
 - [`testing-and-validation.md`](testing-and-validation.md)
   records the package-local install, smoke, test, lint, and release-check
   flow.
+- [`ci-and-release-automation.md`](ci-and-release-automation.md)
+  records the GitHub Actions quality and release-publishing workflow.
+- [`examples.md`](examples.md) maps runnable public examples to the package
+  surfaces they exercise.
+- [`backend-compatibility-matrix.md`](backend-compatibility-matrix.md)
+  records backend adapter support and optional dependency boundaries.
+- [`api-stability.md`](api-stability.md) summarizes public import stability,
+  internal boundaries, and new-export checklist.
+- [`migration-and-upgrade.md`](migration-and-upgrade.md) records package-local
+  upgrade, rollback, and generated-artifact guidance.
+- [`benchmark-reports.md`](benchmark-reports.md) explains the deterministic
+  benchmark/conformance scorecard and report-publishing shape.
+- [`ui-workbench.md`](ui-workbench.md) records the local GraphFakos-backed
+  workbench and artifact-export workflow.
 - [`standalone-claim-alignment.md`](standalone-claim-alignment.md)
   keeps public package claims aligned with the surfaces that ship today.
 - [`certification-readiness-matrix.md`](certification-readiness-matrix.md)
@@ -43,6 +57,8 @@ This directory holds the public package documentation for standalone
 5. `CODE_QUALITY.md` summarizes the public contributor code-quality rules.
 6. `RELEASING.md` records the package-local release and PyPI publish flow.
 7. `scripts/release_check.py` is the canonical package release smoke entrypoint.
+8. `.github/workflows/quality.yml` and `.github/workflows/release.yml` mirror
+   the local Makefile gates for public PR and release automation.
 
 ## Repository-local but not package API
 

@@ -81,6 +81,9 @@ and should be treated as a scam.
 - Public proof: deterministic benchmark/conformance scorecards over package
   APIs with explicit unsupported-by-design outcomes and optional report handoff
   metadata for external eval tooling
+- Public operations: GitHub Actions quality/release workflows, runnable example
+  smoke tests, backend compatibility docs, upgrade guidance, and UI workbench
+  artifact exports
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 
@@ -255,6 +258,30 @@ python3.11 -m pip install -e '.[neo4j]'
 Embedding lifecycle helpers are package-local and require no extra dependency.
 Hosts provide the provider callback and vector-store operations; SophiaGraph
 only emits typed findings, plans, registries, and orphan IDs.
+
+## Public examples and validation
+
+Run the example pack:
+
+```bash
+PYTHONPATH=src python3.11 -m pytest -q tests/test_public_examples.py
+```
+
+Run the package benchmark scorecard:
+
+```bash
+python3.11 -m sophiagraph benchmark --format markdown
+```
+
+Key public references:
+
+- [`docs/examples.md`](docs/examples.md)
+- [`docs/backend-compatibility-matrix.md`](docs/backend-compatibility-matrix.md)
+- [`docs/api-stability.md`](docs/api-stability.md)
+- [`docs/migration-and-upgrade.md`](docs/migration-and-upgrade.md)
+- [`docs/benchmark-reports.md`](docs/benchmark-reports.md)
+- [`docs/ui-workbench.md`](docs/ui-workbench.md)
+- [`docs/ci-and-release-automation.md`](docs/ci-and-release-automation.md)
 
 Wheel build:
 
