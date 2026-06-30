@@ -151,8 +151,8 @@ sophiagraph-ui \
 Use `--html-out` only when you want to export a standalone HTML snapshot. The
 equivalent module form is `python3.11 -m sophiagraph ui-preview`.
 
-Host frameworks remain the orchestrators. `sophiagraph` owns reusable durable
-wisdom graph primitives and the standalone durable engine.
+Host frameworks remain the orchestrators. `sophiagraph` owns the reusable
+durable wisdom-graph primitives and standalone durable engine.
 
 ## Workspace Quickstart
 
@@ -525,9 +525,11 @@ adapter.handle(
 ```
 
 Claude Code, Cursor, Windsurf, and other MCP hosts should wire this adapter
-through their own MCP runtime package. `sophiagraph` supplies the structural
-CRUD/search bridge; host-specific manifests, auth, process lifecycle, and
-transport are owned by the host or an optional sibling adapter package.
+through their own MCP runtime package.
+
+`sophiagraph` supplies the structural CRUD/search bridge. Host-specific
+manifests, auth, process lifecycle, and transport belong to the host or an
+optional sibling adapter package.
 
 Runnable example:
 
@@ -695,10 +697,12 @@ local_graph = store.get_local_graph(LocalGraphOptions(record_id="rec-index", dep
 path = shortest_path(local_graph, "rec-index", "rec-roadmap")
 ```
 
-The resolver contract is deliberately structural: explicit path first, then
-case-insensitive title/alias matching inside the namespace. Unresolved and
-ambiguous targets are preserved as first-class outcomes. Unlinked mentions are
-not persisted as graph edges.
+The resolver contract is deliberately structural:
+
+- explicit path first;
+- then case-insensitive title/alias matching inside the namespace;
+- unresolved and ambiguous targets remain first-class outcomes;
+- unlinked mentions are not persisted as graph edges.
 
 ## Schema and Async Helpers
 
@@ -719,9 +723,14 @@ record = await async_facade.get_record("rec-1")
 ## Search and SQLite Connections
 
 Sophiagraph already owns a typed retrieval substrate over approved graph state.
-Today that includes deterministic keyword search, optional vector-stage fusion,
-graph expansion, recency weighting, trust weighting, explicit rerank inputs,
-and explanation payloads for why a hit surfaced.
+Today that includes:
+
+- deterministic keyword search,
+- optional vector-stage fusion,
+- graph expansion,
+- recency and trust weighting,
+- explicit rerank inputs,
+- explanation payloads for why a hit surfaced.
 
 Hosts still own provider execution and orchestration. The package accepts
 caller-supplied vector or rerank adapters and typed score inputs; it does not
