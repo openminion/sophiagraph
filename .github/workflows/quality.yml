@@ -17,6 +17,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select GraphFakos ref
+        id: graphfakos-ref
+        run: |
+          if [[ "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" == "dev" ]]; then
+            echo "ref=dev" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          repository: openminion/graphfakos
+          ref: ${{ steps.graphfakos-ref.outputs.ref }}
+          path: graphfakos
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -67,9 +82,16 @@ jobs:
           set -euo pipefail
           commits=()
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
-            base_commit="$(git merge-base HEAD FETCH_HEAD)"
-            mapfile -t commits < <(git rev-list --reverse "${base_commit}..HEAD")
+            if [[ "${GITHUB_HEAD_REF}" == "dev" && "${GITHUB_BASE_REF}" == "main" ]]; then
+              # Long-lived dev pushes already validate each new commit on push.
+              # Re-validating the full dev ancestry here would fail on older
+              # branch history that predates the current commit policy.
+              commits=(HEAD)
+            else
+              git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
+              base_commit="$(git merge-base HEAD FETCH_HEAD)"
+              mapfile -t commits < <(git rev-list --reverse "${base_commit}..HEAD")
+            fi
           elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
             mapfile -t commits < <(git rev-list --reverse "${BEFORE_SHA}..HEAD")
           fi

@@ -21,8 +21,14 @@ def _run(cmd: list[str], *, cwd: Path, extra_env: dict[str, str] | None = None) 
 
 
 def _graphfakos_root(root: Path) -> Path | None:
-    candidate = root.parent / "graphfakos"
-    return candidate if (candidate / "pyproject.toml").exists() else None
+    candidates = (
+        root / "graphfakos",
+        root.parent / "graphfakos",
+    )
+    for candidate in candidates:
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+    return None
 
 
 def _test_pythonpath(root: Path) -> str:

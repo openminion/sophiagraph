@@ -6,6 +6,9 @@ PIP := $(PYTHON) -m pip
 PRE_COMMIT := $(PYTHON) -m pre_commit
 PYTEST := $(PYTHON) -m pytest
 RUFF := $(PYTHON) -m ruff
+GRAPHFAKOS_SRC_LOCAL := $(abspath $(REPO_ROOT)/graphfakos/src)
+GRAPHFAKOS_SRC_SIBLING := $(abspath $(REPO_ROOT)/../graphfakos/src)
+TEST_PYTHONPATH := $(REPO_ROOT)/src$(if $(wildcard $(GRAPHFAKOS_SRC_LOCAL)),:$(GRAPHFAKOS_SRC_LOCAL),$(if $(wildcard $(GRAPHFAKOS_SRC_SIBLING)),:$(GRAPHFAKOS_SRC_SIBLING),))
 
 .PHONY: help venv dev-install hooks-install hooks-run fix format format-check lint test check release-check
 
@@ -53,7 +56,7 @@ lint: $(DEV_STAMP)
 	$(RUFF) check "$(REPO_ROOT)"
 
 test: $(DEV_STAMP)
-	PYTHONPATH="$(REPO_ROOT)/src" $(PYTEST) -q "$(REPO_ROOT)/tests"
+	PYTHONPATH="$(TEST_PYTHONPATH)" $(PYTEST) -q "$(REPO_ROOT)/tests"
 
 check: format-check lint test
 
