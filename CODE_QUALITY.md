@@ -91,4 +91,3 @@ The package prefers:
 1. explicit owners over convenience,
 2. typed deterministic surfaces over magical ones,
 3. maintainable structure over short-term shortcuts.
-

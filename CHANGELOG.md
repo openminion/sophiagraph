@@ -21,4 +21,3 @@ This file tracks package-facing release notes for `sophiagraph`.
 
 - The project remains in semantic alpha. Until the next tagged release,
   changes may land ahead of a published semantic-versioned changelog entry.
-
