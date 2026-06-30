@@ -66,9 +66,7 @@ jobs:
           set -euo pipefail
           commits=()
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
-            base_commit="$(git merge-base HEAD FETCH_HEAD)"
-            mapfile -t commits < <(git rev-list --reverse "${base_commit}..HEAD")
+            commits=(HEAD)
           elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
             mapfile -t commits < <(git rev-list --reverse "${BEFORE_SHA}..HEAD")
           fi
