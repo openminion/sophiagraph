@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
 
     python = sys.executable
     _run(
-        [python, "-m", "pytest", "-q"],
+        [python, "-m", "pytest", "-q", str(root / "tests")],
         cwd=root,
         extra_env={"PYTHONPATH": _test_pythonpath(root)},
     )
