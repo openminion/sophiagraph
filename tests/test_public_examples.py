@@ -40,6 +40,15 @@ EXAMPLE_EXPECTATIONS = {
 }
 
 
+def _example_pythonpath(root: Path) -> str:
+    paths = [root / "src"]
+    for candidate in (root / "graphfakos" / "src", root.parent / "graphfakos" / "src"):
+        if candidate.exists():
+            paths.append(candidate)
+            break
+    return os.pathsep.join(str(path) for path in paths)
+
+
 @pytest.mark.parametrize("example_name", sorted(EXAMPLE_EXPECTATIONS))
 def test_public_example_runs(example_name: str) -> None:
     root = Path(__file__).resolve().parents[1]
@@ -48,7 +57,7 @@ def test_public_example_runs(example_name: str) -> None:
         check=True,
         capture_output=True,
         text=True,
-        env={**os.environ, "PYTHONPATH": str(root / "src")},
+        env={**os.environ, "PYTHONPATH": _example_pythonpath(root)},
     )
     payload = json.loads(result.stdout)
     for key, value in EXAMPLE_EXPECTATIONS[example_name].items():
