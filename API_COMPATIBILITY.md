@@ -51,6 +51,20 @@ External consumers should treat these import roots as the supported public API:
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
+## Stability tiers
+
+| Surface | Stability | Consumer guidance |
+| --- | --- | --- |
+| Top-level `sophiagraph` exports | supported alpha | Preferred import path for common records, stores, query DTOs, and helpers |
+| Stable import roots listed above | supported alpha | Safe for owner-specific APIs when top-level exports are too broad |
+| CLI commands and console scripts | supported alpha | Intended for smoke, workspace, benchmark, and preview workflows |
+| Public docs under `docs/` | supported alpha | Source of truth for package-local behavior and operations |
+| Underscore-prefixed names | internal | Do not import |
+| Tests, fixtures, and generated artifacts | internal/generated | Do not depend on |
+
+See [`docs/api-stability.md`](docs/api-stability.md) for the short-form API
+stability guide and new-export checklist.
+
 ## Stable top-level exports
 
 The following top-level exports are part of the current public contract:
@@ -339,34 +353,36 @@ Public-contract confidence should be enforced by tests that cover:
 5. namespace-safe query/export/import boundaries,
 6. explicit link/backlink/local-graph behavior across memory and SQLite stores,
 7. Markdown/frontmatter structural import behavior with no prose rewrites,
-8. release/install smoke for built artifacts.
+8. release/install smoke for built artifacts,
 9. changefeed/delta replay behavior for current durable mutation surfaces,
 10. deterministic saved-view evaluation,
 11. document-block storage/search behavior,
-12. schema discovery and async facade import/use.
+12. schema discovery and async facade import/use,
 13. bitemporal `as_of` / `valid_at` / `believed_at` record queries,
 14. provable deletion tombstone and erasure-audit export behavior,
-15. provider-free MCP adapter CRUD/search smoke behavior.
+15. provider-free MCP adapter CRUD/search smoke behavior,
 16. local-first sync conflict DTOs and explicit resolution helpers,
 17. freshness ledger and connector idempotency contracts,
 18. shared-block attachment/mirror/audit primitives,
 19. structural graph query planner evidence and backend-envelope mapping,
-20. operational sync/replay/reindex/repair run envelopes over public imports.
-19. optional graph-backend adapter contracts,
-20. structural inspection reports and explicit repair candidates.
-21. graph/search explorer packets with backlinks, facets, paths, navigation
-    actions, and mechanical query-plan evidence.
-22. optional concrete graph backend adapters for Kuzu and Neo4j.
-23. namespace-scoped active embedding registries, stale-embedding detection,
-    resumable re-embed plans, and orphan vector-id lifecycle helpers.
-24. persistent local workspace metadata/profile/status flows plus explicit
-    local markdown/canvas import planning and application.
-25. explicit federated workspace query attribution and structural citations.
-26. local-first workspace roles, review gates, and review audit events.
-27. relation rollups and embedded live-query panels over saved views.
-28. publish/share profile shaping and runtime-neutral delivery handoffs.
-29. profile-pack mapping plans with lossy and unknown-field diagnostics.
-30. deterministic benchmark/conformance scorecards over public package surfaces.
+20. operational sync/replay/reindex/repair run envelopes over public imports,
+21. optional graph-backend adapter contracts,
+22. structural inspection reports and explicit repair candidates,
+23. graph/search explorer packets with backlinks, facets, paths, navigation
+    actions, and mechanical query-plan evidence,
+24. optional concrete graph backend adapters for Kuzu and Neo4j,
+25. namespace-scoped active embedding registries, stale-embedding detection,
+    resumable re-embed plans, and orphan vector-id lifecycle helpers,
+26. persistent local workspace metadata/profile/status flows plus explicit
+    local markdown/canvas import planning and application,
+27. explicit federated workspace query attribution and structural citations,
+28. local-first workspace roles, review gates, and review audit events,
+29. relation rollups and embedded live-query panels over saved views,
+30. publish/share profile shaping and runtime-neutral delivery handoffs,
+31. profile-pack mapping plans with lossy and unknown-field diagnostics,
+32. deterministic benchmark/conformance scorecards over public package surfaces,
+33. public examples that run against documented package imports,
+34. CI/release workflow docs and release-smoke path coverage.
 
 ## Internal compatibility shims
 

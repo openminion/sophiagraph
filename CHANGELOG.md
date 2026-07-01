@@ -11,6 +11,11 @@ This file tracks package-facing release notes for `sophiagraph`.
 
 - Added package-local public contributor references for testing, engineering
   patterns, agent bootstrap, and code-quality enforcement.
+- Added public CI/release automation docs, example-pack docs, backend
+  compatibility matrix, API stability guide, migration guide, benchmark report
+  guide, and UI workbench guide.
+- Added GitHub Actions release workflow support for TestPyPI/PyPI trusted
+  publishing.
 
 ### Changed
 

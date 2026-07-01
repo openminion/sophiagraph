@@ -21,8 +21,14 @@ def _run(cmd: list[str], *, cwd: Path, extra_env: dict[str, str] | None = None) 
 
 
 def _graphfakos_root(root: Path) -> Path | None:
-    candidate = root.parent / "graphfakos"
-    return candidate if (candidate / "pyproject.toml").exists() else None
+    candidates = (
+        root / "graphfakos",
+        root.parent / "graphfakos",
+    )
+    for candidate in candidates:
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+    return None
 
 
 def _test_pythonpath(root: Path) -> str:
@@ -48,12 +54,20 @@ def _ensure_graphfakos_wheel(root: Path, python: str) -> Path | None:
 def _assert_package_docs_shape(root: Path) -> None:
     required_paths = [
         root / "docs" / "README.md",
+        root / "docs" / "api-stability.md",
+        root / "docs" / "backend-compatibility-matrix.md",
+        root / "docs" / "benchmark-reports.md",
+        root / "docs" / "benchmarks" / "public-conformance-sample.md",
         root / "docs" / "certification-readiness-matrix.md",
+        root / "docs" / "ci-and-release-automation.md",
+        root / "docs" / "examples.md",
         root / "docs" / "human-management.md",
+        root / "docs" / "migration-and-upgrade.md",
         root / "docs" / "retrieval-boundary.md",
         root / "docs" / "source-tree-owner-map.md",
         root / "docs" / "standalone-claim-alignment.md",
         root / "docs" / "ui-contracts.md",
+        root / "docs" / "ui-workbench.md",
         root / "docs" / "vector-conformance.md",
         root / "docs" / "workspace-mode.md",
         root / "src" / "sophiagraph" / "README.md",
@@ -84,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
 
     python = sys.executable
     _run(
-        [python, "-m", "pytest", "-q"],
+        [python, "-m", "pytest", "-q", str(root / "tests")],
         cwd=root,
         extra_env={"PYTHONPATH": _test_pythonpath(root)},
     )

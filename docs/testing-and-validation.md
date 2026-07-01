@@ -40,8 +40,11 @@ Expected outcome:
 Run from the package root:
 
 ```bash
+make hooks-run
+make format-check
 make lint
 make test
+make check
 ```
 
 ## Focused regression tests
@@ -66,3 +69,16 @@ make release-check
 
 That command runs the package release smoke that builds artifacts, checks the
 wheel, and verifies the documented standalone install path.
+
+## CI parity
+
+GitHub Actions mirrors the local gates:
+
+1. changed-range pre-commit hooks,
+2. commit-message validation,
+3. `make check`,
+4. release smoke through `scripts/release_check.py --skip-twine`.
+
+The publish workflow runs the full release check before TestPyPI or PyPI
+publishing. See [`ci-and-release-automation.md`](ci-and-release-automation.md)
+for the workflow contract.
