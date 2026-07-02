@@ -73,8 +73,8 @@ and should be treated as a scam.
   `sophiagraph.ui`, and the `sophiagraph.okf` bundle profile for import/export
   workflows
 - Human workflow helpers: candidate review/promotion queues, workspace
-  history/recovery previews, and typed object templates for explicit
-  creation flows
+  history/recovery previews, typed object templates for explicit creation
+  flows, and collaborative workbench packets in `sophiagraph.workbench`
 - Workspace collaboration and sharing: explicit federated workspace query
   packets, structural citations, role/review gates, saved-view rollups,
   publish/share profile shaping, and profile-pack interoperability plans

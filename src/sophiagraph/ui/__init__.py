@@ -30,6 +30,7 @@ from .preview_types import (
     UiPreviewResult,
 )
 from .render import (
+    render_collaborative_workbench_html,
     render_candidate_review_html,
     render_community_structure_html,
     render_explorer_html,
@@ -119,6 +120,7 @@ __all__ = [
     "make_local_visual_server",
     "make_ui_preview_server",
     "render_candidate_review_html",
+    "render_collaborative_workbench_html",
     "render_community_structure_html",
     "render_explorer_html",
     "render_graph_view_html",
