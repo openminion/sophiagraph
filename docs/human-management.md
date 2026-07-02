@@ -33,6 +33,12 @@ boundary explicit:
 4. raw conversation is still source material, not durable graph state by
    default.
 
+Human note and import surfaces should expose the same store capability posture
+as agent-created memory. Callers can use
+`build_store_capability_report(store)` to show whether a local workspace is
+running against durable SQLite, in-memory preview storage, FTS-backed search,
+and vector lifecycle metadata before a human applies imports or edits.
+
 This surface does **not** provide:
 
 1. hosted multi-user sync

@@ -37,6 +37,14 @@ EXAMPLE_EXPECTATIONS = {
         "artifact_written": True,
         "report_written": True,
     },
+    "storage_retrieval_backends.py": {
+        "memory_backend": "memory",
+        "memory_record_count": 1,
+        "sqlite_backend": "sqlite",
+        "sqlite_durable": True,
+        "sqlite_fts_supported": True,
+        "sqlite_record_count": 1,
+    },
 }
 
 

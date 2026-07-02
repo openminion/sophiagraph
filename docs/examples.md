@@ -33,6 +33,8 @@ PYTHONPATH=src python3.11 -m pytest -q tests/test_public_examples.py
 - `benchmark_conformance.py` emits the built-in benchmark scorecard summary.
 - `ui_workbench_export.py` writes deterministic local HTML, artifact, embed,
   JSON report, and Markdown report files.
+- `storage_retrieval_backends.py` prints typed storage capability posture for
+  the in-memory and SQLite stores after a portability round-trip.
 
 ## Example contract
 

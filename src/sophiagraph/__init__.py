@@ -365,6 +365,10 @@ from sophiagraph.models import (
     transition_lifecycle,
 )
 from sophiagraph.portability import codec as portability
+from sophiagraph.portability.models import (
+    MemoryBundleExportOptions,
+    MemoryBundleImportOptions,
+)
 from sophiagraph.query import (
     ArtifactTextHit,
     ArtifactTextOmission,
@@ -461,8 +465,10 @@ from sophiagraph.storage import (
     DEFAULT_DB_FILENAME,
     SophiaGraphMemoryStore,
     SophiaGraphSqliteStore,
+    StoreCapabilityReport,
     acquire_write_lease,
     async_store,
+    build_store_capability_report,
     compact_store,
     coordinated_backup,
     create_backup,
@@ -663,6 +669,8 @@ __all__ = [
     "LocalSyncResult",
     "MemoryBlock",
     "MemoryAttributionUpdate",
+    "MemoryBundleExportOptions",
+    "MemoryBundleImportOptions",
     "MemoryCandidate",
     "MemoryContradictionLink",
     "MemoryEvidenceLink",
@@ -749,6 +757,7 @@ __all__ = [
     "SharedBlockUsageEvent",
     "SophiaGraphMemoryStore",
     "SophiaGraphSqliteStore",
+    "StoreCapabilityReport",
     "SourceIngestEnvelope",
     "SourceIngestResult",
     "SourceRegistryEntry",
@@ -873,6 +882,7 @@ __all__ = [
     "build_reembed_plan",
     "build_publish_plan",
     "build_source_management_console",
+    "build_store_capability_report",
     "build_vault_manifest",
     "build_workspace_import_profile",
     "build_workspace_metadata",

@@ -28,3 +28,13 @@ optional extras.
 - Use the fake backend for package tests, examples, and adapter conformance.
 - Use Kuzu when a local embedded graph engine is useful.
 - Use Neo4j when the host runtime already operates an external graph database.
+
+## Capability reporting
+
+Use `build_store_capability_report(store)` when callers need a single typed
+view of backend posture. The report covers durability, backup/export/import,
+keyword and FTS availability, relation/block/vector lifecycle support, active
+model-set counts, and backend diagnostics.
+
+Detailed storage and retrieval parity guidance lives in
+[`storage-retrieval-backends.md`](storage-retrieval-backends.md).
