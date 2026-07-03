@@ -8,7 +8,16 @@ PYTEST := $(PYTHON) -m pytest
 RUFF := $(PYTHON) -m ruff
 GRAPHFAKOS_SRC_LOCAL := $(abspath $(REPO_ROOT)/graphfakos/src)
 GRAPHFAKOS_SRC_SIBLING := $(abspath $(REPO_ROOT)/../graphfakos/src)
-TEST_PYTHONPATH := $(REPO_ROOT)/src$(if $(wildcard $(GRAPHFAKOS_SRC_LOCAL)),:$(GRAPHFAKOS_SRC_LOCAL),$(if $(wildcard $(GRAPHFAKOS_SRC_SIBLING)),:$(GRAPHFAKOS_SRC_SIBLING),))
+USE_LOCAL_GRAPHFAKOS ?= 0
+LOCAL_GRAPHFAKOS_SRC :=
+ifneq ($(filter 1 true yes,$(USE_LOCAL_GRAPHFAKOS)),)
+ifneq ($(wildcard $(GRAPHFAKOS_SRC_LOCAL)),)
+LOCAL_GRAPHFAKOS_SRC := $(GRAPHFAKOS_SRC_LOCAL)
+else ifneq ($(wildcard $(GRAPHFAKOS_SRC_SIBLING)),)
+LOCAL_GRAPHFAKOS_SRC := $(GRAPHFAKOS_SRC_SIBLING)
+endif
+endif
+TEST_PYTHONPATH := $(REPO_ROOT)/src$(if $(LOCAL_GRAPHFAKOS_SRC),:$(LOCAL_GRAPHFAKOS_SRC),)
 
 .PHONY: help venv dev-install hooks-install hooks-run fix format format-check lint test check release-check
 
