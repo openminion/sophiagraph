@@ -21,6 +21,12 @@ def _run(cmd: list[str], *, cwd: Path, extra_env: dict[str, str] | None = None) 
 
 
 def _graphfakos_root(root: Path) -> Path | None:
+    if os.environ.get("SOPHIAGRAPH_USE_LOCAL_GRAPHFAKOS", "").lower() not in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return None
     candidates = (
         root / "graphfakos",
         root.parent / "graphfakos",

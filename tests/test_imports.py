@@ -19,7 +19,7 @@ def test_sophiagraph_package_imports() -> None:
     import sophiagraph.ui
     import sophiagraph.workspace
 
-    assert sophiagraph.__version__ == "0.0.1"
+    assert sophiagraph.__version__ == "0.0.2"
     assert callable(sophiagraph.create_sqlite_store)
     assert sophiagraph.DEFAULT_DB_FILENAME == "sophiagraph.sqlite3"
     assert sophiagraph.MemoryNamespace(agent_id="codex").agent_id == "codex"
