@@ -53,6 +53,11 @@ This directory holds the public package documentation for standalone
   interchange direction.
 - [`trackers/storage-retrieval-backends-2026-07-02-tracker.md`](trackers/storage-retrieval-backends-2026-07-02-tracker.md)
   tracks the review-gated backend and retrieval implementation plan.
+- [`specs/product-gap-top20-roadmap-2026-07-02-spec.md`](specs/product-gap-top20-roadmap-2026-07-02-spec.md)
+  records the review-only top-20 product gap roadmap from current package
+  state and public product research.
+- [`trackers/product-gap-top20-roadmap-2026-07-02-tracker.md`](trackers/product-gap-top20-roadmap-2026-07-02-tracker.md)
+  tracks the non-executable discussion register for those candidate gaps.
 
 ## Package-local code/docs boundaries
 
