@@ -21,7 +21,7 @@ permissions:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'pypi' }}
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target || (contains(github.ref_name, 'rc') && 'testpypi' || 'pypi') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,11 +48,11 @@ jobs:
           path: dist/*
 
       - name: Publish to TestPyPI
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi' }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi') || (github.event_name == 'push' && contains(github.ref_name, 'rc')) }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
 
       - name: Publish to PyPI
-        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi') }}
+        if: ${{ (github.event_name == 'push' && !contains(github.ref_name, 'rc')) || (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi') }}
         uses: pypa/gh-action-pypi-publish@release/v1

@@ -48,6 +48,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.publishing`
 - `sophiagraph.profile_packs`
 - `sophiagraph.benchmarks`
+- `sophiagraph.workbench`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -166,6 +167,17 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.materialize_workspace_note(...)`
 - `sophiagraph.build_workspace_workbench(...)`
 - `sophiagraph.render_workspace_workbench(...)`
+- `sophiagraph.WorkspaceWorkbenchRequest`
+- `sophiagraph.WorkspaceWorkbenchPacket`
+- `sophiagraph.WorkbenchActionRequest`
+- `sophiagraph.WorkbenchActionPreview`
+- `sophiagraph.WorkbenchReviewInbox`
+- `sophiagraph.WorkbenchGraphPanelState`
+- `sophiagraph.build_workspace_workbench_packet(...)`
+- `sophiagraph.build_workbench_review_inbox(...)`
+- `sophiagraph.build_workbench_graph_panel(...)`
+- `sophiagraph.preview_workbench_action(...)`
+- `sophiagraph.workbench_to_dict(...)`
 - `sophiagraph.audit`
 - `sophiagraph.contracts`
 - `sophiagraph.portability`
@@ -382,7 +394,9 @@ Public-contract confidence should be enforced by tests that cover:
 31. profile-pack mapping plans with lossy and unknown-field diagnostics,
 32. deterministic benchmark/conformance scorecards over public package surfaces,
 33. public examples that run against documented package imports,
-34. CI/release workflow docs and release-smoke path coverage.
+34. CI/release workflow docs and release-smoke path coverage,
+35. collaborative second-brain workbench packets, GraphFakos panel summaries,
+    explicit action previews, and host direct-library fixtures.
 
 ## Internal compatibility shims
 

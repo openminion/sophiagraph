@@ -18,6 +18,12 @@ This is the bounded package-owned slice:
 Concrete backend integrations remain separate follow-on work when real consumer
 demand exists.
 
+Storage capability reports expose whether a selected store supports vector
+lifecycle metadata, external vector ids, active model sets, and default
+vector-backend posture. See
+[`storage-retrieval-backends.md`](storage-retrieval-backends.md) for the
+storage/retrieval contract that wraps this harness.
+
 ## What's in the box
 
 - `SimilarityMetric` — closed enum: `COSINE`, `L2`, `DOT`. All metrics

@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/pypi/v/sophiagraph?color=3775A9"></a>
+  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.2-3775A9"></a>
   <a href="https://pypi.org/project/sophiagraph/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/sophiagraph"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-publish--ready%20alpha-5B8DEF">
@@ -42,14 +42,14 @@ and should be treated as a scam.
 
 ## At a glance
 
-- Current public package line: `0.0.1` alpha
+- Current public package line: `0.0.2` alpha
 - Best fit when: you want durable memory records, relations, provenance, trust,
   and exportable graph state outside a host runtime
 - Backends today: a package-local SQLite engine, an in-memory backend for
   tests and ephemeral consumers, plus optional Kuzu and Neo4j graph adapters
 - Public shape: typed memory models, storage contracts, governance helpers,
-  portability bundles, workspace helpers, and package-local UI preview
-  boundaries
+  storage capability reports, portability bundles, workspace helpers, and
+  package-local UI preview boundaries
 - Not the claim: `sophiagraph` does not own orchestration, provider routing,
   hosted webhook delivery, or hosted admin/runtime UI behavior
 
@@ -61,7 +61,8 @@ and should be treated as a scam.
   query DTOs, namespace isolation, relation APIs, and portability bundle
   models/codecs
 - Storage and portability: a package-local SQLite durable engine, an in-memory
-  backend, standalone smoke validation, and graph/record export surfaces
+  backend, typed storage capability reports, standalone smoke validation, and
+  graph/record export surfaces
 - Governance and lifecycle: trust/policy primitives, audit events, temporal
   freshness helpers, vector metric/embedding lifecycle support, lifecycle
   policy evaluation, artifact records, and JSON Canvas contracts
@@ -73,8 +74,8 @@ and should be treated as a scam.
   `sophiagraph.ui`, and the `sophiagraph.okf` bundle profile for import/export
   workflows
 - Human workflow helpers: candidate review/promotion queues, workspace
-  history/recovery previews, and typed object templates for explicit
-  creation flows
+  history/recovery previews, typed object templates for explicit creation
+  flows, and collaborative workbench packets in `sophiagraph.workbench`
 - Workspace collaboration and sharing: explicit federated workspace query
   packets, structural citations, role/review gates, saved-view rollups,
   publish/share profile shaping, and profile-pack interoperability plans
@@ -259,6 +260,23 @@ Embedding lifecycle helpers are package-local and require no extra dependency.
 Hosts provide the provider callback and vector-store operations; SophiaGraph
 only emits typed findings, plans, registries, and orphan IDs.
 
+## Storage Capability Quickstart
+
+Inspect the capability posture of a store:
+
+```python
+from sophiagraph import SophiaGraphSqliteStore, build_store_capability_report
+
+store = SophiaGraphSqliteStore(".sophiagraph/sophiagraph.sqlite3")
+print(build_store_capability_report(store).to_dict())
+```
+
+Run the public storage/retrieval backend example:
+
+```bash
+PYTHONPATH=src python3.11 examples/storage_retrieval_backends.py
+```
+
 ## Public examples and validation
 
 Run the example pack:
@@ -277,6 +295,7 @@ Key public references:
 
 - [`docs/examples.md`](docs/examples.md)
 - [`docs/backend-compatibility-matrix.md`](docs/backend-compatibility-matrix.md)
+- [`docs/storage-retrieval-backends.md`](docs/storage-retrieval-backends.md)
 - [`docs/api-stability.md`](docs/api-stability.md)
 - [`docs/migration-and-upgrade.md`](docs/migration-and-upgrade.md)
 - [`docs/benchmark-reports.md`](docs/benchmark-reports.md)
@@ -321,6 +340,8 @@ sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
   to the concrete package surfaces and proof that ship today.
 - `docs/retrieval-boundary.md` records the canonical package vs host
   retrieval ownership split.
+- `docs/storage-retrieval-backends.md` records store capability reports,
+  default backend parity, portability posture, and vector lifecycle boundaries.
 - `docs/vector-conformance.md` records the vector registry and
   backend-conformance harness.
 - `docs/human-management.md` records the package-owned human
@@ -563,6 +584,7 @@ Runnable example:
 ```bash
 PYTHONPATH=src python3.11 examples/basic_usage.py
 PYTHONPATH=src python3.11 examples/obsidian_substrate.py
+PYTHONPATH=src python3.11 examples/storage_retrieval_backends.py
 ```
 
 ## SQLite Write Safety

@@ -13,8 +13,10 @@ from .render_screens import (
     render_screen_html,
     render_timeline_html,
 )
+from .workbench import render_collaborative_workbench_html
 
 __all__ = [
+    "render_collaborative_workbench_html",
     "render_candidate_review_html",
     "render_community_structure_html",
     "render_explorer_html",

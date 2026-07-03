@@ -79,10 +79,20 @@ Expected smoke result:
 
 Preferred release path uses GitHub Actions trusted publishing:
 
-1. Run the local release check.
-2. Dispatch the `Release` workflow with `target=testpypi`.
-3. Install and smoke-test the TestPyPI artifact.
-4. Dispatch the same workflow with `target=pypi`, or push a `v*` tag.
+1. Prepare and validate a release-candidate branch such as
+   `release/sophiagraph-0.0.2rc1`.
+2. Push an RC tag such as `v0.0.2rc1`; RC tag pushes publish to TestPyPI only.
+3. Install and smoke-test the RC artifact from TestPyPI.
+4. Prepare and validate the final branch such as `release/sophiagraph-0.0.2`.
+5. Dispatch the `Release` workflow from the final branch with
+   `target=testpypi`; final TestPyPI uses the same version that will go to
+   production.
+6. Install and smoke-test the final artifact from TestPyPI.
+7. Push the final non-RC tag such as `v0.0.2`; final tag pushes publish to
+   production PyPI.
+8. Create the GitHub Release with the bare version title, for example `0.0.2`.
+9. Open and merge the release backfill PR, then delete temporary release
+   branches after the tag, PyPI artifacts, GitHub Release, and PR are complete.
 
 Manual fallback sequence once validation is green:
 
@@ -132,6 +142,15 @@ repository:
 The workflow builds artifacts, runs hooks/check/release smoke, uploads `dist/*`
 as a GitHub artifact, then publishes through `pypa/gh-action-pypi-publish`.
 No PyPI token should be committed to source control.
+RC tags publish only to TestPyPI; final non-RC tags publish to production PyPI.
+Final TestPyPI verification should be run by workflow dispatch from the final
+release branch before the production tag is pushed.
+
+Local release validation uses the published `graphfakos` dependency by
+default. To explicitly test against a neighboring GraphFakos checkout during
+integration work, set `USE_LOCAL_GRAPHFAKOS=1` for `make check` or
+`SOPHIAGRAPH_USE_LOCAL_GRAPHFAKOS=1` for `scripts/release_check.py`. Do not use
+that opt-in mode as final PyPI release proof.
 
 ## Notes
 

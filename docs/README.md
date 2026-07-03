@@ -22,6 +22,9 @@ This directory holds the public package documentation for standalone
   surfaces they exercise.
 - [`backend-compatibility-matrix.md`](backend-compatibility-matrix.md)
   records backend adapter support and optional dependency boundaries.
+- [`storage-retrieval-backends.md`](storage-retrieval-backends.md)
+  records store capability reports, default memory/SQLite backend parity,
+  portability posture, and vector lifecycle boundaries.
 - [`api-stability.md`](api-stability.md) summarizes public import stability,
   internal boundaries, and new-export checklist.
 - [`migration-and-upgrade.md`](migration-and-upgrade.md) records package-local
@@ -45,6 +48,11 @@ This directory holds the public package documentation for standalone
   package-owned persistent local workspace and live file-primary sync contract.
 - [`ui-contracts.md`](ui-contracts.md) records the typed
   `sophiagraph.ui` boundary for deterministic local workbench screens.
+- [`specs/storage-retrieval-backends-2026-07-02-spec.md`](specs/storage-retrieval-backends-2026-07-02-spec.md)
+  defines the draft storage, retrieval, graph-backend, and vector-backend
+  interchange direction.
+- [`trackers/storage-retrieval-backends-2026-07-02-tracker.md`](trackers/storage-retrieval-backends-2026-07-02-tracker.md)
+  tracks the review-gated backend and retrieval implementation plan.
 
 ## Package-local code/docs boundaries
 
@@ -71,5 +79,6 @@ This directory holds the public package documentation for standalone
 
 The current public package contract is a local-first memory and knowledge-graph
 substrate: typed records, relations, retrieval, navigation, governance,
-freshness, portability, human note/import management, local workspaces,
-file-primary live sync, and deterministic workbench packets/HTML previews.
+freshness, storage capability reports, portability, human note/import
+management, local workspaces, file-primary live sync, and deterministic
+workbench packets/HTML previews.

@@ -44,20 +44,24 @@ attempting an upload.
 `.github/workflows/release.yml` builds, validates, stores the `dist/*`
 artifacts, and publishes through PyPI trusted publishing.
 
-Use TestPyPI first:
+Use TestPyPI first with an RC tag:
+
+```text
+Push v<version>rc<N>
+```
+
+RC tag pushes publish to TestPyPI only. After the RC artifact is installed and
+smoke-tested, prepare the final version branch and publish that exact final
+version to TestPyPI by workflow dispatch:
 
 ```text
 Actions -> Release -> Run workflow -> target=testpypi
 ```
 
-Use production PyPI only after TestPyPI verification:
-
-```text
-Actions -> Release -> Run workflow -> target=pypi
-```
-
-Tag pushes matching `v*` publish to production PyPI after the same validation
-sequence.
+Use production PyPI only after final-version TestPyPI verification. Push the
+final non-RC tag, such as `v0.0.2`, to publish to production PyPI after the
+same validation sequence. The GitHub Release is created after production PyPI
+publishing succeeds, with a bare version title such as `0.0.2`.
 
 ## Credential boundary
 

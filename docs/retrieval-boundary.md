@@ -22,6 +22,11 @@ That includes:
 4. local context assembly modes that operate only on stored package facts,
 5. caller-supplied vector and rerank adapter protocols.
 
+Store capability reports are part of this package-owned boundary. They tell a
+host whether the selected store supports durable storage, FTS, relation/block
+lookup, vector lifecycle metadata, export/import, and backup before the host
+decides how to orchestrate retrieval.
+
 OpenMinion and other hosts own:
 
 1. deciding when retrieval should run in a turn,
@@ -58,3 +63,4 @@ This split preserves both halves of the architecture:
 - `tests/test_context_assembly.py`
 - `tests/test_certification_suite.py`
 - `docs/vector-conformance.md`
+- `docs/storage-retrieval-backends.md`

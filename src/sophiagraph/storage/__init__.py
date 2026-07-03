@@ -2,6 +2,10 @@
 
 from .base import SophiaGraphStore
 from .async_facade import AsyncSophiaGraphStore, async_store
+from .capabilities import (
+    StoreCapabilityReport,
+    build_store_capability_report,
+)
 from .factory import (
     DEFAULT_DB_FILENAME,
     create_memory_store,
@@ -29,8 +33,10 @@ __all__ = [
     "SophiaGraphMemoryStore",
     "SophiaGraphSqliteStore",
     "SophiaGraphStore",
+    "StoreCapabilityReport",
     "acquire_write_lease",
     "async_store",
+    "build_store_capability_report",
     "compact_store",
     "coordinated_backup",
     "create_backup",
