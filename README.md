@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://www.openminion.com/brand/sophiagraph-logo.png" alt="Sophiagraph logo" width="128" />
+  <img src="https://www.openminion.com/brand/openminion-logo.png" alt="OpenMinion logo" width="128" />
 </p>
 
 <h1 align="center">Sophiagraph</h1>
