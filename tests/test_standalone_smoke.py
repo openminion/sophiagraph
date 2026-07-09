@@ -75,7 +75,7 @@ def test_python_m_sophiagraph_ui_preview_writes_html(tmp_path) -> None:
     assert "GraphFakos" in html
     assert "Provider Status" in html
     assert "Sophiagraph Durable Memory" in html
-    assert "Developer Integration" in html
+    assert "Integration Commands" in html
     assert "Second-brain durable memory graph." in html
     assert "sophiagraph-ui --workspace" in html
     assert "Auth Decision" in html
@@ -106,7 +106,7 @@ def test_sophiagraph_ui_preview_server_serves_visual_routes() -> None:
         thread.join(timeout=5)
 
     assert "Provider Status" in views_html
-    assert "Developer Integration" in views_html
+    assert "Integration Commands" in views_html
     assert "href='/graph" in views_html
     assert "Neighborhood" in graph_html
 
@@ -124,9 +124,13 @@ def test_console_script_contract_and_release_smoke_shape() -> None:
     assert pyproject["project"]["scripts"]["sophiagraph-ui"] == (
         "sophiagraph.__main__:ui_preview_main"
     )
+    assert pyproject["project"]["scripts"]["sophiagraph-server"] == (
+        "sophiagraph.server.__main__:main"
+    )
     assert "twine" in release_check
     assert "sophiagraph-smoke" in release_check
     assert "sophiagraph-ui" in release_check
+    assert "sophiagraph-server" in release_check
     assert "sophiagraph-artifact.json" in release_check
     assert "sophiagraph-report.json" in release_check
     assert "sophiagraph-report.md" in release_check
