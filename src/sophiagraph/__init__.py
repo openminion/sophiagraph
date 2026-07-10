@@ -1,6 +1,6 @@
 """Standalone wisdom graph substrate for durable agent memory."""
 
-__version__ = "0.0.3"
+__version__ = "0.0.3rc1"
 
 from sophiagraph.audit import events as audit
 from sophiagraph.benchmarks import (
