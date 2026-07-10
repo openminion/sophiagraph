@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 import tomllib
 
@@ -19,7 +21,7 @@ def test_sophiagraph_package_imports() -> None:
     import sophiagraph.ui
     import sophiagraph.workspace
 
-    assert sophiagraph.__version__ == "0.0.2"
+    assert sophiagraph.__version__ == "0.0.3"
     assert callable(sophiagraph.create_sqlite_store)
     assert sophiagraph.DEFAULT_DB_FILENAME == "sophiagraph.sqlite3"
     assert sophiagraph.MemoryNamespace(agent_id="codex").agent_id == "codex"
@@ -80,3 +82,29 @@ def test_sophiagraph_package_does_not_import_openminion_from_source() -> None:
         if "import openminion" in text or "from openminion" in text:
             offenders.append(str(path))
     assert offenders == []
+
+
+def test_sophiagraph_core_source_does_not_import_server_subpackage() -> None:
+    root = Path(__file__).resolve().parents[1] / "src" / "sophiagraph"
+    offenders: list[str] = []
+    for path in root.rglob("*.py"):
+        if "/server/" in path.as_posix():
+            continue
+        text = path.read_text()
+        if "import sophiagraph.server" in text or "from sophiagraph.server" in text:
+            offenders.append(str(path))
+    assert offenders == []
+
+
+def test_sophiagraph_import_does_not_load_server_subpackage() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sophiagraph, sys; print('sophiagraph.server' in sys.modules)",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.strip() == "False"

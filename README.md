@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://www.openminion.com/brand/sophiagraph-logo.png" alt="Sophiagraph logo" width="128" />
+  <img src="https://www.openminion.com/brand/openminion-logo.png" alt="OpenMinion logo" width="128" />
 </p>
 
 <h1 align="center">Sophiagraph</h1>
@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.2-3775A9"></a>
+  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.3-3775A9"></a>
   <a href="https://pypi.org/project/sophiagraph/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/sophiagraph"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-publish--ready%20alpha-5B8DEF">
@@ -42,7 +42,7 @@ and should be treated as a scam.
 
 ## At a glance
 
-- Current public package line: `0.0.2` alpha
+- Current public package line: `0.0.3` alpha
 - Best fit when: you want durable memory records, relations, provenance, trust,
   and exportable graph state outside a host runtime
 - Backends today: a package-local SQLite engine, an in-memory backend for
@@ -99,11 +99,10 @@ evaluator** for governance and lifecycle. It exposes:
 - typed `WebhookDeliveryAttemptEvent` so service/admin consumers can
   align on the event shape.
 
-`sophiagraph` does **NOT** open HTTP connections, run cron schedulers,
-or deliver webhooks. Those are the responsibility of
-`sophiagraph-server` (the runtime service) and the host runtime. The
-package supplies the typed contract; the service supplies the
-operational behavior.
+`sophiagraph` core does **NOT** open HTTP connections, run cron schedulers,
+or deliver webhooks. Those are the responsibility of the optional
+`sophiagraph.server` runtime and host runtimes. The package supplies the typed
+contract; the service supplies the operational behavior.
 
 ## What Sophiagraph does not provide
 
@@ -119,7 +118,7 @@ This package does **not** provide:
   suggestions from prose
 - implicit imports back into any host framework
 - HTTP webhook delivery, scheduled job execution, or hosted admin UI
-  (those belong to `sophiagraph-server` or the host runtime)
+  (those belong to `sophiagraph.server` or the host runtime)
 - semantic policy decisions inferred from freeform model output (policy
   hooks must return typed `PolicyDecision` instances with closed-enum
   reason codes)
@@ -130,9 +129,10 @@ The current visual explorer command lives in `sophiagraph.ui` and renders
 through GraphFakos, the shared graph lens package. Sophiagraph owns the
 second-brain adapter and durable-memory semantics; GraphFakos owns the reusable
 viewer shell, graph canvas, local server primitive, and static export surface.
-Browser-facing runtime transport is still expected to route through
-`sophiagraph-server` over the REST design pinned by SSSF-02 rather than private
-in-process imports.
+Browser-facing runtime transport is still expected to route through the
+optional `sophiagraph.server` runtime over the REST design pinned by SSSF-02
+rather than private in-process imports. The `sophiagraph-server` command name
+remains stable for CLI compatibility.
 
 You can run the package-local visual UI today:
 
@@ -868,7 +868,7 @@ direct-SDK submission path. The `SubmissionEnvelope` shape is pinned by
 so future MCP or REST transports can route the same payload without renaming
 fields.
 
-The direct-SDK path is the default OpenMinion integration; `sophiagraph-server`
+The direct-SDK path is the default OpenMinion integration; `sophiagraph.server`
 service transports are opt-in for external clients or non-Python hosts.
 
 ## API Compatibility

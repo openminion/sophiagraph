@@ -48,11 +48,6 @@ This directory holds the public package documentation for standalone
   package-owned persistent local workspace and live file-primary sync contract.
 - [`ui-contracts.md`](ui-contracts.md) records the typed
   `sophiagraph.ui` boundary for deterministic local workbench screens.
-- [`specs/storage-retrieval-backends-2026-07-02-spec.md`](specs/storage-retrieval-backends-2026-07-02-spec.md)
-  defines the draft storage, retrieval, graph-backend, and vector-backend
-  interchange direction.
-- [`trackers/storage-retrieval-backends-2026-07-02-tracker.md`](trackers/storage-retrieval-backends-2026-07-02-tracker.md)
-  tracks the review-gated backend and retrieval implementation plan.
 
 ## Package-local code/docs boundaries
 
@@ -72,8 +67,8 @@ This directory holds the public package documentation for standalone
 
 1. Hosted orchestration, schedulers, transport delivery, and browser-serving
    runtime behavior are owned outside the standalone package.
-2. Workspace-root roadmap, tracker, and implementation-planning docs remain
-   repository documentation rather than package API.
+2. Package planning and execution materials live outside this public package
+   docs directory and are not part of the standalone package API.
 
 ## Public package stance
 

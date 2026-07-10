@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sophiagraph"
-version = "0.0.2"
+version = "0.0.3"
 description = "Standalone wisdom graph substrate for durable agent memory"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,6 +31,7 @@ Repository = "https://github.com/openminion/sophiagraph"
 Download = "https://pypi.org/project/sophiagraph/"
 
 [project.optional-dependencies]
+server = []
 kuzu = [
   "kuzu>=0.11,<1",
 ]
@@ -48,6 +49,7 @@ dev = [
 [project.scripts]
 sophiagraph-smoke = "sophiagraph.__main__:main"
 sophiagraph-ui = "sophiagraph.__main__:ui_preview_main"
+sophiagraph-server = "sophiagraph.server.__main__:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

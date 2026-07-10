@@ -15,16 +15,16 @@ The ownership split is explicit:
    visual navigation of one workspace/demo graph,
 3. `graphfakos` owns the reusable viewer shell, graph canvas, local server
    primitive, static HTML export, and shared viewer assertions,
-4. `sophiagraph-server` or another host runtime owns the hosted browser,
+4. `sophiagraph.server` or another host runtime owns the hosted browser,
    transport, auth, and operator experience.
 
 ## Current contract
 
 - owner import root: `sophiagraph.ui`
-- runtime package: `sophiagraph-server`
+- runtime package: `sophiagraph.server`
 - transport kind: `rest`
 - transport status: `designed_not_implemented`
-- current API seam: `sophiagraph-server`
+- current API seam: `sophiagraph.server`
 - reusable local server primitive: `graphfakos.server`
 - local visual UI seam: `python3.11 -m sophiagraph ui-preview --serve`
 - shared viewer package: `graphfakos`
