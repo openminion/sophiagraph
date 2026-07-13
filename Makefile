@@ -19,7 +19,7 @@ endif
 endif
 TEST_PYTHONPATH := $(REPO_ROOT)/src$(if $(LOCAL_GRAPHFAKOS_SRC),:$(LOCAL_GRAPHFAKOS_SRC),)
 
-.PHONY: help venv dev-install hooks-install hooks-run fix format format-check lint test check release-check
+.PHONY: help venv dev-install hooks-install hooks-run fix format format-check lint test validate-patterns loc-check method-loc-check helper-duplicates-check path-structure-check filename-underscore-check broad-exception-check type-ignore-check public-surface-check check release-check
 
 help:
 	@printf '%s\n' \
@@ -32,7 +32,8 @@ help:
 		'  make format-check  Check formatting without changing files' \
 		'  make lint          Run Ruff lint' \
 		'  make test          Run package pytest suite' \
-		'  make check         Run format-check, lint, and test' \
+		'  make validate-patterns Run package structural quality ratchets' \
+		'  make check         Run format-check, lint, validate-patterns, and test' \
 		'  make release-check Run package release smoke'
 
 venv:
@@ -67,7 +68,33 @@ lint: $(DEV_STAMP)
 test: $(DEV_STAMP)
 	PYTHONPATH="$(TEST_PYTHONPATH)" $(PYTEST) -q "$(REPO_ROOT)/tests"
 
-check: format-check lint test
+loc-check: $(DEV_STAMP)
+	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check max-file-loc
+
+method-loc-check: $(DEV_STAMP)
+	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check method-loc
+
+helper-duplicates-check: $(DEV_STAMP)
+	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check helper-duplicates
+
+path-structure-check: $(DEV_STAMP)
+	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check path-structure
+
+filename-underscore-check: $(DEV_STAMP)
+	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check filename-underscore
+
+broad-exception-check: $(DEV_STAMP)
+	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check broad-exception
+
+type-ignore-check: $(DEV_STAMP)
+	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check type-ignore
+
+public-surface-check: $(DEV_STAMP)
+	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check public-surface
+
+validate-patterns: loc-check method-loc-check helper-duplicates-check path-structure-check filename-underscore-check broad-exception-check type-ignore-check public-surface-check
+
+check: format-check lint validate-patterns test
 
 release-check: $(DEV_STAMP)
 	cd "$(REPO_ROOT)" && $(PYTHON) scripts/release_check.py

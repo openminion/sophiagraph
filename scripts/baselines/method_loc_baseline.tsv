@@ -1,0 +1,22 @@
+# Format: path<TAB>qualname<TAB>loc<TAB>reason
+src/sophiagraph/__main__.py	_build_workspace_parser	142	existing over-ceiling function ratchet
+src/sophiagraph/__main__.py	_run_workspace_cli	174	existing over-ceiling function ratchet
+src/sophiagraph/human.py	plan_human_vault_import	122	existing over-ceiling function ratchet
+src/sophiagraph/inspection.py	build_inspection_report	101	existing over-ceiling function ratchet
+src/sophiagraph/okf_io.py	import_okf_bundle	132	existing over-ceiling function ratchet
+src/sophiagraph/okf_navigation.py	build_okf_navigation_packet	111	existing over-ceiling function ratchet
+src/sophiagraph/query/blocks.py	assemble_block_context	129	existing over-ceiling function ratchet
+src/sophiagraph/query/community.py	query_communities	134	existing over-ceiling function ratchet
+src/sophiagraph/query/community.py	execute_graph_pattern_query	105	existing over-ceiling function ratchet
+src/sophiagraph/query/entity_summary_context.py	assemble_entity_summary_context	139	existing over-ceiling function ratchet
+src/sophiagraph/query/explorer.py	explore_knowledge	222	existing over-ceiling function ratchet
+src/sophiagraph/query/retrieval.py	assemble_retrieval	137	existing over-ceiling function ratchet
+src/sophiagraph/server/server.py	dispatch	133	existing over-ceiling function ratchet
+src/sophiagraph/storage/memory_portability.py	MemoryPortabilityMixin.import_delta	109	existing over-ceiling function ratchet
+src/sophiagraph/storage/portability_helpers.py	import_snapshot_into_store	141	existing over-ceiling function ratchet
+src/sophiagraph/storage/sqlite/portability.py	SqlitePortabilityMixin.import_delta	219	existing over-ceiling function ratchet
+src/sophiagraph/storage/sqlite/schema.py	ensure_schema	610	existing over-ceiling function ratchet
+src/sophiagraph/vault_io.py	import_vault_files	110	existing over-ceiling function ratchet
+src/sophiagraph/view_eval.py	evaluate_formula_expression	105	existing over-ceiling function ratchet
+src/sophiagraph/workspace_sync.py	scan_workspace_sync	229	existing over-ceiling function ratchet
+src/sophiagraph/workspace_sync.py	apply_workspace_sync	147	existing over-ceiling function ratchet

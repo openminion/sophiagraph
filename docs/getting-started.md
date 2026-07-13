@@ -33,7 +33,7 @@ Before substantial code changes, read:
 2. Implement code and docs together when the public surface changes.
 3. Add or update tests for the behavior you changed.
 4. Run focused validation while iterating.
-5. Run `make lint` and `make test` before calling the work ready.
+5. Run `make check` before calling the work ready.
 6. Record validation commands in the PR description.
 
 ## Pull request shape
@@ -53,8 +53,7 @@ Example:
 - keep the public API boundary explicit
 
 Validation
-- `make lint`
-- `make test`
+- `make check`
 
 ## Commit message shape
 

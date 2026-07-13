@@ -1,0 +1,11 @@
+# Format: source_relative_path<TAB>finding
+graph_backends/kuzu_support.py	redundant suffix '_support'; prefer an explicit owner name over *_support.py
+graph_backends/neo4j_support.py	redundant suffix '_support'; prefer an explicit owner name over *_support.py
+okf_support.py	redundant suffix '_support'; prefer an explicit owner name over *_support.py
+storage/graph_helpers.py	redundant suffix '_helpers'; prefer an explicit owner name over *_helpers.py
+storage/graph_support.py	redundant suffix '_support'; prefer an explicit owner name over *_support.py
+storage/memory_block_helpers.py	redundant suffix '_helpers'; prefer an explicit owner name over *_helpers.py
+storage/operation_support.py	redundant suffix '_support'; prefer an explicit owner name over *_support.py
+storage/portability_helpers.py	redundant suffix '_helpers'; prefer an explicit owner name over *_helpers.py
+ui/preview_support.py	redundant suffix '_support'; prefer an explicit owner name over *_support.py
+vault_support.py	redundant suffix '_support'; prefer an explicit owner name over *_support.py

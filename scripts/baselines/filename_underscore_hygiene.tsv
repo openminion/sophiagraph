@@ -1,0 +1,16 @@
+# Format: path<TAB>underscore_count
+examples/graph_backend_export.py	2
+examples/okf_obsidian_roundtrip.py	2
+examples/storage_retrieval_backends.py	2
+examples/ui_workbench_export.py	2
+examples/workspace_sync_demo.py	2
+scripts/validate_commit_message.py	2
+scripts/validate_quality_patterns.py	2
+src/sophiagraph/models/self_improvement_types.py	2
+src/sophiagraph/query/entity_summary_context.py	2
+src/sophiagraph/query/structural_graph_exec.py	2
+src/sophiagraph/query/structural_graph_query.py	2
+src/sophiagraph/query/structural_graph_types.py	2
+src/sophiagraph/storage/entity_episode_store.py	2
+src/sophiagraph/storage/memory_block_helpers.py	2
+src/sophiagraph/storage/memory_sync_store.py	2

@@ -1,0 +1,14 @@
+# Format: path<TAB>total<TAB>silent_pass<TAB>reason
+src/sophiagraph/adapters/mcp.py	1	0	existing broad exception ratchet
+src/sophiagraph/benchmarks.py	1	0	existing broad exception ratchet
+src/sophiagraph/federation.py	1	0	existing broad exception ratchet
+src/sophiagraph/query/context_assembly.py	1	0	existing broad exception ratchet
+src/sophiagraph/query/explorer.py	1	0	existing broad exception ratchet
+src/sophiagraph/query/explorer_mechanics.py	1	0	existing broad exception ratchet
+src/sophiagraph/query/retrieval.py	1	0	existing broad exception ratchet
+src/sophiagraph/server/backend.py	1	0	existing broad exception ratchet
+src/sophiagraph/server/server.py	1	0	existing broad exception ratchet
+src/sophiagraph/storage/leases.py	1	0	existing broad exception ratchet
+src/sophiagraph/storage/migration_tooling.py	3	0	existing broad exception ratchet
+src/sophiagraph/storage/sqlite/__init__.py	1	0	existing broad exception ratchet
+src/sophiagraph/vectors.py	1	0	existing broad exception ratchet

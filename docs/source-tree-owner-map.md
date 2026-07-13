@@ -255,3 +255,6 @@ inspection, `sophiagraph.okf`, `sophiagraph.ui`, `sophiagraph.workspace`, and
 2. `examples/` are package demos, not wider host-runtime guarantees.
 3. Repository planning and execution docs stay in the workspace `docs/` tree
    instead of the package source tree.
+4. `scripts/validate_quality_patterns.py` and `scripts/baselines/` own the
+   package-local structural quality ratchets used by `make validate-patterns`
+   and `make check`.

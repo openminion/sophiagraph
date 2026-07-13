@@ -69,6 +69,8 @@ jobs:
             CONTRIBUTING.md
             docs/getting-started.md
             Makefile
+            scripts/baselines/*.tsv
+            scripts/validate_quality_patterns.py
             scripts/validate_commit_message.py
           )
           ./.venv/bin/python3.11 -m pre_commit run \

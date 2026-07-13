@@ -44,6 +44,7 @@ make hooks-run
 make format-check
 make lint
 make test
+make validate-patterns
 make check
 ```
 

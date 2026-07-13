@@ -1,0 +1,6 @@
+# Format: path<TAB>loc<TAB>reason
+src/sophiagraph/__init__.py	1018	existing over-ceiling file ratchet
+src/sophiagraph/storage/memory.py	1881	existing over-ceiling file ratchet
+src/sophiagraph/storage/sqlite/__init__.py	2543	existing over-ceiling file ratchet
+src/sophiagraph/storage/sqlite/typed_graph.py	1019	existing over-ceiling file ratchet
+src/sophiagraph/workspace_sync.py	1068	existing over-ceiling file ratchet

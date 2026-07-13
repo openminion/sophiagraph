@@ -1,0 +1,11 @@
+# Format: directory<TAB>function<TAB>files<TAB>reason
+src/sophiagraph	_stable_id	src/sophiagraph/human.py,src/sophiagraph/inspection.py,src/sophiagraph/shared_blocks.py,src/sophiagraph/sync.py	existing duplicate private helper ratchet
+src/sophiagraph/models	_dict_field	src/sophiagraph/models/privacy.py,src/sophiagraph/models/storage_operations.py	existing duplicate private helper ratchet
+src/sophiagraph/models	_meta_dict	src/sophiagraph/models/artifact_projection.py,src/sophiagraph/models/document.py	existing duplicate private helper ratchet
+src/sophiagraph/models	_optional_string_field	src/sophiagraph/models/embedding.py,src/sophiagraph/models/embedding_lifecycle.py,src/sophiagraph/models/privacy.py	existing duplicate private helper ratchet
+src/sophiagraph/models	_require_mapping	src/sophiagraph/models/entity_fact.py,src/sophiagraph/models/episode_procedure.py	existing duplicate private helper ratchet
+src/sophiagraph/models	_require_meta_dict	src/sophiagraph/models/record.py,src/sophiagraph/models/relation.py,src/sophiagraph/models/tier.py	existing duplicate private helper ratchet
+src/sophiagraph/models	_require_namespace	src/sophiagraph/models/entity_fact.py,src/sophiagraph/models/episode_procedure.py,src/sophiagraph/models/record.py	existing duplicate private helper ratchet
+src/sophiagraph/models	_require_string_list	src/sophiagraph/models/episode_procedure.py,src/sophiagraph/models/link.py	existing duplicate private helper ratchet
+src/sophiagraph/models	_string_field	src/sophiagraph/models/embedding.py,src/sophiagraph/models/embedding_lifecycle.py,src/sophiagraph/models/privacy.py,src/sophiagraph/models/storage_operations.py	existing duplicate private helper ratchet
+src/sophiagraph/query	_adjacency	src/sophiagraph/query/algorithm_exec.py,src/sophiagraph/query/community.py	existing duplicate private helper ratchet
