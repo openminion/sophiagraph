@@ -12,6 +12,7 @@ import argparse
 import ast
 import collections
 import re
+import subprocess
 import sys
 import tokenize
 import tomllib
@@ -122,6 +123,15 @@ def _scan_roots(project: ProjectInfo) -> tuple[Path, ...]:
 
 
 def _python_files(*roots: Path) -> list[Path]:
+    git_files = _git_python_files()
+    if git_files is not None:
+        resolved_roots = tuple(root.resolve() for root in roots)
+        return sorted(
+            path
+            for path in git_files
+            if any(path.resolve().is_relative_to(root) for root in resolved_roots)
+        )
+
     files: list[Path] = []
     for root in roots:
         files.extend(
@@ -130,6 +140,23 @@ def _python_files(*roots: Path) -> list[Path]:
             if path.is_file() and "__pycache__" not in path.parts
         )
     return sorted(files)
+
+
+def _git_python_files() -> list[Path] | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "ls-files", "-z", "--", "*.py"],
+            check=True,
+            capture_output=True,
+            text=False,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return [
+        REPO_ROOT / raw_path.decode("utf-8")
+        for raw_path in result.stdout.split(b"\0")
+        if raw_path
+    ]
 
 
 def _rel(path: Path) -> str:
@@ -451,7 +478,15 @@ def _path_structure_rows(project: ProjectInfo) -> list[tuple[str, str]]:
         f"{project.import_root}_",
         f"{project.name.replace('-', '_')}_",
     }
-    for path in sorted(project.source_root.rglob("*")):
+    source_paths: set[Path] = set()
+    for file_path in _python_files(project.source_root):
+        source_paths.add(file_path)
+        for parent in file_path.parents:
+            if parent == project.source_root:
+                break
+            if project.source_root in parent.parents:
+                source_paths.add(parent)
+    for path in sorted(source_paths):
         if "__pycache__" in path.parts:
             continue
         rel = path.relative_to(project.source_root).as_posix()
