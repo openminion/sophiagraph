@@ -19,7 +19,7 @@ endif
 endif
 TEST_PYTHONPATH := $(REPO_ROOT)/src$(if $(LOCAL_GRAPHFAKOS_SRC),:$(LOCAL_GRAPHFAKOS_SRC),)
 
-.PHONY: help venv dev-install hooks-install hooks-run fix format format-check lint test validate-patterns loc-check method-loc-check helper-duplicates-check path-structure-check filename-underscore-check broad-exception-check type-ignore-check public-surface-check check release-check
+.PHONY: help venv dev-install hooks-install hooks-run fix format format-check lint test validate-patterns loc-check method-loc-check helper-duplicates-check path-structure-check filename-underscore-check broad-exception-check type-ignore-check public-surface-check api-compatibility-check check release-check
 
 help:
 	@printf '%s\n' \
@@ -92,7 +92,10 @@ type-ignore-check: $(DEV_STAMP)
 public-surface-check: $(DEV_STAMP)
 	$(PYTHON) "$(REPO_ROOT)/scripts/validate_quality_patterns.py" --check public-surface
 
-validate-patterns: loc-check method-loc-check helper-duplicates-check path-structure-check filename-underscore-check broad-exception-check type-ignore-check public-surface-check
+api-compatibility-check: $(DEV_STAMP)
+	PYTHONPATH="$(TEST_PYTHONPATH)" $(PYTHON) "$(REPO_ROOT)/scripts/check_api.py"
+
+validate-patterns: loc-check method-loc-check helper-duplicates-check path-structure-check filename-underscore-check broad-exception-check type-ignore-check public-surface-check api-compatibility-check
 
 check: format-check lint validate-patterns test
 

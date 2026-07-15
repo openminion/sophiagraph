@@ -9,6 +9,14 @@ This file tracks package-facing release notes for `sophiagraph`.
 
 ### Added
 
+- Added a lazily loaded Qdrant stored-vector backend with caller-supplied
+  embeddings, namespace/payload filters, deletion, and health checks.
+- Added dependency/API compatibility reporting, capability-aware backend
+  planning, resumable bulk ingestion, low-cardinality telemetry, caller-owned
+  authenticated-encryption contracts, enforceable server deployment profiles,
+  materialized saved views, conflict-preserving three-way merges, and
+  operator-run scale benchmark profiles.
+
 - Added package-local public contributor references for testing, engineering
   patterns, agent bootstrap, and code-quality enforcement.
 - Added public CI/release automation docs, example-pack docs, backend

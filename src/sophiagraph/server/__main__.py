@@ -1,14 +1,4 @@
-"""CLI entrypoint for the in-package `sophiagraph-server` runtime command.
-
-KMSR-01 wires `serve-stdio` to the bounded MCP v1 surface defined in
-`sophiagraph.server.tools` and `sophiagraph.server.server`.
-
-KMSR-02 adds the `--wire-backend` flag (default ON) that swaps the
-`BackendNotWiredError` stub handlers for real `sophiagraph` store
-invocations via `sophiagraph.server.backend.build_wired_registry`. Pass
-`--no-wire-backend` to keep the KMSR-01 stub registry (useful for contract
-testing or contract-only demos).
-"""
+"""CLI entrypoint for the in-package `sophiagraph-server` runtime."""
 
 from __future__ import annotations
 
@@ -16,6 +6,7 @@ import argparse
 import sys
 
 from sophiagraph.server.backend import BackendConfig, build_wired_registry
+from sophiagraph.server.deployment import DeploymentProfile
 from sophiagraph.server.runtime_hardening import (
     QuotaRule,
     RuntimePolicyEngine,
@@ -33,10 +24,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sophiagraph-server")
     subparsers = parser.add_subparsers(dest="command")
     _stdio_help = (
-        "Run the bounded KMSR v1 MCP runtime over stdio. With --wire-backend "
-        "(default), data-op tools execute against the selected sophiagraph "
-        "backend (KMSR-02). With --no-wire-backend, data-op tools raise "
-        "BackendNotWiredError (KMSR-01 stub registry)."
+        "Run the bounded MCP runtime over stdio. Data tools use the selected "
+        "backend by default; --no-wire-backend keeps a contract-only registry."
     )
     stdio_parser = subparsers.add_parser(
         "serve-stdio",
@@ -59,13 +48,24 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="wire_backend",
         action="store_true",
         default=True,
-        help="Wire data-op handlers to the live sophiagraph store (KMSR-02 default).",
+        help="Wire data handlers to the selected sophiagraph store (default).",
     )
     stdio_parser.add_argument(
         "--no-wire-backend",
         dest="wire_backend",
         action="store_false",
-        help="Use the KMSR-01 stub registry (data ops raise BackendNotWiredError).",
+        help="Use a contract-only registry without a configured store.",
+    )
+    stdio_parser.add_argument(
+        "--production",
+        action="store_true",
+        help="Require auth, quotas, request ids, and bounded request size.",
+    )
+    stdio_parser.add_argument(
+        "--max-request-bytes",
+        type=int,
+        default=1_048_576,
+        help="Maximum encoded request size (default: 1048576).",
     )
     stdio_parser.add_argument(
         "--auth-mode",
@@ -109,6 +109,12 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(
                 "--auth-mode static_bearer requires at least one --bearer-token"
             )
+        if args.production and (
+            args.auth_mode == "none" or args.quota_max_requests is None
+        ):
+            parser.error(
+                "--production requires static bearer auth and --quota-max-requests"
+            )
         if args.wire_backend:
             registry = build_wired_registry(
                 BackendConfig(backend=args.backend, sqlite_path=args.sqlite_path)
@@ -130,6 +136,12 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if args.quota_max_requests is not None
                 else None
+            ),
+            deployment_profile=DeploymentProfile(
+                profile_id="production" if args.production else "local-development",
+                max_request_bytes=args.max_request_bytes,
+                require_auth=args.production,
+                require_request_id=args.production,
             ),
         )
         return serve_stdio(

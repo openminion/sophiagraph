@@ -23,7 +23,7 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-  "graphfakos>=0.0.1,<1",
+  "graphfakos>=0.0.5,<1",
 ]
 
 [project.urls]
@@ -37,6 +37,15 @@ kuzu = [
 ]
 neo4j = [
   "neo4j>=5,<6",
+]
+qdrant = [
+  "qdrant-client>=1.7,<2",
+]
+telemetry = [
+  "opentelemetry-api>=1.25,<2",
+]
+encryption = [
+  "cryptography>=42,<46",
 ]
 dev = [
   "build>=1,<2",

@@ -49,6 +49,16 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.profile_packs`
 - `sophiagraph.benchmarks`
 - `sophiagraph.workbench`
+- `sophiagraph.compatibility`
+- `sophiagraph.vector_backends`
+- `sophiagraph.backend_planning`
+- `sophiagraph.ingestion`
+- `sophiagraph.telemetry`
+- `sophiagraph.security`
+- `sophiagraph.materialized_views`
+- `sophiagraph.collaboration`
+- `sophiagraph.production_benchmarks`
+- `sophiagraph.server.deployment`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 

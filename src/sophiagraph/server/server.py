@@ -1,18 +1,14 @@
-"""Minimal stdio MCP server bootstrap for the sophiagraph-server runtime.
+"""Minimal JSON-RPC 2.0 over stdio runtime for sophiagraph-server.
 
-KMSR-01 ships a hand-rolled JSON-RPC-2.0 over stdio loop that supports the
-three MCP methods needed for handshake + tool dispatch:
+The bounded runtime supports the MCP methods needed for handshake and dispatch:
 
 1. `initialize` — protocol-version negotiation + server capability advertise
 2. `tools/list` — list registered tool names + typed schemas
 3. `tools/call` — dispatch to a registered handler
 
-The loop is line-delimited JSON for v1; KMSR-02 may upgrade to the
-Content-Length framing used by some MCP transports. The line-delimited path
-is sufficient for handshake smoke and contract validation.
+The v1 transport uses line-delimited JSON.
 
-No `openminion` import is allowed in this module (enforced by
-`tests/test_imports.py`).
+The module deliberately has no `openminion` dependency.
 """
 
 from __future__ import annotations
@@ -34,7 +30,10 @@ from sophiagraph.server.contracts import (
     QuotaExceededError,
     SophiagraphServerError,
 )
-from sophiagraph.server.runtime_hardening import RuntimePolicyEngine
+from sophiagraph.server.runtime_hardening import (
+    RuntimePolicyEngine,
+    RuntimeRequestContext,
+)
 from sophiagraph.server.service_core import to_json_dict
 from sophiagraph.server.tools import ToolRegistry, ToolSchema
 
@@ -165,6 +164,15 @@ def _attach_meta(
     return response
 
 
+def _enforce_runtime_policy(
+    runtime: RuntimePolicyEngine,
+    message: Mapping[str, Any],
+    context: RuntimeRequestContext,
+) -> None:
+    runtime.enforce_deployment(message, context)
+    runtime.authorize(context)
+
+
 def dispatch(
     message: Mapping[str, Any],
     *,
@@ -198,7 +206,7 @@ def dispatch(
     is_notification = "id" not in message
     try:
         if runtime is not None and context is not None:
-            runtime.authorize(context)
+            _enforce_runtime_policy(runtime, message, context)
         if method == "runtime/health" and runtime is not None:
             response = _ok_response(
                 request_id,
