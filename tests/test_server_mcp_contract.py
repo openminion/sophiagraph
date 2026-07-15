@@ -100,7 +100,7 @@ def test_data_op_handlers_raise_backend_not_wired_until_kmsr_02() -> None:
     assert excinfo.value.code == TOOL_BACKEND_NOT_WIRED_CODE
     assert excinfo.value.details == {
         "tool_name": "knowledge_get_record",
-        "blocker": "KMSR-02",
+        "reason": "backend_not_configured",
     }
 
 

@@ -36,7 +36,7 @@ class StoreCapabilityReport:
     external_vector_ids_supported: bool = True
     active_model_sets_supported: bool = True
     optional_graph_backends: tuple[str, ...] = ("fake", "kuzu", "neo4j")
-    optional_vector_backends: tuple[str, ...] = ("builtin",)
+    optional_vector_backends: tuple[str, ...] = ("builtin", "qdrant")
     record_count: int = 0
     candidate_count: int = 0
     embedding_count: int = 0

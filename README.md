@@ -46,7 +46,8 @@ and should be treated as a scam.
 - Best fit when: you want durable memory records, relations, provenance, trust,
   and exportable graph state outside a host runtime
 - Backends today: a package-local SQLite engine, an in-memory backend for
-  tests and ephemeral consumers, plus optional Kuzu and Neo4j graph adapters
+  tests and ephemeral consumers, optional Kuzu and Neo4j graph adapters, and
+  an optional Qdrant stored-vector adapter
 - Public shape: typed memory models, storage contracts, governance helpers,
   storage capability reports, portability bundles, workspace helpers, and
   package-local UI preview boundaries
@@ -82,6 +83,10 @@ and should be treated as a scam.
 - Public proof: deterministic benchmark/conformance scorecards over package
   APIs with explicit unsupported-by-design outcomes and optional report handoff
   metadata for external eval tooling
+- Production foundations: dependency compatibility checks, resumable connector
+  ingestion, capability-aware backend plans, low-cardinality telemetry,
+  caller-owned encryption seams, materialized views, conservative merge
+  conflicts, and operator-run scale profiles
 - Public operations: GitHub Actions quality/release workflows, runnable example
   smoke tests, backend compatibility docs, upgrade guidance, and UI workbench
   artifact exports

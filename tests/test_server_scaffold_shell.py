@@ -31,4 +31,4 @@ def test_serve_stdio_help_documents_backend_option_and_kmsr_02_blocker() -> None
         check=True,
     )
     assert "--backend" in help_run.stdout
-    assert "KMSR-02" in help_run.stdout
+    assert "contract-only registry" in help_run.stdout

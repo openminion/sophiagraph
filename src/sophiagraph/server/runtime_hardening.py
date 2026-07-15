@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any, Callable, Final, Literal, Mapping
 
 from sophiagraph.server.contracts import AuthDeniedError, QuotaExceededError
+from sophiagraph.server.deployment import DeploymentProfile, enforce_deployment_profile
 
 
 ServerAuthMode = Literal["none", "static_bearer"]
@@ -171,6 +172,7 @@ class RuntimePolicyEngine:
     quota: QuotaRule | None = None
     webhook_subscriptions: tuple[WebhookSubscription, ...] = ()
     webhook_sender: WebhookSender | None = None
+    deployment_profile: DeploymentProfile = field(default_factory=DeploymentProfile)
     _quota_counters: dict[str, int] = field(default_factory=dict)
     _quota_window_started_at: dict[str, str] = field(default_factory=dict)
 
@@ -214,6 +216,18 @@ class RuntimePolicyEngine:
         raise AuthDeniedError(
             request_id=context.request_id,
             reason="missing_or_invalid_bearer_token",
+            auth_mode=self.auth.mode,
+        )
+
+    def enforce_deployment(
+        self,
+        message: Mapping[str, Any],
+        context: RuntimeRequestContext,
+    ) -> None:
+        enforce_deployment_profile(
+            self.deployment_profile,
+            message,
+            transport=context.transport,
             auth_mode=self.auth.mode,
         )
 
@@ -287,6 +301,15 @@ class RuntimePolicyEngine:
                 },
             ),
             RuntimeHealthComponent(
+                name="deployment",
+                status="ok",
+                detail={
+                    "profile_id": self.deployment_profile.profile_id,
+                    "max_request_bytes": self.deployment_profile.max_request_bytes,
+                    "require_auth": self.deployment_profile.require_auth,
+                },
+            ),
+            RuntimeHealthComponent(
                 name="registry",
                 status="ok",
                 detail={"tool_count": registry_size},
@@ -302,6 +325,7 @@ class RuntimePolicyEngine:
                 "backend": self.backend_name,
                 "auth_mode": self.auth.mode,
                 "quota_enabled": self.quota is not None,
+                "deployment_profile": self.deployment_profile.profile_id,
                 "registry_size": registry_size,
             },
         )

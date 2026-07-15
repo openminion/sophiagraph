@@ -15,12 +15,21 @@ optional extras.
 | Kuzu graph backend | `sophiagraph[kuzu]` | embedded analytical graph backend | yes | yes | yes | yes | yes | no |
 | Neo4j graph backend | `sophiagraph[neo4j]` | external graph database adapter | yes | yes | yes | yes | yes | no |
 
+## Vector backends
+
+| Backend | Install | Stored vectors | Namespace filters | Payload filters | Health check |
+| --- | --- | --- | --- | --- | --- |
+| Built-in deterministic math | default | caller-provided candidates | caller-side | caller-side | n/a |
+| Qdrant | `sophiagraph[qdrant]` | yes | yes | yes | yes |
+
 ## Adapter guarantees
 
 - Adapters accept structured `GraphBackendQuery` DTOs.
 - Adapters do not accept free-form Cypher generated from prose.
 - Optional providers lazy-import inside adapter construction.
 - Backend conformance should reuse the same harness for fake and real adapters.
+- `plan_backend_execution(...)` reports native pushdown and local fallback per
+  declared capability instead of hiding backend limitations.
 
 ## Choosing a backend
 
@@ -28,6 +37,8 @@ optional extras.
 - Use the fake backend for package tests, examples, and adapter conformance.
 - Use Kuzu when a local embedded graph engine is useful.
 - Use Neo4j when the host runtime already operates an external graph database.
+- Use Qdrant when the host supplies embeddings and needs external vector
+  storage with namespace and payload filtering.
 
 ## Capability reporting
 

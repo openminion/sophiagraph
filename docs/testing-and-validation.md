@@ -44,6 +44,7 @@ make hooks-run
 make format-check
 make lint
 make test
+make validate-patterns
 make check
 ```
 
@@ -74,10 +75,12 @@ wheel, and verifies the documented standalone install path.
 
 GitHub Actions mirrors the local gates:
 
-1. changed-range pre-commit hooks,
-2. commit-message validation,
-3. `make check`,
-4. release smoke through `scripts/release_check.py --skip-twine`.
+1. minimum/latest supported GraphFakos compatibility tests,
+2. changed-range pre-commit hooks,
+3. commit-message validation,
+4. public API manifest drift checks through `make validate-patterns`,
+5. `make check`,
+6. release smoke through `scripts/release_check.py --skip-twine`.
 
 The publish workflow runs the full release check before TestPyPI or PyPI
 publishing. See [`ci-and-release-automation.md`](ci-and-release-automation.md)

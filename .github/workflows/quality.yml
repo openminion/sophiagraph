@@ -10,6 +10,31 @@ permissions:
   contents: read
 
 jobs:
+  dependency-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dependency-label: minimum
+            graphfakos-spec: graphfakos==0.0.5
+          - dependency-label: latest
+            graphfakos-spec: graphfakos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install supported dependency version
+        run: |
+          python -m pip install "${{ matrix.graphfakos-spec }}" pytest
+          python -m pip install -e . --no-deps
+      - name: Run GraphFakos compatibility tests
+        run: |
+          python -m pytest -q \
+            tests/test_graphfakos_adapter.py \
+            tests/test_collaborative_workbench.py \
+            tests/test_compatibility_contracts.py
+
   quality:
     runs-on: ubuntu-latest
     steps:
@@ -69,6 +94,8 @@ jobs:
             CONTRIBUTING.md
             docs/getting-started.md
             Makefile
+            scripts/baselines/*.tsv
+            scripts/validate_quality_patterns.py
             scripts/validate_commit_message.py
           )
           ./.venv/bin/python3.11 -m pre_commit run \

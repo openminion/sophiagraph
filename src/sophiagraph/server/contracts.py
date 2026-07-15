@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-# Pin to a published MCP protocol version. Negotiation at handshake time may
-# downgrade to a floor; KMSR-01 advertises a single supported version.
+# Pin to a published MCP protocol version. Negotiation may downgrade to the floor.
 MCP_PROTOCOL_VERSION = "2025-06-18"
 MCP_PROTOCOL_VERSION_FLOOR = "2025-03-26"
 
@@ -29,6 +28,7 @@ TOOL_SEMANTIC_ENDPOINT_REFUSED_CODE = -32020
 TOOL_BACKEND_INVOCATION_FAILED_CODE = -32030
 AUTH_DENIED_CODE = -32040
 QUOTA_EXCEEDED_CODE = -32041
+REQUEST_REJECTED_CODE = -32042
 
 
 class SophiagraphServerError(RuntimeError):
@@ -47,19 +47,13 @@ class SophiagraphServerError(RuntimeError):
 
 
 class BackendNotWiredError(SophiagraphServerError):
-    """Raised when a registered tool has no backend wired yet.
-
-    KMSR-01 ships the typed contract layer + protocol handshake; KMSR-02 wires
-    the backend onto package-owned `sophiagraph` stores. Until KMSR-02 lands,
-    data-operation tools raise this error and the runtime returns a
-    deterministic JSON-RPC error payload.
-    """
+    """Raised when a registered data tool has no configured backend."""
 
     def __init__(self, tool_name: str) -> None:
         super().__init__(
-            f"tool {tool_name!r} has no backend wired yet (KMSR-02 pending)",
+            f"tool {tool_name!r} has no configured backend",
             code=TOOL_BACKEND_NOT_WIRED_CODE,
-            details={"tool_name": tool_name, "blocker": "KMSR-02"},
+            details={"tool_name": tool_name, "reason": "backend_not_configured"},
         )
         self.tool_name = tool_name
 
@@ -125,6 +119,17 @@ class QuotaExceededError(SophiagraphServerError):
         )
 
 
+class RequestRejectedError(SophiagraphServerError):
+    """Raised when a deployment profile refuses a request structurally."""
+
+    def __init__(self, *, request_id: str, reason: str) -> None:
+        super().__init__(
+            f"request {request_id!r} rejected by deployment profile: {reason}",
+            code=REQUEST_REJECTED_CODE,
+            details={"request_id": request_id, "reason": reason},
+        )
+
+
 __all__ = [
     "MCP_PROTOCOL_VERSION",
     "MCP_PROTOCOL_VERSION_FLOOR",
@@ -139,9 +144,11 @@ __all__ = [
     "TOOL_BACKEND_INVOCATION_FAILED_CODE",
     "AUTH_DENIED_CODE",
     "QUOTA_EXCEEDED_CODE",
+    "REQUEST_REJECTED_CODE",
     "SophiagraphServerError",
     "BackendNotWiredError",
     "SemanticEndpointRefusedError",
     "AuthDeniedError",
     "QuotaExceededError",
+    "RequestRejectedError",
 ]

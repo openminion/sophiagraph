@@ -101,7 +101,7 @@ def test_tools_call_data_op_returns_backend_not_wired_error() -> None:
     assert response is not None
     error = response["error"]
     assert error["code"] == TOOL_BACKEND_NOT_WIRED_CODE
-    assert error["data"]["blocker"] == "KMSR-02"
+    assert error["data"]["reason"] == "backend_not_configured"
 
 
 def test_tools_call_banned_semantic_endpoint_returns_typed_refusal() -> None:

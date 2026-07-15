@@ -16,6 +16,11 @@ GraphBackendFeature = Literal[
     "shortest_path",
     "property_filter",
     "pattern_query",
+    "namespace_filter",
+    "temporal_filter",
+    "governance_filter",
+    "fulltext_search",
+    "vector_search",
 ]
 GraphBackendQueryKind = Literal[
     "neighbors",
@@ -33,6 +38,11 @@ _SUPPORTED_FEATURES: frozenset[str] = frozenset(
         "shortest_path",
         "property_filter",
         "pattern_query",
+        "namespace_filter",
+        "temporal_filter",
+        "governance_filter",
+        "fulltext_search",
+        "vector_search",
     }
 )
 _SUPPORTED_QUERY_KINDS: frozenset[str] = frozenset(

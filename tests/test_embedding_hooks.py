@@ -216,7 +216,7 @@ def test_embedding_hooks_do_not_add_provider_dependencies() -> None:
         (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
     )
 
-    assert pyproject["project"]["dependencies"] == ["graphfakos>=0.0.1,<1"]
+    assert pyproject["project"]["dependencies"] == ["graphfakos>=0.0.5,<1"]
     assert not any(
         dependency.startswith(("openai", "cohere", "sentence-transformers"))
         for dependency in pyproject["project"]["dependencies"]
