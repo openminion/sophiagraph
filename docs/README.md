@@ -13,6 +13,8 @@ This directory holds the public package documentation for standalone
   summarizes the package-local engineering and boundary rules for contributors.
 - [`code-quality-enforcement.md`](code-quality-enforcement.md)
   summarizes the active public quality gates and validation posture.
+- [`cleanup-workflow.md`](cleanup-workflow.md) defines the live-inventory,
+  per-file-ledger, and closeout process for broad maintainability work.
 - [`testing-and-validation.md`](testing-and-validation.md)
   records the package-local install, smoke, test, lint, and release-check
   flow.
