@@ -96,15 +96,35 @@ def _project_info() -> ProjectInfo:
     pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     project = pyproject.get("project", {})
     name = str(project.get("name", REPO_ROOT.name))
-    import_root = name.replace("-", "_")
+    source_root = _source_root(pyproject, name.replace("-", "_"))
+    import_root = source_root.name
     dependencies = project.get("dependencies", [])
     dependency_roots = frozenset(_dependency_root(str(item)) for item in dependencies)
     return ProjectInfo(
         name=name,
         import_root=import_root,
-        source_root=REPO_ROOT / "src" / import_root,
+        source_root=source_root,
         dependency_roots=dependency_roots,
     )
+
+
+def _source_root(pyproject: dict[str, object], fallback_root: str) -> Path:
+    tool = _mapping(pyproject.get("tool"))
+    hatch = _mapping(tool.get("hatch"))
+    build = _mapping(hatch.get("build"))
+    targets = _mapping(build.get("targets"))
+    wheel = _mapping(targets.get("wheel"))
+    packages = wheel.get("packages", [])
+    if isinstance(packages, list):
+        for package in packages:
+            candidate = REPO_ROOT / str(package)
+            if candidate.is_dir():
+                return candidate
+    return REPO_ROOT / "src" / fallback_root
+
+
+def _mapping(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
 
 
 def _dependency_root(dependency: str) -> str:
