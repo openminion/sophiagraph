@@ -226,6 +226,9 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.KuzuGraphBackendAdapter`
 - `sophiagraph.Neo4jGraphBackendAdapter`
 - `sophiagraph.build_graph_export_batch(...)`
+- `sophiagraph.projections` is the stable advanced import root for projection
+  target/state DTOs, graph/vector projectors, batch execution, health,
+  reconciliation, and explicitly authorized repair.
 - `sophiagraph.detect_stale_embeddings(...)`
 - `sophiagraph.build_reembed_plan(...)`
 - `sophiagraph.list_orphan_external_vector_ids(...)`

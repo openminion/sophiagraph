@@ -10,6 +10,23 @@ permissions:
   contents: read
 
 jobs:
+  qdrant-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        qdrant-spec: ["qdrant-client==1.7.0", "qdrant-client>=1.7,<2"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install supported Qdrant client
+        run: |
+          python -m pip install "${{ matrix.qdrant-spec }}" pytest
+          python -m pip install -e . --no-deps
+      - name: Run Qdrant compatibility tests
+        run: python -m pytest -q tests/test_vector_backend_qdrant.py
+
   dependency-compatibility:
     runs-on: ubuntu-latest
     strategy:

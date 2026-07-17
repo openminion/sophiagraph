@@ -18,6 +18,13 @@ _ALLOWED_ATTRIBUTES = frozenset(
         "transport",
         "tenant_present",
         "namespace_present",
+        "target_kind",
+        "health_state",
+        "reason_code",
+        "cursor_lag",
+        "retry_count",
+        "dead_letter_count",
+        "lease_active",
     }
 )
 

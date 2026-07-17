@@ -75,6 +75,31 @@ class FakeNeo4jSession:
             if value is None:
                 return FakeNeo4jResult([])
             return FakeNeo4jResult([{"meta_value": value}])
+        if tag == "// sg_op:query_meta":
+            value = meta.get(params["meta_key"])
+            if value is None:
+                return FakeNeo4jResult([])
+            return FakeNeo4jResult([{"meta_value": value}])
+        if tag == "// sg_op:projection_inventory_nodes":
+            return FakeNeo4jResult(
+                [
+                    {
+                        "object_id": node["node_id"],
+                        "properties_json": node["properties_json"],
+                    }
+                    for node in sorted(nodes.values(), key=lambda item: item["node_id"])
+                ]
+            )
+        if tag == "// sg_op:projection_inventory_edges":
+            return FakeNeo4jResult(
+                [
+                    {
+                        "object_id": edge["edge_id"],
+                        "properties_json": edge["properties_json"],
+                    }
+                    for edge in sorted(edges.values(), key=lambda item: item["edge_id"])
+                ]
+            )
         if tag == "// sg_op:query_neighbors":
             rows = []
             start_node_id = params["start_node_id"]

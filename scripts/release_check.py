@@ -66,6 +66,7 @@ def _assert_package_docs_shape(root: Path) -> None:
         root / "docs" / "benchmarks" / "public-conformance-sample.md",
         root / "docs" / "certification-readiness-matrix.md",
         root / "docs" / "ci-and-release-automation.md",
+        root / "docs" / "durable-projections.md",
         root / "docs" / "examples.md",
         root / "docs" / "human-management.md",
         root / "docs" / "migration-and-upgrade.md",
@@ -160,6 +161,9 @@ def main(argv: list[str] | None = None) -> int:
                         "plan_human_vault_import, plan_workspace_import, "
                         "scan_workspace_sync, workspace_sync_status, "
                         "retrieval_path_evidence; "
+                        "from sophiagraph.projections import ("
+                        "GraphChangeProjector, ProjectionTarget, "
+                        "run_projection_batch); "
                         "from sophiagraph.ui import build_ui_screen_manifest"
                     ),
                 ],

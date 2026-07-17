@@ -24,6 +24,8 @@ This directory holds the public package documentation for standalone
   surfaces they exercise.
 - [`backend-compatibility-matrix.md`](backend-compatibility-matrix.md)
   records backend adapter support and optional dependency boundaries.
+- [`durable-projections.md`](durable-projections.md) records ordered
+  at-least-once graph/vector delivery, retries, health, and reconciliation.
 - [`production-foundations.md`](production-foundations.md) records dependency
   compatibility, Qdrant, ingestion, telemetry, encryption, deployment,
   materialized-view, collaboration, and scale-certification boundaries.

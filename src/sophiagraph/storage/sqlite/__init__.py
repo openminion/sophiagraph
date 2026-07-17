@@ -90,6 +90,10 @@ from .rows import (
 )
 from .schema import ensure_schema
 from .portability import SqlitePortabilityMixin
+from .projection import SqliteProjectionStateMixin
+from sophiagraph.storage.external_vectors import (
+    mark_sqlite_external_vector_active,
+)
 from .typed_graph import SqliteTypedGraphMixin
 
 SQLITE_BUSY_TIMEOUT_MS = 5000
@@ -103,6 +107,7 @@ class SophiaGraphSqliteStore(
     SqliteChangefeedMixin,
     SqliteAuxObjectMixin,
     SqliteTypedGraphMixin,
+    SqliteProjectionStateMixin,
     RecordLifecycleMixin,
     SophiaGraphStore,
 ):
@@ -1121,21 +1126,6 @@ class SophiaGraphSqliteStore(
             )
         return transition.transition_id
 
-    def _mark_external_vector_active(
-        self,
-        conn: sqlite3.Connection,
-        embedding: MemoryEmbedding,
-    ) -> None:
-        if not embedding.external_vector_id:
-            return
-        conn.execute(
-            """
-            DELETE FROM sophiagraph_orphan_external_vector_ids
-             WHERE namespace_key = ? AND external_vector_id = ?
-            """,
-            (namespace_key(embedding.namespace), embedding.external_vector_id),
-        )
-
     def _maybe_mark_external_vector_orphan(
         self,
         conn: sqlite3.Connection,
@@ -1280,7 +1270,8 @@ class SophiaGraphSqliteStore(
                 and existing.external_vector_id != embedding.external_vector_id
             ):
                 self._maybe_mark_external_vector_orphan(conn, existing)
-            self._mark_external_vector_active(conn, embedding)
+            mark_sqlite_external_vector_active(conn, embedding)
+            self._emit_embedding_change(conn, embedding)
         return embedding.key
 
     def get_embedding(
@@ -1349,6 +1340,7 @@ class SophiaGraphSqliteStore(
             deleted = cursor.rowcount > 0
             if deleted:
                 self._maybe_mark_external_vector_orphan(conn, existing)
+                self._emit_embedding_change(conn, existing, operation="delete")
             return deleted
 
     def put_active_model_set(self, model_set: ActiveEmbeddingModelSet) -> str:

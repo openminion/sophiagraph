@@ -226,7 +226,7 @@ class MemoryPortabilityMixin(SnapshotImportExportDeltaMixin):
 
                 link = fact_convergence_link_from_dict(event.payload)
                 self._fact_convergence_links[link.link_id] = link
-            else:
+            elif event.object_type != "embedding":
                 skipped.append(event.event_id)
                 continue
             self._append_change(event)

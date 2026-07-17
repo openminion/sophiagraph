@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
+from sophiagraph.models.projection import ProjectionInventoryItem
 from sophiagraph.vectors import SimilarityMetric
 
 from .types import VectorBackendCapabilities, VectorHit, VectorPoint, VectorQuery
@@ -18,6 +19,7 @@ _DISTANCE_NAMES = {
     SimilarityMetric.L2: "EUCLID",
     SimilarityMetric.DOT: "DOT",
 }
+_WATERMARK_POINT_ID = "sophiagraph:projection-watermark"
 
 
 def _provider_point_id(point_id: str) -> str:
@@ -50,6 +52,8 @@ class QdrantVectorBackend:
         client: Any | None = None,
         models: Any | None = None,
         ensure_collection: bool = False,
+        wait_for_ack: bool = True,
+        write_ordering: str | None = None,
     ) -> None:
         if not collection_name or vector_size <= 0:
             raise InvalidArgumentError(
@@ -68,6 +72,8 @@ class QdrantVectorBackend:
         self.metric = metric
         self._client = client
         self._models = models
+        self._wait_for_ack = wait_for_ack
+        self._write_ordering = write_ordering
         if ensure_collection:
             self.ensure_collection()
 
@@ -77,6 +83,10 @@ class QdrantVectorBackend:
             metrics=tuple(SimilarityMetric),
             namespace_filtering=True,
             payload_filtering=True,
+            wait_for_ack=self._wait_for_ack,
+            write_ordering=self._write_ordering or "provider_default",
+            projection_watermark=True,
+            inventory=hasattr(self._client, "scroll"),
         )
 
     def ensure_collection(self) -> None:
@@ -112,12 +122,14 @@ class QdrantVectorBackend:
                     "sophiagraph_point_id": point.point_id,
                     "vector_space": point.vector_space,
                     "namespace": point.namespace.as_dict(),
+                    "sophiagraph_kind": "embedding",
+                    "sophiagraph_version": point.version_hash,
                 },
             )
             for point in points
         ]
         if payload:
-            self._client.upsert(collection_name=self.collection_name, points=payload)
+            self._upsert_points(payload)
 
     def search(self, query: VectorQuery) -> tuple[VectorHit, ...]:
         if query.metric is not self.metric:
@@ -171,9 +183,13 @@ class QdrantVectorBackend:
     def _build_filter(self, query: VectorQuery) -> Any | None:
         conditions = [
             self._models.FieldCondition(
+                key="sophiagraph_kind",
+                match=self._models.MatchValue(value="embedding"),
+            ),
+            self._models.FieldCondition(
                 key="vector_space",
                 match=self._models.MatchValue(value=query.vector_space),
-            )
+            ),
         ]
         for key, value in sorted(query.payload_filters.items()):
             conditions.append(
@@ -198,6 +214,79 @@ class QdrantVectorBackend:
             ]
             alternatives.append(self._models.Filter(must=clauses))
         return self._models.Filter(should=alternatives)
+
+    def set_projection_watermark(self, cursor: int) -> None:
+        point = self._models.PointStruct(
+            id=_provider_point_id(_WATERMARK_POINT_ID),
+            vector=[0.0] * self.vector_size,
+            payload={
+                "sophiagraph_kind": "projection_watermark",
+                "cursor": int(cursor),
+            },
+        )
+        self._upsert_points([point])
+
+    def get_projection_watermark(self) -> int | None:
+        retrieve = getattr(self._client, "retrieve", None)
+        if retrieve is None:
+            return None
+        points = retrieve(
+            collection_name=self.collection_name,
+            ids=[_provider_point_id(_WATERMARK_POINT_ID)],
+            with_payload=True,
+        )
+        if not points:
+            return None
+        payload = dict(points[0].payload or {})
+        value = payload.get("cursor")
+        return int(value) if value is not None else None
+
+    def inventory(self) -> tuple[ProjectionInventoryItem, ...]:
+        scroll = getattr(self._client, "scroll", None)
+        if scroll is None:
+            raise InvalidArgumentError(
+                "Qdrant client does not support inventory scroll"
+            )
+        items: list[ProjectionInventoryItem] = []
+        offset = None
+        while True:
+            points, offset = scroll(
+                collection_name=self.collection_name,
+                scroll_filter=self._models.Filter(
+                    must=[
+                        self._models.FieldCondition(
+                            key="sophiagraph_kind",
+                            match=self._models.MatchValue(value="embedding"),
+                        )
+                    ]
+                ),
+                limit=256,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for point in points:
+                payload = dict(point.payload or {})
+                items.append(
+                    ProjectionInventoryItem(
+                        object_id=str(payload.get("sophiagraph_point_id") or point.id),
+                        object_kind="embedding",
+                        version_hash=payload.get("sophiagraph_version"),
+                    )
+                )
+            if offset is None:
+                break
+        return tuple(sorted(items, key=lambda item: item.object_id))
+
+    def _upsert_points(self, points: list[Any]) -> None:
+        kwargs: dict[str, Any] = {
+            "collection_name": self.collection_name,
+            "points": points,
+            "wait": self._wait_for_ack,
+        }
+        if self._write_ordering is not None:
+            kwargs["ordering"] = self._write_ordering
+        self._client.upsert(**kwargs)
 
 
 class QdrantRetrievalAdapter:

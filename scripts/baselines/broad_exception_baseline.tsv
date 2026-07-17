@@ -2,6 +2,7 @@
 src/sophiagraph/adapters/mcp.py	1	0	existing broad exception ratchet
 src/sophiagraph/benchmarks.py	1	0	existing broad exception ratchet
 src/sophiagraph/federation.py	1	0	existing broad exception ratchet
+src/sophiagraph/projection.py	2	0	projection adapter and checkpoint boundaries persist arbitrary failures
 src/sophiagraph/query/context_assembly.py	1	0	existing broad exception ratchet
 src/sophiagraph/query/explorer.py	1	0	existing broad exception ratchet
 src/sophiagraph/query/explorer_mechanics.py	1	0	existing broad exception ratchet

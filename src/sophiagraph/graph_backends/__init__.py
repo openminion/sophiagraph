@@ -2,6 +2,7 @@
 
 from .base import (
     GraphBackendAdapter,
+    GraphBatchBehavior,
     GraphBackendCapabilities,
     GraphBackendFeature,
     GraphBackendQuery,
@@ -27,6 +28,7 @@ from .neo4j import Neo4jGraphBackendAdapter
 __all__ = [
     "FakeGraphBackendAdapter",
     "GraphBackendAdapter",
+    "GraphBatchBehavior",
     "GraphBackendCapabilities",
     "GraphBackendFeature",
     "GraphBackendQuery",

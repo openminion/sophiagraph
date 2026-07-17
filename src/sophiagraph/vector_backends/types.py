@@ -7,6 +7,7 @@ from typing import Any, Mapping, Protocol
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
+from sophiagraph.models.projection import ProjectionInventoryItem
 from sophiagraph.vectors import SimilarityMetric
 
 
@@ -17,6 +18,11 @@ class VectorBackendCapabilities:
     namespace_filtering: bool
     payload_filtering: bool
     healthcheck: bool = True
+    idempotent_writes: bool = True
+    wait_for_ack: bool = False
+    write_ordering: str = "provider_default"
+    projection_watermark: bool = False
+    inventory: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +32,7 @@ class VectorPoint:
     vector_space: str
     namespace: MemoryNamespace
     payload: Mapping[str, Any] = field(default_factory=dict)
+    version_hash: str | None = None
 
     def __post_init__(self) -> None:
         if not self.point_id or not self.vector_space:
@@ -69,6 +76,12 @@ class StoredVectorBackend(Protocol):
     def delete(self, point_ids: tuple[str, ...]) -> None: ...
 
     def healthcheck(self) -> bool: ...
+
+    def set_projection_watermark(self, cursor: int) -> None: ...
+
+    def get_projection_watermark(self) -> int | None: ...
+
+    def inventory(self) -> tuple[ProjectionInventoryItem, ...]: ...
 
 
 __all__ = [

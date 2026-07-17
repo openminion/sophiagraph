@@ -9,7 +9,71 @@ from sophiagraph.portability.codec import json_dumps
 from .fts import ensure_fts_schema
 from .rows import NAMESPACE_COLUMNS, namespace_from_payload, row_json
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
+
+
+def _ensure_projection_schema(conn: sqlite3.Connection) -> None:
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS sophiagraph_projection_targets (
+            target_id TEXT PRIMARY KEY,
+            target_kind TEXT NOT NULL,
+            adapter_name TEXT NOT NULL,
+            enabled INTEGER NOT NULL,
+            max_attempts INTEGER NOT NULL,
+            lease_seconds INTEGER NOT NULL,
+            namespace_json TEXT,
+            payload_json TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS sophiagraph_projection_checkpoints (
+            target_id TEXT PRIMARY KEY,
+            cursor INTEGER NOT NULL,
+            event_id TEXT,
+            updated_at TEXT NOT NULL,
+            target_watermark TEXT,
+            FOREIGN KEY(target_id) REFERENCES sophiagraph_projection_targets(target_id)
+        );
+        CREATE TABLE IF NOT EXISTS sophiagraph_projection_leases (
+            target_id TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            fencing_token INTEGER NOT NULL,
+            acquired_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            FOREIGN KEY(target_id) REFERENCES sophiagraph_projection_targets(target_id)
+        );
+        CREATE TABLE IF NOT EXISTS sophiagraph_projection_attempts (
+            attempt_id TEXT PRIMARY KEY,
+            target_id TEXT NOT NULL,
+            event_id TEXT NOT NULL,
+            cursor INTEGER NOT NULL,
+            attempt_number INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            completed_at TEXT,
+            next_retry_at TEXT,
+            error_code TEXT,
+            error_message TEXT,
+            UNIQUE(target_id, event_id, attempt_number)
+        );
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_projection_attempts_target
+            ON sophiagraph_projection_attempts(target_id, cursor, attempt_number);
+        CREATE TABLE IF NOT EXISTS sophiagraph_projection_failures (
+            target_id TEXT NOT NULL,
+            event_id TEXT NOT NULL,
+            cursor INTEGER NOT NULL,
+            attempt_count INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            retryable INTEGER NOT NULL,
+            dead_letter INTEGER NOT NULL,
+            updated_at TEXT NOT NULL,
+            next_retry_at TEXT,
+            error_message TEXT,
+            PRIMARY KEY(target_id, event_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_projection_failures_target
+            ON sophiagraph_projection_failures(target_id, cursor, dead_letter);
+        """
+    )
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
@@ -52,7 +116,6 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             ON sophiagraph_relations(source_record_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_sophiagraph_relations_target
             ON sophiagraph_relations(target_record_id, created_at DESC);
-
         CREATE TABLE IF NOT EXISTS sophiagraph_candidates (
             candidate_id TEXT PRIMARY KEY,
             session_id TEXT NOT NULL,
@@ -608,6 +671,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    _ensure_projection_schema(conn)
     ensure_fts_schema(conn)
     if schema_version < 2:
         migrate_namespace_columns(conn)
