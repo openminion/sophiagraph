@@ -24,6 +24,7 @@ from .base import (
     shortest_path_from_edges,
 )
 from sophiagraph.models import MemoryNamespace
+from sophiagraph.models.projection import ProjectionInventoryItem
 from sophiagraph.schema import GraphSchema
 from .kuzu_support import (
     as_optional_str,
@@ -38,6 +39,7 @@ _EDGE_TABLE = "SGEdge"
 _META_TABLE = "SGMeta"
 _SCHEMA_META_KEY = "schema_json"
 _BATCH_META_KEY = "batch_id"
+_WATERMARK_META_KEY = "projection_watermark"
 
 
 class KuzuGraphBackendAdapter:
@@ -55,11 +57,15 @@ class KuzuGraphBackendAdapter:
                 "neighbors",
                 "shortest_path",
                 "property_filter",
+                "batch_delete",
+                "projection_watermark",
+                "inventory",
             ],
             notes={
                 "install_extra": "kuzu",
                 "pattern_query": "unsupported in the concrete backend MVP",
             },
+            batch_behavior="idempotent_partial",
         )
         self._ensure_schema()
 
@@ -68,8 +74,7 @@ class KuzuGraphBackendAdapter:
 
     def upsert_batch(self, batch: GraphExportBatch) -> None:
         self._ensure_schema()
-        edge_ids = [edge.edge_id for edge in batch.edges]
-        node_ids = [node.node_id for node in batch.nodes]
+        edge_ids = [*batch.delete_edge_ids, *(edge.edge_id for edge in batch.edges)]
         if edge_ids:
             self._execute(
                 (
@@ -78,10 +83,10 @@ class KuzuGraphBackendAdapter:
                 ),
                 {"edge_ids": edge_ids},
             )
-        if node_ids:
+        if batch.delete_node_ids:
             self._execute(
                 f"MATCH (n:{_NODE_TABLE}) WHERE n.node_id IN $node_ids DETACH DELETE n;",
-                {"node_ids": node_ids},
+                {"node_ids": list(batch.delete_node_ids)},
             )
         for node in batch.nodes:
             self._insert_node(node)
@@ -91,6 +96,49 @@ class KuzuGraphBackendAdapter:
             _SCHEMA_META_KEY, json.dumps(asdict(batch.schema), sort_keys=True)
         )
         self._upsert_meta(_BATCH_META_KEY, batch.batch_id)
+
+    def delete(self, *, node_ids: tuple[str, ...], edge_ids: tuple[str, ...]) -> None:
+        if edge_ids:
+            self._execute(
+                f"MATCH ()-[e:{_EDGE_TABLE}]->() WHERE e.edge_id IN $edge_ids DELETE e;",
+                {"edge_ids": list(edge_ids)},
+            )
+        if node_ids:
+            self._execute(
+                f"MATCH (n:{_NODE_TABLE}) WHERE n.node_id IN $node_ids DETACH DELETE n;",
+                {"node_ids": list(node_ids)},
+            )
+
+    def set_projection_watermark(self, cursor: int) -> None:
+        self._upsert_meta(_WATERMARK_META_KEY, str(int(cursor)))
+
+    def get_projection_watermark(self) -> int | None:
+        value = self._load_meta(_WATERMARK_META_KEY)
+        return int(value) if value is not None else None
+
+    def inventory(self) -> tuple[ProjectionInventoryItem, ...]:
+        node_rows = self._rows_as_dict(
+            self._execute(
+                f"MATCH (n:{_NODE_TABLE}) RETURN n.node_id AS object_id, n.properties_json AS properties_json;"
+            )
+        )
+        edge_rows = self._rows_as_dict(
+            self._execute(
+                f"MATCH ()-[e:{_EDGE_TABLE}]->() RETURN e.edge_id AS object_id, e.properties_json AS properties_json;"
+            )
+        )
+        items = [
+            ProjectionInventoryItem(
+                object_id=str(row["object_id"]),
+                object_kind=kind,
+                version_hash=decode_json_object(
+                    as_optional_str(row["properties_json"])
+                ).get("_projection_version"),
+            )
+            for kind, rows in (("node", node_rows), ("edge", edge_rows))
+            for row in rows
+        ]
+        return tuple(sorted(items, key=lambda item: (item.object_kind, item.object_id)))
 
     def query(self, query: GraphBackendQuery) -> GraphBackendResult:
         if query.kind == "pattern":
@@ -160,24 +208,29 @@ class KuzuGraphBackendAdapter:
             "node_id": node.node_id,
             "primary_label": node.labels[0],
             "labels_json": json.dumps(node.labels, sort_keys=True),
-            "properties_json": json.dumps(node.properties, sort_keys=True),
+            "properties_json": json.dumps(
+                {
+                    **node.properties,
+                    "_projection_version": node.version_hash,
+                },
+                sort_keys=True,
+            ),
             **namespace_columns(node.namespace),
         }
         self._execute(
             (
-                f"CREATE (:{_NODE_TABLE} {{"
-                "node_id: $node_id, "
-                "primary_label: $primary_label, "
-                "labels_json: $labels_json, "
-                "properties_json: $properties_json, "
-                "tenant_id: $tenant_id, "
-                "org_id: $org_id, "
-                "user_id: $user_id, "
-                "agent_id: $agent_id, "
-                "session_id: $session_id, "
-                "conversation_id: $conversation_id, "
-                "project_id: $project_id, "
-                "graph_id: $graph_id});"
+                f"MERGE (n:{_NODE_TABLE} {{node_id: $node_id}}) "
+                "SET n.primary_label = $primary_label, "
+                "n.labels_json = $labels_json, "
+                "n.properties_json = $properties_json, "
+                "n.tenant_id = $tenant_id, "
+                "n.org_id = $org_id, "
+                "n.user_id = $user_id, "
+                "n.agent_id = $agent_id, "
+                "n.session_id = $session_id, "
+                "n.conversation_id = $conversation_id, "
+                "n.project_id = $project_id, "
+                "n.graph_id = $graph_id;"
             ),
             params,
         )
@@ -188,7 +241,13 @@ class KuzuGraphBackendAdapter:
             "target_node_id": edge.target_node_id,
             "edge_id": edge.edge_id,
             "relation_type": edge.relation_type,
-            "properties_json": json.dumps(edge.properties, sort_keys=True),
+            "properties_json": json.dumps(
+                {
+                    **edge.properties,
+                    "_projection_version": edge.version_hash,
+                },
+                sort_keys=True,
+            ),
             **namespace_columns(edge.namespace),
         }
         self._execute(
@@ -220,6 +279,15 @@ class KuzuGraphBackendAdapter:
             f"CREATE (:{_META_TABLE} {{meta_key: $meta_key, meta_value: $meta_value}});",
             {"meta_key": key, "meta_value": value},
         )
+
+    def _load_meta(self, key: str) -> str | None:
+        rows = self._rows_as_dict(
+            self._execute(
+                f"MATCH (m:{_META_TABLE} {{meta_key: $meta_key}}) RETURN m.meta_value AS meta_value;",
+                {"meta_key": key},
+            )
+        )
+        return as_optional_str(rows[0]["meta_value"]) if rows else None
 
     def _query_neighbors(self, query: GraphBackendQuery) -> GraphBackendResult:
         rows = self._rows_as_dict(

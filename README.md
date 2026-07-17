@@ -420,6 +420,13 @@ The concrete backend adapters are still structural-only:
 - labels, relation types, namespaces, and properties stay caller-supplied,
 - unsupported features return typed `unsupported_reason` values.
 
+For long-running graph or vector indexes, use the durable
+`sophiagraph.projections` surface instead of issuing one-off export batches. It
+adds per-target checkpoints, leases, bounded retries, dead letters, watermarks,
+health, and deterministic reconciliation while keeping the package store and
+changefeed canonical. See
+[`docs/durable-projections.md`](docs/durable-projections.md).
+
 ## Structural Graph Query
 
 Use the higher-level structural query envelope when you want one typed entry

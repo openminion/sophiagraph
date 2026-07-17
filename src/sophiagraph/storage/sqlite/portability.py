@@ -517,7 +517,7 @@ class SqlitePortabilityMixin(SnapshotImportExportDeltaMixin):
                             json_dumps(payload),
                         ),
                     )
-                else:
+                elif event.object_type != "embedding":
                     skipped.append(event.event_id)
                     continue
                 self._insert_change_event(conn, event)

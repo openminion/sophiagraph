@@ -14,6 +14,7 @@ from .support import (
 )
 from .types import (
     GraphBackendAdapter,
+    GraphBatchBehavior,
     GraphBackendCapabilities,
     GraphBackendFeature,
     GraphBackendQuery,
@@ -28,6 +29,7 @@ from .types import (
 
 __all__ = [
     "GraphBackendAdapter",
+    "GraphBatchBehavior",
     "GraphBackendCapabilities",
     "GraphBackendFeature",
     "GraphBackendQuery",

@@ -44,6 +44,7 @@ ChangeObjectType = Literal[
     "shared_block_conflict",
     "shared_block_usage",
     "active_embedding_model_set",
+    "embedding",
     "retention_snapshot",
 ]
 CHANGE_OBJECT_TYPES = frozenset(get_args(ChangeObjectType))

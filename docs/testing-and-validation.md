@@ -60,6 +60,16 @@ python3.11 -m pytest -q \
   tests/test_release_check.py
 ```
 
+Durable projection changes should also run:
+
+```bash
+python3.11 -m pytest -q \
+  tests/test_projection_state.py \
+  tests/test_projection_worker.py \
+  tests/test_projection_backends.py \
+  tests/test_projection_reconciliation.py
+```
+
 ## Release smoke
 
 For package-release validation, use:

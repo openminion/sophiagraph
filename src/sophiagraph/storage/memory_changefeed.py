@@ -6,7 +6,8 @@ from dataclasses import replace
 from typing import Any
 from uuid import uuid4
 
-from sophiagraph.models import MemoryNamespace, SophiaGraphChangeEvent
+from sophiagraph.models import MemoryEmbedding, MemoryNamespace, SophiaGraphChangeEvent
+from sophiagraph.storage.projection_state import embedding_change_payload
 from sophiagraph.storage.record_lifecycle import utc_now_iso
 
 
@@ -39,6 +40,7 @@ class MemoryChangefeedMixin:
         namespace: MemoryNamespace,
         schema_identifiers: dict[str, str],
         operation: str = "put",
+        idempotency_key: str | None = None,
     ) -> None:
         self._append_change(
             SophiaGraphChangeEvent(
@@ -50,7 +52,23 @@ class MemoryChangefeedMixin:
                 payload=payload,
                 namespace=namespace,
                 schema_identifiers=schema_identifiers,
+                idempotency_key=idempotency_key,
             )
+        )
+
+    def _emit_embedding_change(
+        self, embedding: MemoryEmbedding, *, operation: str = "put"
+    ) -> None:
+        self._emit_change(
+            object_type="embedding",
+            object_id=embedding.key,
+            payload=embedding_change_payload(embedding),
+            namespace=embedding.namespace,
+            schema_identifiers={"node_label": "embedding"},
+            operation=operation,
+            idempotency_key=(
+                f"embedding:{embedding.key}:{embedding.updated_at}:{operation}"
+            ),
         )
 
 

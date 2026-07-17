@@ -174,6 +174,42 @@ def test_backends_compute_shortest_path(backend) -> None:
     assert result.rows[0].edge_ids == ["rel-a-b", "rel-b-c"]
 
 
+def test_backends_replay_delete_watermark_and_inventory(backend) -> None:
+    backend.upsert_batch(_fixture_batch())
+    backend.set_projection_watermark(12)
+    assert backend.get_projection_watermark() == 12
+    assert {item.object_id for item in backend.inventory()} >= {
+        "rec-a",
+        "rel-a-b",
+    }
+    backend.delete(node_ids=(), edge_ids=("rel-a-b",))
+    backend.delete(node_ids=(), edge_ids=("rel-a-b",))
+    assert "rel-a-b" not in {item.object_id for item in backend.inventory()}
+
+
+def test_backend_node_upsert_preserves_existing_edges(backend) -> None:
+    backend.upsert_batch(
+        build_graph_export_batch(
+            batch_id="node-update",
+            records=[_record("rec-a", "A updated")],
+        )
+    )
+
+    result = backend.query(
+        GraphBackendQuery(
+            query_id="neighbors-after-update",
+            kind="neighbors",
+            start_node_id="rec-a",
+            relation_types=["supports"],
+            namespace=_ns(),
+        )
+    )
+
+    assert [(row.node_ids, row.edge_ids) for row in result.rows] == [
+        (["rec-b"], ["rel-a-b"])
+    ]
+
+
 def test_fake_backend_negotiates_pattern_query_support() -> None:
     batch = _fixture_batch()
     unsupported = FakeGraphBackendAdapter()

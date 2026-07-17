@@ -7,9 +7,10 @@ import sqlite3
 from typing import Any
 from uuid import uuid4
 
-from sophiagraph.models import MemoryNamespace, SophiaGraphChangeEvent
+from sophiagraph.models import MemoryEmbedding, MemoryNamespace, SophiaGraphChangeEvent
 from sophiagraph.portability.codec import change_event_from_dict, json_dumps
 from sophiagraph.storage.record_lifecycle import utc_now_iso
+from sophiagraph.storage.projection_state import embedding_change_payload
 
 
 class SqliteChangefeedMixin:
@@ -86,6 +87,7 @@ class SqliteChangefeedMixin:
         namespace: MemoryNamespace,
         schema_identifiers: dict[str, str],
         operation: str = "put",
+        idempotency_key: str | None = None,
     ) -> None:
         self._insert_change_event(
             conn,
@@ -98,6 +100,27 @@ class SqliteChangefeedMixin:
                 payload=payload,
                 namespace=namespace,
                 schema_identifiers=schema_identifiers,
+                idempotency_key=idempotency_key,
+            ),
+        )
+
+    def _emit_embedding_change(
+        self,
+        conn: sqlite3.Connection,
+        embedding: MemoryEmbedding,
+        *,
+        operation: str = "put",
+    ) -> None:
+        self._emit_change(
+            conn,
+            object_type="embedding",
+            object_id=embedding.key,
+            payload=embedding_change_payload(embedding),
+            namespace=embedding.namespace,
+            schema_identifiers={"node_label": "embedding"},
+            operation=operation,
+            idempotency_key=(
+                f"embedding:{embedding.key}:{embedding.updated_at}:{operation}"
             ),
         )
 

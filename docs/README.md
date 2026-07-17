@@ -13,6 +13,8 @@ This directory holds the public package documentation for standalone
   summarizes the package-local engineering and boundary rules for contributors.
 - [`code-quality-enforcement.md`](code-quality-enforcement.md)
   summarizes the active public quality gates and validation posture.
+- [`cleanup-workflow.md`](cleanup-workflow.md) defines the live-inventory,
+  per-file-ledger, and closeout process for broad maintainability work.
 - [`testing-and-validation.md`](testing-and-validation.md)
   records the package-local install, smoke, test, lint, and release-check
   flow.
@@ -22,6 +24,8 @@ This directory holds the public package documentation for standalone
   surfaces they exercise.
 - [`backend-compatibility-matrix.md`](backend-compatibility-matrix.md)
   records backend adapter support and optional dependency boundaries.
+- [`durable-projections.md`](durable-projections.md) records ordered
+  at-least-once graph/vector delivery, retries, health, and reconciliation.
 - [`production-foundations.md`](production-foundations.md) records dependency
   compatibility, Qdrant, ingestion, telemetry, encryption, deployment,
   materialized-view, collaboration, and scale-certification boundaries.

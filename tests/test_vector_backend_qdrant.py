@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from uuid import UUID
 
+import pytest
+
 from sophiagraph.models import MemoryNamespace
 from sophiagraph.vector_backends import (
     QdrantRetrievalAdapter,
@@ -35,7 +37,7 @@ class _Hit:
 class _Client:
     def __init__(self) -> None:
         self.exists = False
-        self.points = []
+        self._points = {}
         self.deleted = None
         self.query_filter = None
 
@@ -45,8 +47,13 @@ class _Client:
     def create_collection(self, **kwargs) -> None:
         self.exists = True
 
-    def upsert(self, *, collection_name: str, points) -> None:
-        self.points = points
+    def upsert(self, *, collection_name: str, points, **kwargs) -> None:
+        for point in points:
+            self._points[point.id] = point
+
+    @property
+    def points(self):
+        return list(self._points.values())
 
     def search(self, **kwargs):
         self.query_filter = kwargs["query_filter"]
@@ -54,6 +61,19 @@ class _Client:
 
     def delete(self, *, collection_name: str, points_selector) -> None:
         self.deleted = points_selector.points
+        for point_id in points_selector.points:
+            self._points.pop(point_id, None)
+
+    def retrieve(self, *, collection_name: str, ids, with_payload: bool):
+        return [self._points[point_id] for point_id in ids if point_id in self._points]
+
+    def scroll(self, **kwargs):
+        points = [
+            point
+            for point in self._points.values()
+            if point.payload.get("sophiagraph_kind") == "embedding"
+        ]
+        return points, None
 
     def get_collection(self, name: str):
         return {"name": name}
@@ -98,9 +118,12 @@ def test_qdrant_adapter_upsert_search_delete_and_health() -> None:
             payload_filters={"record_id": "rec-1"},
         )
     )
+    assert client.points[0].payload["namespace"]["agent_id"] == "agent-1"
+    backend.set_projection_watermark(9)
+    assert backend.get_projection_watermark() == 9
+    assert backend.inventory()[0].object_id == "point-1"
     backend.delete(("point-1",))
     assert hits[0].point_id == "point-1"
-    assert client.points[0].payload["namespace"]["agent_id"] == "agent-1"
     assert client.query_filter is not None
     assert client.deleted is not None
     assert len(client.deleted) == 1
@@ -127,3 +150,31 @@ def test_qdrant_collection_probe_supports_legacy_client() -> None:
         ensure_collection=True,
     )
     assert client.exists is True
+
+
+def test_qdrant_installed_client_projection_contract() -> None:
+    qdrant_client = pytest.importorskip(
+        "qdrant_client", reason="optional Qdrant compatibility extra is not installed"
+    )
+    backend = QdrantVectorBackend(
+        collection_name="projection-compatibility",
+        vector_size=2,
+        client=qdrant_client.QdrantClient(":memory:"),
+        models=pytest.importorskip("qdrant_client.models"),
+        ensure_collection=True,
+    )
+    point = VectorPoint(
+        point_id="point-1",
+        vector=(1.0, 0.0),
+        vector_space="default",
+        namespace=MemoryNamespace(graph_id="main"),
+        version_hash="v1",
+    )
+
+    backend.upsert((point,))
+    backend.set_projection_watermark(5)
+
+    assert backend.get_projection_watermark() == 5
+    assert backend.inventory()[0].object_id == "point-1"
+    backend.delete((point.point_id,))
+    assert backend.inventory() == ()

@@ -69,6 +69,10 @@ from sophiagraph.storage.memory_changefeed import MemoryChangefeedMixin
 from sophiagraph.storage.memory_sync_store import MemorySyncStoreMixin
 from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from sophiagraph.storage.memory_portability import MemoryPortabilityMixin
+from sophiagraph.storage.memory_projection import MemoryProjectionStateMixin
+from sophiagraph.storage.external_vectors import (
+    mark_memory_external_vector_active,
+)
 
 
 class SophiaGraphMemoryStore(
@@ -76,6 +80,7 @@ class SophiaGraphMemoryStore(
     MemoryChangefeedMixin,
     RecordLifecycleMixin,
     MemorySyncStoreMixin,
+    MemoryProjectionStateMixin,
     SophiaGraphStore,
 ):
     """In-memory implementation of the storage contract."""
@@ -117,7 +122,6 @@ class SophiaGraphMemoryStore(
         self._shared_usage_events: dict[str, Any] = {}
         self._changes: list[Any] = []
         self._next_cursor = 1
-        # Integrity hashing stays opt-in for backward compatibility.
         self._integrity_hash_enabled = integrity_hash_enabled
 
     def put_record(self, record: MemoryRecord) -> str:
@@ -724,12 +728,6 @@ class SophiaGraphMemoryStore(
         )
         return transition.transition_id
 
-    def _mark_external_vector_active(self, embedding: MemoryEmbedding) -> None:
-        if not embedding.external_vector_id:
-            return
-        orphan_key = (namespace_key(embedding.namespace), embedding.external_vector_id)
-        self._orphan_external_vector_ids.pop(orphan_key, None)
-
     def _maybe_mark_external_vector_orphan(self, embedding: MemoryEmbedding) -> None:
         if not embedding.external_vector_id:
             return
@@ -754,7 +752,8 @@ class SophiaGraphMemoryStore(
             and existing.external_vector_id != embedding.external_vector_id
         ):
             self._maybe_mark_external_vector_orphan(existing)
-        self._mark_external_vector_active(embedding)
+        mark_memory_external_vector_active(self._orphan_external_vector_ids, embedding)
+        self._emit_embedding_change(embedding)
         return embedding.key
 
     def get_embedding(
@@ -807,6 +806,7 @@ class SophiaGraphMemoryStore(
         if embedding is None:
             return False
         self._maybe_mark_external_vector_orphan(embedding)
+        self._emit_embedding_change(embedding, operation="delete")
         return True
 
     def put_active_model_set(self, model_set: ActiveEmbeddingModelSet) -> str:

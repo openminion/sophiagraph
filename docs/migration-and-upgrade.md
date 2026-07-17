@@ -28,6 +28,11 @@ path should be:
 4. Open the store once to apply migrations.
 5. Run a smoke query or `sophiagraph-smoke`.
 
+Schema version 19 adds durable derived-index projection state. These tables
+track targets, checkpoints, leases, attempts, and failures; they do not make an
+external graph or vector backend canonical. After upgrade, register targets
+explicitly and let the host schedule bounded projection batches.
+
 ## Portability bundles
 
 Bundles are the safest cross-version handoff format when moving between
@@ -39,6 +44,8 @@ runtime, then verify record counts, namespace filters, and relation counts.
 Optional graph backends such as Kuzu and Neo4j should be treated as derived
 indexes unless the host runtime declares otherwise. Rebuild or re-upsert the
 graph export batch after package upgrades that change graph export shape.
+Use projection reconciliation before applying a repair plan, and require an
+operator-authorized plan bound to the current canonical source cursor.
 
 ## UI artifacts
 

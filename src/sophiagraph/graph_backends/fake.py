@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
+from sophiagraph.models.projection import ProjectionInventoryItem
+from sophiagraph.schema import GraphSchema
+
 from .base import (
     GraphBackendCapabilities,
     GraphBackendFeature,
@@ -31,6 +34,9 @@ class FakeGraphBackendAdapter:
             "batch_upsert",
             "neighbors",
             "property_filter",
+            "batch_delete",
+            "projection_watermark",
+            "inventory",
         ]
         if support_shortest_path:
             features.append("shortest_path")
@@ -39,14 +45,72 @@ class FakeGraphBackendAdapter:
         self._capabilities = GraphBackendCapabilities(
             backend_name="fake",
             supported_features=features,
+            batch_behavior="atomic",
         )
+        self._schema = GraphSchema(node_labels=[], relation_types=[])
+        self._nodes = {}
+        self._edges = {}
         self._batch: GraphExportBatch | None = None
+        self._watermark: int | None = None
 
     def capabilities(self) -> GraphBackendCapabilities:
         return self._capabilities
 
     def upsert_batch(self, batch: GraphExportBatch) -> None:
-        self._batch = batch
+        self.delete(
+            node_ids=batch.delete_node_ids,
+            edge_ids=batch.delete_edge_ids,
+        )
+        self._schema = batch.schema
+        self._nodes.update({node.node_id: node for node in batch.nodes})
+        self._edges.update({edge.edge_id: edge for edge in batch.edges})
+        self._refresh_batch(batch.batch_id)
+
+    def delete(self, *, node_ids: tuple[str, ...], edge_ids: tuple[str, ...]) -> None:
+        for edge_id in edge_ids:
+            self._edges.pop(edge_id, None)
+        for node_id in node_ids:
+            self._nodes.pop(node_id, None)
+        self._edges = {
+            edge_id: edge
+            for edge_id, edge in self._edges.items()
+            if edge.source_node_id not in node_ids
+            and edge.target_node_id not in node_ids
+        }
+        self._refresh_batch("delete")
+
+    def set_projection_watermark(self, cursor: int) -> None:
+        self._watermark = int(cursor)
+
+    def get_projection_watermark(self) -> int | None:
+        return self._watermark
+
+    def inventory(self) -> tuple[ProjectionInventoryItem, ...]:
+        items = [
+            ProjectionInventoryItem(
+                object_id=node.node_id,
+                object_kind="node",
+                version_hash=node.version_hash,
+            )
+            for node in self._nodes.values()
+        ]
+        items.extend(
+            ProjectionInventoryItem(
+                object_id=edge.edge_id,
+                object_kind="edge",
+                version_hash=edge.version_hash,
+            )
+            for edge in self._edges.values()
+        )
+        return tuple(sorted(items, key=lambda item: (item.object_kind, item.object_id)))
+
+    def _refresh_batch(self, batch_id: str) -> None:
+        self._batch = GraphExportBatch(
+            batch_id=batch_id,
+            schema=self._schema,
+            nodes=list(self._nodes.values()),
+            edges=list(self._edges.values()),
+        )
 
     def query(self, query: GraphBackendQuery) -> GraphBackendResult:
         if query.kind == "shortest_path" and not self._capabilities.supports(

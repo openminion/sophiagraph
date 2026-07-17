@@ -59,6 +59,22 @@ class WriteLeaseNotHeldError(MemctlError):
     code = "WRITE_LEASE_NOT_HELD"
 
 
+class ProjectionLeaseHeldError(MemctlError):
+    code = "PROJECTION_LEASE_HELD"
+
+
+class ProjectionFenceError(MemctlError):
+    code = "PROJECTION_FENCE_REJECTED"
+
+
+class ProjectionCheckpointError(MemctlError):
+    code = "PROJECTION_CHECKPOINT_REJECTED"
+
+
+class ProjectionRepairDeniedError(MemctlError):
+    code = "PROJECTION_REPAIR_DENIED"
+
+
 class SnapshotNameConflictError(MemctlError):
     code = "SNAPSHOT_NAME_CONFLICT"
 

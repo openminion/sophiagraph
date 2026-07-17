@@ -9,6 +9,11 @@ This file tracks package-facing release notes for `sophiagraph`.
 
 ### Added
 
+- Added durable graph/vector projection targets, checkpoints, fenced leases,
+  bounded retry and dead-letter state, backend watermarks, deterministic
+  reconciliation, and explicitly authorized repair plans.
+- Added privacy-bounded embedding change events and provider-neutral fake,
+  Kuzu, Neo4j, and Qdrant projection conformance coverage.
 - Added a lazily loaded Qdrant stored-vector backend with caller-supplied
   embeddings, namespace/payload filters, deletion, and health checks.
 - Added dependency/API compatibility reporting, capability-aware backend

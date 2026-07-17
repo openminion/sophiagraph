@@ -16,7 +16,8 @@ The public package surface is documented in:
 The preferred public entrypoint is `sophiagraph`, with stable import roots for
 models, query, storage, portability, audit, trust, connectors, graph backends,
 inspection, `sophiagraph.okf`, `sophiagraph.ui`, `sophiagraph.workspace`, and
-`sophiagraph.workspace_sync`.
+`sophiagraph.workspace_sync`. Durable derived-index operations use the stable
+advanced import root `sophiagraph.projections`.
 
 ## Source-tree owner map
 
@@ -64,6 +65,8 @@ inspection, `sophiagraph.okf`, `sophiagraph.ui`, `sophiagraph.workspace`, and
    `models/privacy.py` remains the stable privacy/consent/redaction/retention
     DTO owner, with shared dict/string hydration helpers for deterministic
     `from_dict()` reconstruction,
+   `models/projection.py` owns durable projection target, checkpoint, lease,
+    attempt, failure, health, reconciliation, and repair DTOs,
    `models/record.py` remains the stable memory-record and retrieval-filter DTO
     owner, with shared local validation helpers for evidence refs, optional
     namespace/meta validation, and literal allowlists,
@@ -97,7 +100,10 @@ inspection, `sophiagraph.okf`, `sophiagraph.ui`, `sophiagraph.workspace`, and
    in-memory store façade, `storage/memory_changefeed.py` remains the tiny
    in-memory change-event append and dedupe owner, `storage/memory_sync_store.py`
    owns the in-memory sync/freshness/source/shared-block methods extracted
-   from that façade, `storage/memory_block_helpers.py` remains the tiny shared
+   from that façade, `storage/memory_projection.py` owns matching in-memory
+   projection state, `storage/projection_state.py` owns shared retry/hash/
+   event helpers, `storage/sqlite/projection.py` owns durable SQLite projection
+   state, `storage/memory_block_helpers.py` remains the tiny shared
    edit-gate owner reused by the in-memory and SQLite block surfaces, and
    `storage/lifecycle_policy.py` is the stable lifecycle-policy façade,
    `storage/lifecycle_types.py` owns the closed lifecycle enums, policy/job
@@ -248,6 +254,10 @@ inspection, `sophiagraph.okf`, `sophiagraph.ui`, `sophiagraph.workspace`, and
 20. `views.py` is the stable saved-view public façade, `view_types.py` owns the
    typed saved-view DTO and literal contracts, and `view_eval.py` owns the
    deterministic filter, summary, and formula-evaluation helpers.
+21. `projections.py` is the stable advanced projection import root,
+   `projection.py` owns bounded changefeed delivery and backend projectors,
+   and `projection_reconciliation.py` owns deterministic inventory comparison
+   plus explicitly authorized repair application.
 
 ## Repo-local but not public API
 
