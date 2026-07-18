@@ -23,7 +23,7 @@ The ownership split is explicit:
 - owner import root: `sophiagraph.ui`
 - runtime package: `sophiagraph.server`
 - transport kind: `rest`
-- transport status: `designed_not_implemented`
+- transport status: `implemented_optional`
 - current API seam: `sophiagraph.server`
 - reusable local server primitive: `graphfakos.server`
 - local visual UI seam: `python3.11 -m sophiagraph ui-preview --serve`
@@ -69,6 +69,7 @@ Preview an initialized workspace instead of the built-in demo data:
 ```bash
 sophiagraph-ui \
   --workspace <workspace-root> \
+  --source-root <source-root> \
   --screen graph \
   --serve
 ```
@@ -81,5 +82,6 @@ module form is `python3.11 -m sophiagraph ui-preview`.
 This package does **not** currently ship a hosted browser app, Textual TUI,
 daemon, or admin UI. It ships typed UI contracts, deterministic Sophiagraph to
 GraphFakos adapter mapping, compatibility wrappers for the local visual server
-primitive, and the local visual UI command above so the standalone package has
-one canonical import root for future visual/runtime work.
+primitive, live local action handling over package-owned executors, and the
+local visual UI command above so the standalone package has one canonical
+import root for visual/runtime work.

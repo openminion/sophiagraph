@@ -77,6 +77,41 @@ def _namespace_from_args(args: argparse.Namespace) -> MemoryNamespace:
     )
 
 
+def _add_ui_preview_parser(subparsers: argparse._SubParsersAction) -> None:
+    ui_parser = subparsers.add_parser("ui-preview")
+    ui_parser.add_argument("--workspace")
+    ui_parser.add_argument("--source-root")
+    ui_parser.add_argument(
+        "--screen",
+        choices=(
+            "explore",
+            "record",
+            "graph",
+            "candidates",
+            "views",
+            "timeline",
+            "schema",
+        ),
+        default="explore",
+    )
+    ui_parser.add_argument("--html-out", default="sophiagraph-ui-preview.html")
+    ui_parser.add_argument("--artifact-out", default="")
+    ui_parser.add_argument("--embed-out", default="")
+    ui_parser.add_argument("--report-out", default="")
+    ui_parser.add_argument("--markdown-report-out", default="")
+    ui_parser.add_argument("--scope", default="agent:demo")
+    ui_parser.add_argument("--query", default="")
+    ui_parser.add_argument("--record-id")
+    ui_parser.add_argument("--tenant-id")
+    ui_parser.add_argument("--agent-id", default="demo")
+    ui_parser.add_argument("--graph-id", default="main")
+    ui_parser.add_argument("--open", action="store_true")
+    ui_parser.add_argument("--serve", action="store_true")
+    ui_parser.add_argument("--host", default="127.0.0.1")
+    ui_parser.add_argument("--port", type=int, default=8765)
+    ui_parser.add_argument("--json", action="store_true")
+
+
 def _build_workspace_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="sophiagraph workspace commands")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -175,37 +210,7 @@ def _build_workspace_parser() -> argparse.ArgumentParser:
     materialize_parser.add_argument("--relative-path")
     materialize_parser.add_argument("--json", action="store_true")
 
-    ui_parser = subparsers.add_parser("ui-preview")
-    ui_parser.add_argument("--workspace")
-    ui_parser.add_argument(
-        "--screen",
-        choices=(
-            "explore",
-            "record",
-            "graph",
-            "candidates",
-            "views",
-            "timeline",
-            "schema",
-        ),
-        default="explore",
-    )
-    ui_parser.add_argument("--html-out", default="sophiagraph-ui-preview.html")
-    ui_parser.add_argument("--artifact-out", default="")
-    ui_parser.add_argument("--embed-out", default="")
-    ui_parser.add_argument("--report-out", default="")
-    ui_parser.add_argument("--markdown-report-out", default="")
-    ui_parser.add_argument("--scope", default="agent:demo")
-    ui_parser.add_argument("--query", default="")
-    ui_parser.add_argument("--record-id")
-    ui_parser.add_argument("--tenant-id")
-    ui_parser.add_argument("--agent-id", default="demo")
-    ui_parser.add_argument("--graph-id", default="main")
-    ui_parser.add_argument("--open", action="store_true")
-    ui_parser.add_argument("--serve", action="store_true")
-    ui_parser.add_argument("--host", default="127.0.0.1")
-    ui_parser.add_argument("--port", type=int, default=8765)
-    ui_parser.add_argument("--json", action="store_true")
+    _add_ui_preview_parser(subparsers)
 
     benchmark_parser = subparsers.add_parser("benchmark")
     benchmark_parser.add_argument(
@@ -225,6 +230,37 @@ def _read_note_body(args: argparse.Namespace) -> str:
     if args.body is not None:
         return args.body
     return Path(args.body_file).read_text(encoding="utf-8")
+
+
+def _run_ui_preview_cli(args: argparse.Namespace) -> int:
+    request = UiPreviewRequest(
+        screen=args.screen,
+        workspace=args.workspace,
+        source_root=args.source_root,
+        output_path=args.html_out,
+        artifact_path=args.artifact_out,
+        embed_path=args.embed_out,
+        report_path=args.report_out,
+        markdown_report_path=args.markdown_report_out,
+        scope=args.scope,
+        query=args.query,
+        record_id=args.record_id,
+        tenant_id=args.tenant_id,
+        agent_id=args.agent_id,
+        graph_id=args.graph_id,
+        open_browser=args.open,
+    )
+    if args.serve:
+        result = serve_ui_preview(request, host=args.host, port=args.port)
+        _print_payload(
+            result.to_dict() if args.json else result.url, json_mode=args.json
+        )
+        return 0
+    result = write_ui_preview(request)
+    _print_payload(
+        result.to_dict() if args.json else result.output_path, json_mode=args.json
+    )
+    return 0
 
 
 def _run_workspace_cli(argv: list[str]) -> int:
@@ -364,33 +400,7 @@ def _run_workspace_cli(argv: list[str]) -> int:
         _print_payload(result.to_dict(), json_mode=args.json)
         return 0
     if command == "ui-preview":
-        request = UiPreviewRequest(
-            screen=args.screen,
-            workspace=args.workspace,
-            output_path=args.html_out,
-            artifact_path=args.artifact_out,
-            embed_path=args.embed_out,
-            report_path=args.report_out,
-            markdown_report_path=args.markdown_report_out,
-            scope=args.scope,
-            query=args.query,
-            record_id=args.record_id,
-            tenant_id=args.tenant_id,
-            agent_id=args.agent_id,
-            graph_id=args.graph_id,
-            open_browser=args.open,
-        )
-        if args.serve:
-            result = serve_ui_preview(request, host=args.host, port=args.port)
-            _print_payload(
-                result.to_dict() if args.json else result.url, json_mode=args.json
-            )
-            return 0
-        result = write_ui_preview(request)
-        _print_payload(
-            result.to_dict() if args.json else result.output_path, json_mode=args.json
-        )
-        return 0
+        return _run_ui_preview_cli(args)
     if command == "benchmark":
         scorecard = run_default_benchmark_suite(
             include_openminion_direct=not args.without_openminion_direct

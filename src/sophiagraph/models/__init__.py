@@ -18,6 +18,15 @@ from .artifact_projection import (
     ArtifactProjectionSegment,
     ArtifactTextProjection,
 )
+from .action import (
+    ActionAuditDurability,
+    ActionJournalLifecycle,
+    WorkbenchActionExecutionContext,
+    WorkbenchActionJournalEntry,
+    WorkbenchActionOutcome,
+    WorkbenchActionReasonCode,
+    WorkbenchActionResult,
+)
 from .block import (
     MEMORY_BLOCK_DEFERRED_MODES,
     MEMORY_BLOCK_V1_CLASS_ALLOWLIST,
@@ -284,6 +293,8 @@ __all__ = [
     "ArtifactRetentionPolicy",
     "ArtifactSourceClass",
     "ArtifactTextProjection",
+    "ActionAuditDurability",
+    "ActionJournalLifecycle",
     "CONTRADICTION_DECISIONS",
     "CandidateReview",
     "CandidateStatus",
@@ -489,4 +500,9 @@ __all__ = [
     "split_target_parts",
     "transition_lifecycle",
     "VisibilityScope",
+    "WorkbenchActionExecutionContext",
+    "WorkbenchActionJournalEntry",
+    "WorkbenchActionOutcome",
+    "WorkbenchActionReasonCode",
+    "WorkbenchActionResult",
 ]

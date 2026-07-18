@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from graphfakos import GraphPreviewOutputPaths, write_provider_preview_outputs
+from graphfakos import (
+    GraphFakosGraphAction,
+    GraphFakosKnowledgeCapture,
+    GraphPreviewOutputPaths,
+    write_provider_preview_outputs,
+)
 from graphfakos.server import (
     LocalViewerHttpServer as LocalVisualHttpServer,
     LocalViewerServerResult as LocalVisualServerResult,
@@ -51,6 +56,7 @@ def write_ui_preview(request: UiPreviewRequest) -> UiPreviewResult:
         output_path=str(payload["output_path"]),
         screen=str(payload["screen"]),
         workspace=request.workspace,
+        source_root=request.source_root,
         record_count=store.record_count(),
         provider_id=str(payload["provider_id"]),
         node_count=int(payload["node_count"]),
@@ -77,6 +83,7 @@ def render_ui_preview(request: UiPreviewRequest) -> UiPreviewRender:
         html=render_static_html(provider, graph_request),
         screen=request.screen,
         workspace=request.workspace,
+        source_root=request.source_root,
         record_count=store.record_count(),
     )
 
@@ -90,6 +97,9 @@ def make_ui_preview_server(
     return make_local_viewer_server(
         render_path=lambda path, query: render_server_preview_path(
             request, path, query
+        ),
+        handle_action=lambda path, payload: handle_ui_preview_action(
+            request, path, payload
         ),
         default_path=f"/{request.screen}",
         host=host,
@@ -107,6 +117,9 @@ def serve_ui_preview(
         render_path=lambda path, query: render_server_preview_path(
             request, path, query
         ),
+        handle_action=lambda path, payload: handle_ui_preview_action(
+            request, path, payload
+        ),
         default_path=f"/{request.screen}",
         host=host,
         port=port,
@@ -114,11 +127,44 @@ def serve_ui_preview(
     )
 
 
+def handle_ui_preview_action(
+    request: UiPreviewRequest,
+    path: str,
+    payload: dict[str, object],
+) -> dict[str, object]:
+    store, namespace, scope = store_for_request(request)
+    provider = SophiagraphViewerProvider(
+        store=store,
+        scope=scope,
+        namespace=namespace,
+        principal_id="local-operator",
+        workspace_id=request.workspace or "workspace:preview",
+        workspace_root=request.workspace or "",
+        source_root=request.source_root or "",
+    )
+    if path == "/api/action":
+        action = GraphFakosGraphAction.from_dict(payload)
+        status = provider.submit_graph_action(action)
+        return {
+            "ok": status.status == "applied",
+            "status": status.to_dict(),
+            "action": action.to_dict(),
+        }
+    if path == "/api/knowledge":
+        capture = GraphFakosKnowledgeCapture.from_dict(payload)
+        return provider.capture_knowledge(capture)
+    return {
+        "ok": False,
+        "error": f"unsupported Sophiagraph preview action path: {path}",
+    }
+
+
 __all__ = [
     "PreviewScreen",
     "UiPreviewRender",
     "UiPreviewRequest",
     "UiPreviewResult",
+    "handle_ui_preview_action",
     "make_ui_preview_server",
     "render_ui_preview",
     "serve_ui_preview",

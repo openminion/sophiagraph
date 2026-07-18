@@ -20,6 +20,7 @@ PreviewScreen = Literal[
 class UiPreviewRequest:
     screen: PreviewScreen = "explore"
     workspace: str | None = None
+    source_root: str | None = None
     output_path: str = "sophiagraph-ui-preview.html"
     artifact_path: str = ""
     embed_path: str = ""
@@ -39,6 +40,7 @@ class UiPreviewResult:
     output_path: str
     screen: str
     workspace: str | None
+    source_root: str | None
     record_count: int
     provider_id: str
     node_count: int
@@ -55,6 +57,7 @@ class UiPreviewResult:
             "output_path": self.output_path,
             "screen": self.screen,
             "workspace": self.workspace,
+            "source_root": self.source_root,
             "record_count": self.record_count,
             "provider_id": self.provider_id,
             "node_count": self.node_count,
@@ -78,6 +81,7 @@ class UiPreviewRender:
     html: str
     screen: str
     workspace: str | None
+    source_root: str | None
     record_count: int
 
 

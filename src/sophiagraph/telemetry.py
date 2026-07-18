@@ -12,6 +12,7 @@ _ALLOWED_ATTRIBUTES = frozenset(
     {
         "backend",
         "operation",
+        "action_kind",
         "outcome",
         "object_type",
         "stage",

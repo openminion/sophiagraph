@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from graphfakos import (
+    GraphFakosActionStatus,
     GraphFakosCitation,
     GraphFakosEdge,
     GraphFakosGraph,
+    GraphFakosGraphAction,
+    GraphFakosKnowledgeCapture,
     GraphFakosNode,
     GraphFakosProvenance,
     GraphFakosProvider,
@@ -13,29 +18,58 @@ from graphfakos import (
 )
 
 from sophiagraph.query import CandidateListOptions, LinkQueryOptions, ListQueryOptions
+from sophiagraph.workbench import WorkbenchActionKind, WorkbenchActionRequest
+from sophiagraph.workbench_actions import execute_workbench_action
+from sophiagraph.models import (
+    MemoryNamespace,
+    WorkbenchActionExecutionContext,
+    WorkbenchActionResult,
+)
+
+_BASE_CAPABILITIES = (
+    "search",
+    "neighborhood",
+    "path",
+    "provenance",
+    "timeline",
+    "provider_status",
+    "context_preview",
+    "durable_memory",
+    "static_export",
+    "local_preview",
+)
+_ACTION_CAPABILITIES = ("knowledge_capture", "graph_actions")
 
 
 class SophiagraphViewerProvider(GraphFakosProvider):
     provider_id = "sophiagraph"
     provider_label = "Sophiagraph"
     graph_role = "memory"
-    capabilities = (
-        "search",
-        "neighborhood",
-        "path",
-        "provenance",
-        "timeline",
-        "provider_status",
-        "context_preview",
-        "durable_memory",
-        "static_export",
-        "local_preview",
-    )
+    capabilities = _BASE_CAPABILITIES
 
-    def __init__(self, *, store: object, scope: str, namespace: object) -> None:
+    def __init__(
+        self,
+        *,
+        store: object,
+        scope: str,
+        namespace: object,
+        principal_id: str = "",
+        workspace_id: str = "workspace:local",
+        workspace_root: str = "",
+        source_root: str = "",
+    ) -> None:
         self._store = store
         self._scope = scope
         self._namespace = namespace
+        self._principal_id = principal_id
+        self._workspace_id = workspace_id
+        self._workspace_root = workspace_root
+        self._source_root = source_root
+        self.capabilities = (
+            (*_BASE_CAPABILITIES, *_ACTION_CAPABILITIES)
+            if principal_id
+            else _BASE_CAPABILITIES
+        )
 
     def load_graph(self, request: GraphFakosRequest) -> GraphFakosGraph:
         records = tuple(
@@ -45,9 +79,11 @@ class SophiagraphViewerProvider(GraphFakosProvider):
         )
         links = _record_links(self._store, records, self._namespace)
         candidates = tuple(
-            self._store.list_candidates(
+            candidate
+            for candidate in self._store.list_candidates(
                 CandidateListOptions(status=None, limit=max(request.limit, 25))
             )
+            if _candidate_in_scope(candidate, self._scope, self._namespace)
         )
         blocks = {
             block.record_id: block
@@ -96,6 +132,131 @@ class SophiagraphViewerProvider(GraphFakosProvider):
                     "python -m sophiagraph ui-preview --screen views --serve",
                 )
             },
+        )
+
+    def capture_knowledge(
+        self,
+        capture: GraphFakosKnowledgeCapture,
+    ) -> dict[str, object]:
+        if not self._actions_enabled:
+            status = GraphFakosActionStatus(
+                action_id=f"capture:{capture.link_node_id or 'graph'}",
+                status="unsupported",
+                message="Sophiagraph capture requires a live action-enabled preview",
+            )
+            return {
+                "ok": False,
+                "status": status.to_dict(),
+                "capture": capture.to_dict(),
+            }
+        note_key = str(
+            capture.provider_payload.get("note_key")
+            or capture.link_node_id
+            or f"capture-{capture.kind}"
+        )
+        title = str(capture.provider_payload.get("title") or note_key)
+        action_id = str(
+            capture.provider_payload.get("action_id") or f"capture:{note_key}"
+        )
+        result = execute_workbench_action(
+            self._store,
+            WorkbenchActionRequest(
+                action="save_note",
+                target_id=note_key,
+                actor_id=self._principal_id,
+                workspace_id=self._workspace_id,
+                payload_kind="note",
+                payload={
+                    "note_key": note_key,
+                    "title": title,
+                    "body": capture.text,
+                    "tags": list(capture.tags),
+                    "relative_path": capture.provider_payload.get("relative_path"),
+                    "expected_content_sha256": capture.provider_payload.get(
+                        "expected_content_sha256"
+                    ),
+                },
+            ),
+            self._context(action_id=action_id),
+        )
+        status = _graphfakos_status(result, graph_id=_graph_id(self._namespace))
+        return {
+            "ok": result.outcome == "applied",
+            "status": status.to_dict(),
+            "capture": capture.to_dict(),
+            "result": result.to_dict(),
+        }
+
+    def submit_graph_action(
+        self,
+        action: GraphFakosGraphAction,
+    ) -> GraphFakosActionStatus:
+        if not self._actions_enabled:
+            return GraphFakosActionStatus(
+                action_id=action.action_id,
+                status="unsupported",
+                message="Sophiagraph actions require a live action-enabled preview",
+                graph_id=_graph_id(self._namespace),
+            )
+        if action.action_type not in {
+            "approve_candidate",
+            "reject_candidate",
+            "promote_candidate",
+            "apply_repair",
+            "restore_workspace",
+            "build_publish_plan",
+            "open_graph_selection",
+            "propose_note_edit",
+            "approve_workspace_edit",
+            "reject_workspace_edit",
+            "save_note",
+        }:
+            return GraphFakosActionStatus(
+                action_id=action.action_id,
+                status="unsupported",
+                message=f"unsupported Sophiagraph action: {action.action_type}",
+                graph_id=_graph_id(self._namespace),
+                provider_payload={"reason_code": "unsupported_action"},
+            )
+        target_id = action.target_id or action.target_node_id or action.source_id
+        result = execute_workbench_action(
+            self._store,
+            WorkbenchActionRequest(
+                action=cast(WorkbenchActionKind, action.action_type),
+                target_id=target_id,
+                actor_id=self._principal_id,
+                workspace_id=self._workspace_id,
+                payload_kind="graph_action",
+                payload={
+                    **dict(action.provider_payload),
+                    "label": action.label,
+                    "body": action.body,
+                    "tags": list(action.tags),
+                },
+            ),
+            self._context(action_id=action.action_id),
+        )
+        return _graphfakos_status(result, graph_id=_graph_id(self._namespace))
+
+    @property
+    def _actions_enabled(self) -> bool:
+        return bool(self._principal_id)
+
+    def _context(self, *, action_id: str) -> WorkbenchActionExecutionContext:
+        namespace = (
+            self._namespace
+            if isinstance(self._namespace, MemoryNamespace)
+            else MemoryNamespace.from_scope(self._scope)
+        )
+        return WorkbenchActionExecutionContext(
+            action_id=action_id,
+            request_id=action_id,
+            principal_id=self._principal_id,
+            workspace_id=self._workspace_id,
+            scope=self._scope,
+            namespace=namespace,
+            workspace_root=self._workspace_root,
+            source_root=self._source_root,
         )
 
 
@@ -191,6 +352,18 @@ def _candidate_node(candidate: object) -> GraphFakosNode:
     )
 
 
+def _candidate_in_scope(candidate: object, scope: str, namespace: object) -> bool:
+    candidate_namespace = getattr(candidate, "namespace", None)
+    if candidate_namespace is None:
+        candidate_namespace = MemoryNamespace.from_scope(
+            str(getattr(candidate, "proposed_scope", ""))
+        )
+    return (
+        str(getattr(candidate, "proposed_scope", "")) == scope
+        and candidate_namespace == namespace
+    )
+
+
 def _record_provenance(record: object) -> GraphFakosProvenance:
     record_id = getattr(record, "id")
     source = str(getattr(record, "source", "") or "sophiagraph")
@@ -234,6 +407,26 @@ def _candidate_edge(
         kind="promote_candidate",
         label="promote candidate",
         confidence=getattr(candidate, "confidence", None),
+    )
+
+
+def _graphfakos_status(
+    result: WorkbenchActionResult,
+    *,
+    graph_id: str,
+) -> GraphFakosActionStatus:
+    return GraphFakosActionStatus(
+        action_id=result.action_id,
+        status=result.outcome,
+        message=result.message,
+        graph_id=graph_id,
+        provider_payload={
+            "reason_code": result.reason_code,
+            "audit_refs": list(result.audit_refs),
+            "audit_durability": result.audit_durability,
+            "affected_refs": list(result.affected_refs),
+            "result": result.to_dict(),
+        },
     )
 
 

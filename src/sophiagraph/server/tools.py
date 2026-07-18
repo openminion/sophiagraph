@@ -257,6 +257,12 @@ def _capabilities_handler_factory(backend: str) -> ToolHandler:
     return _handler
 
 
+def tool_schemas() -> tuple[ToolSchema, ...]:
+    """Return the closed, ordered MCP tool schema surface."""
+
+    return _TOOL_SCHEMAS
+
+
 @dataclass
 class ToolRegistry:
     """Closed-surface registry for the bounded MCP v1 tool set.
@@ -319,4 +325,5 @@ __all__ = [
     "ToolHandler",
     "ToolRegistry",
     "ToolSchema",
+    "tool_schemas",
 ]

@@ -9,7 +9,7 @@ from sophiagraph.portability.codec import json_dumps
 from .fts import ensure_fts_schema
 from .rows import NAMESPACE_COLUMNS, namespace_from_payload, row_json
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 
 
 def _ensure_projection_schema(conn: sqlite3.Connection) -> None:
@@ -74,6 +74,53 @@ def _ensure_projection_schema(conn: sqlite3.Connection) -> None:
             ON sophiagraph_projection_failures(target_id, cursor, dead_letter);
         """
     )
+
+
+def _ensure_workbench_action_schema(conn: sqlite3.Connection) -> None:
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS sophiagraph_workbench_actions (
+            action_id TEXT PRIMARY KEY,
+            request_hash TEXT NOT NULL,
+            action TEXT NOT NULL,
+            principal_id TEXT NOT NULL,
+            workspace_id TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            tenant_id TEXT,
+            org_id TEXT,
+            user_id TEXT,
+            agent_id TEXT,
+            session_id TEXT,
+            conversation_id TEXT,
+            project_id TEXT,
+            graph_id TEXT,
+            target_id TEXT NOT NULL,
+            lifecycle TEXT NOT NULL,
+            fencing_token INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            started_at TEXT,
+            completed_at TEXT,
+            recovery_required INTEGER NOT NULL,
+            payload_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_workbench_actions_scope
+            ON sophiagraph_workbench_actions(scope, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_workbench_actions_namespace
+            ON sophiagraph_workbench_actions(
+                tenant_id, org_id, user_id, agent_id, session_id,
+                conversation_id, project_id, graph_id
+            );
+        CREATE INDEX IF NOT EXISTS idx_sophiagraph_workbench_actions_lifecycle
+            ON sophiagraph_workbench_actions(lifecycle, updated_at DESC);
+        """
+    )
+
+
+def _ensure_auxiliary_schemas(conn: sqlite3.Connection) -> None:
+    _ensure_workbench_action_schema(conn)
+    _ensure_projection_schema(conn)
+    ensure_fts_schema(conn)
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
@@ -671,8 +718,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         );
         """
     )
-    _ensure_projection_schema(conn)
-    ensure_fts_schema(conn)
+    _ensure_auxiliary_schemas(conn)
     if schema_version < 2:
         migrate_namespace_columns(conn)
     if schema_version < SCHEMA_VERSION:

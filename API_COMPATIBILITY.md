@@ -49,6 +49,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.profile_packs`
 - `sophiagraph.benchmarks`
 - `sophiagraph.workbench`
+- `sophiagraph.workbench_actions`
 - `sophiagraph.compatibility`
 - `sophiagraph.vector_backends`
 - `sophiagraph.backend_planning`
@@ -59,6 +60,7 @@ External consumers should treat these import roots as the supported public API:
 - `sophiagraph.collaboration`
 - `sophiagraph.production_benchmarks`
 - `sophiagraph.server.deployment`
+- `sophiagraph.server.http`
 
 The top-level `sophiagraph` package is the preferred entrypoint for common usage.
 
@@ -181,8 +183,24 @@ The following top-level exports are part of the current public contract:
 - `sophiagraph.WorkspaceWorkbenchPacket`
 - `sophiagraph.WorkbenchActionRequest`
 - `sophiagraph.WorkbenchActionPreview`
+- `sophiagraph.WorkbenchActionExecutionContext`
+- `sophiagraph.WorkbenchActionJournalEntry`
+- `sophiagraph.WorkbenchActionResult`
+- `sophiagraph.WorkbenchActionOutcome`
+- `sophiagraph.WorkbenchActionReasonCode`
+- `sophiagraph.ActionAuditDurability`
+- `sophiagraph.ActionJournalLifecycle`
 - `sophiagraph.WorkbenchReviewInbox`
 - `sophiagraph.WorkbenchGraphPanelState`
+- `sophiagraph.EXECUTABLE_WORKBENCH_ACTIONS`
+- `sophiagraph.PREVIEW_ONLY_WORKBENCH_ACTIONS`
+- `sophiagraph.HOST_REQUIRED_WORKBENCH_ACTIONS`
+- `sophiagraph.REVIEW_ONLY_WORKBENCH_ACTIONS`
+- `sophiagraph.execute_workbench_action(...)`
+- `sophiagraph.preview_workbench_execution(...)`
+- `sophiagraph.workbench_action_status(...)`
+- `sophiagraph.prune_workbench_action_journal(...)`
+- `sophiagraph.workbench_action_request_hash(...)`
 - `sophiagraph.build_workspace_workbench_packet(...)`
 - `sophiagraph.build_workbench_review_inbox(...)`
 - `sophiagraph.build_workbench_graph_panel(...)`
@@ -409,7 +427,8 @@ Public-contract confidence should be enforced by tests that cover:
 33. public examples that run against documented package imports,
 34. CI/release workflow docs and release-smoke path coverage,
 35. collaborative second-brain workbench packets, GraphFakos panel summaries,
-    explicit action previews, and host direct-library fixtures.
+    explicit action previews, idempotent workbench execution/journal behavior,
+    REST workbench routes, and host direct-library fixtures.
 
 ## Internal compatibility shims
 

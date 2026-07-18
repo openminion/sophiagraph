@@ -22,14 +22,13 @@ from sophiagraph import (
     MemoryRecord,
     SearchQueryOptions,
     create_memory_store,
-    create_sqlite_store,
-    default_db_path,
 )
 from sophiagraph.portability.models import (
     MemoryBundleExportOptions,
     MemoryBundleImportOptions,
 )
 from sophiagraph.storage.base import SophiaGraphStore
+from sophiagraph.storage.sqlite import SophiaGraphSqliteStore
 
 from sophiagraph.server.contracts import SophiagraphServerError
 from sophiagraph.server.service_core import to_json_dict as _to_json_dict
@@ -37,6 +36,7 @@ from sophiagraph.server.tools import (
     SUPPORTED_TOOL_NAMES,
     ToolHandler,
     ToolRegistry,
+    tool_schemas,
 )
 
 
@@ -78,9 +78,10 @@ def _resolve_store(config: BackendConfig) -> SophiaGraphStore:
         path = (
             Path(config.sqlite_path)
             if config.sqlite_path is not None
-            else default_db_path() / DEFAULT_DB_FILENAME
+            else Path(DEFAULT_DB_FILENAME)
         )
-        return create_sqlite_store(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return SophiaGraphSqliteStore(path)
     raise SophiagraphServerError(
         f"unknown backend {config.backend!r}; supported: memory|sqlite",
         code=-32602,
@@ -227,7 +228,17 @@ def _import_snapshot_handler(store: SophiaGraphStore) -> ToolHandler:
     return _wrap("knowledge_import_snapshot", _handler)
 
 
-def build_wired_registry(config: BackendConfig | None = None) -> ToolRegistry:
+def resolve_backend_store(config: BackendConfig | None = None) -> SophiaGraphStore:
+    """Return the configured store for transports that share one backend."""
+
+    return _resolve_store(config or BackendConfig())
+
+
+def build_wired_registry(
+    config: BackendConfig | None = None,
+    *,
+    store: SophiaGraphStore | None = None,
+) -> ToolRegistry:
     """Construct a ToolRegistry where data-op handlers are wired to a real store.
 
     Replaces ToolRegistry.default()'s BackendNotWiredError handlers. Schemas
@@ -235,25 +246,23 @@ def build_wired_registry(config: BackendConfig | None = None) -> ToolRegistry:
     """
 
     resolved_config = config if config is not None else BackendConfig()
-    store = _resolve_store(resolved_config)
+    resolved_store = store if store is not None else _resolve_store(resolved_config)
     registry = ToolRegistry(backend=resolved_config.backend)
-
-    from sophiagraph.server.tools import _TOOL_SCHEMAS  # type: ignore[attr-defined]
 
     handler_factories: dict[str, Any] = {
         "knowledge_capabilities": lambda: _capabilities_handler(
             resolved_config.backend
         ),
-        "knowledge_put_record": lambda: _put_record_handler(store),
-        "knowledge_get_record": lambda: _get_record_handler(store),
-        "knowledge_list_records": lambda: _list_records_handler(store),
-        "knowledge_search_records": lambda: _search_records_handler(store),
-        "knowledge_list_relations": lambda: _list_relations_handler(store),
-        "knowledge_export_snapshot": lambda: _export_snapshot_handler(store),
-        "knowledge_import_snapshot": lambda: _import_snapshot_handler(store),
+        "knowledge_put_record": lambda: _put_record_handler(resolved_store),
+        "knowledge_get_record": lambda: _get_record_handler(resolved_store),
+        "knowledge_list_records": lambda: _list_records_handler(resolved_store),
+        "knowledge_search_records": lambda: _search_records_handler(resolved_store),
+        "knowledge_list_relations": lambda: _list_relations_handler(resolved_store),
+        "knowledge_export_snapshot": lambda: _export_snapshot_handler(resolved_store),
+        "knowledge_import_snapshot": lambda: _import_snapshot_handler(resolved_store),
     }
 
-    for schema in _TOOL_SCHEMAS:
+    for schema in tool_schemas():
         factory = handler_factories.get(schema.name)
         if factory is None:
             raise SophiagraphServerError(
@@ -270,4 +279,5 @@ __all__ = [
     "BackendConfig",
     "BackendInvocationError",
     "build_wired_registry",
+    "resolve_backend_store",
 ]
