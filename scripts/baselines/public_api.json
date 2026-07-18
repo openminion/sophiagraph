@@ -500,6 +500,6 @@
     "workspace_workbench_to_dict",
     "write_okf_bundle"
   ],
-  "package_version": "0.0.3",
+  "package_version": "0.0.4",
   "report_version": "sophiagraph.compatibility.v1"
 }

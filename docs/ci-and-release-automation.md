@@ -59,9 +59,9 @@ Actions -> Release -> Run workflow -> target=testpypi
 ```
 
 Use production PyPI only after final-version TestPyPI verification. Push the
-final non-RC tag, such as `v0.0.3`, to publish to production PyPI after the
+final non-RC tag, such as `v0.0.4`, to publish to production PyPI after the
 same validation sequence. The GitHub Release is created after production PyPI
-publishing succeeds, with a bare version title such as `0.0.3`.
+publishing succeeds, with a bare version title such as `0.0.4`.
 
 ## Credential boundary
 

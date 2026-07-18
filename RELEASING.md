@@ -80,17 +80,17 @@ Expected smoke result:
 Preferred release path uses GitHub Actions trusted publishing:
 
 1. Prepare and validate a release-candidate branch such as
-   `release/sophiagraph-0.0.3rc1`.
-2. Push an RC tag such as `v0.0.3rc1`; RC tag pushes publish to TestPyPI only.
+   `release/sophiagraph-0.0.4rc1`.
+2. Push an RC tag such as `v0.0.4rc1`; RC tag pushes publish to TestPyPI only.
 3. Install and smoke-test the RC artifact from TestPyPI.
-4. Prepare and validate the final branch such as `release/sophiagraph-0.0.3`.
+4. Prepare and validate the final branch such as `release/sophiagraph-0.0.4`.
 5. Dispatch the `Release` workflow from the final branch with
    `target=testpypi`; final TestPyPI uses the same version that will go to
    production.
 6. Install and smoke-test the final artifact from TestPyPI.
-7. Push the final non-RC tag such as `v0.0.3`; final tag pushes publish to
+7. Push the final non-RC tag such as `v0.0.4`; final tag pushes publish to
    production PyPI.
-8. Create the GitHub Release with the bare version title, for example `0.0.3`.
+8. Create the GitHub Release with the bare version title, for example `0.0.4`.
 9. Open and merge the release backfill PR, then delete temporary release
    branches after the tag, PyPI artifacts, GitHub Release, and PR are complete.
 

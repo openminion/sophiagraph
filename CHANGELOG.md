@@ -1,14 +1,36 @@
 # Sophiagraph Changelog
 
 Status: active
-Last updated: 2026-06-20
+Last updated: 2026-07-18
 
 This file tracks package-facing release notes for `sophiagraph`.
 
 ## Unreleased
 
+No package-facing changes yet.
+
+## 0.0.4 - 2026-07-18
+
 ### Added
 
+- Added idempotent workbench action execution with typed request context,
+  result, and journal contracts for candidate approval/rejection/promotion,
+  file-primary note capture, host-required restore posture, and preview-only
+  repair/publish/selection actions.
+- Added memory and SQLite action-journal persistence with scoped lookup,
+  retention pruning, audit references, replay, stale-precondition, conflict,
+  recovery-required, and payload-impersonation guards.
+- Added bounded stdlib HTTP routes for core knowledge operations plus
+  workbench capabilities, preview, execute, and status operations over the
+  same service-core contracts used by MCP.
+- Added server-owned principal/scope binding, local loopback posture,
+  bearer-token auth support, origin/body/quota guards, and canonical HTTP
+  status mappings for workbench action outcomes.
+- Added one-shot projection and journal operation commands for scheduler-owned
+  execution without hidden package threads.
+- Added GraphFakos local-preview action integration so live `sophiagraph-ui`
+  sessions can submit provider-neutral capture/action payloads through the
+  package executor while static exports remain read-only.
 - Added durable graph/vector projection targets, checkpoints, fenced leases,
   bounded retry and dead-letter state, backend watermarks, deterministic
   reconciliation, and explicitly authorized repair plans.
