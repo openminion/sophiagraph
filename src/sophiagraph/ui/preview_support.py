@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from typing import cast
 from uuid import uuid4
 
-from graphfakos import GraphFakosRequest
+from graphfakos import GraphFakosRequest, GraphFakosScreen
 from graphfakos.ui import render_provider_path
 
 from sophiagraph.models import (
@@ -34,6 +35,10 @@ def render_server_preview_path(
         store=store,
         scope=scope,
         namespace=namespace,
+        principal_id="local-operator",
+        workspace_id=next_request.workspace or "workspace:preview",
+        workspace_root=next_request.workspace or "",
+        source_root=next_request.source_root or "",
     )
     graph_request = graphfakos_request(
         next_request,
@@ -51,6 +56,7 @@ def request_from_query(
     return UiPreviewRequest(
         screen=screen,
         workspace=first_query_value(query, "workspace") or request.workspace,
+        source_root=first_query_value(query, "source_root") or request.source_root,
         output_path=request.output_path,
         scope=first_query_value(query, "scope") or request.scope,
         query=first_query_value(query, "query") or request.query,
@@ -85,7 +91,7 @@ def screen_from_path(path: str) -> PreviewScreen | None:
         "timeline",
         "schema",
     }:
-        return value  # type: ignore[return-value]
+        return cast(PreviewScreen, value)
     return None
 
 
@@ -108,7 +114,7 @@ def graphfakos_request(
     *,
     record_id: str | None,
 ) -> GraphFakosRequest:
-    screen_map = {
+    screen_map: dict[PreviewScreen, GraphFakosScreen] = {
         "explore": "explore",
         "record": "explore",
         "graph": "neighborhood",
@@ -118,7 +124,7 @@ def graphfakos_request(
         "schema": "provider_status",
     }
     return GraphFakosRequest(
-        screen=screen_map[request.screen],  # type: ignore[arg-type]
+        screen=screen_map[request.screen],
         query=request.query,
         focus_node_id=record_id,
         source_node_id=record_id,

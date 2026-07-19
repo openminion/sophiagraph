@@ -32,16 +32,39 @@ def _utc_now_iso() -> str:
 
 
 @dataclass(frozen=True, slots=True)
+class ServerPrincipal:
+    principal_id: str
+    allowed_scopes: tuple[str, ...] = ()
+    allowed_namespaces: tuple[str, ...] = ()
+    allowed_workspaces: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.principal_id:
+            raise ValueError("principal_id is required")
+
+
+@dataclass(frozen=True, slots=True)
 class ServerAuthConfig:
     mode: ServerAuthMode = "none"
     static_tokens: tuple[str, ...] = ()
+    token_principals: Mapping[str, ServerPrincipal] = field(default_factory=dict)
+    local_principal: ServerPrincipal = field(
+        default_factory=lambda: ServerPrincipal(principal_id="local-operator")
+    )
     unauthenticated_methods: tuple[str, ...] = tuple(sorted(_PUBLIC_METHODS))
 
     def __post_init__(self) -> None:
         if self.mode not in {"none", "static_bearer"}:
             raise ValueError(f"invalid auth mode: {self.mode!r}")
-        if self.mode == "static_bearer" and not self.static_tokens:
+        if (
+            self.mode == "static_bearer"
+            and not self.static_tokens
+            and not self.token_principals
+        ):
             raise ValueError("static_bearer auth requires at least one token")
+        missing = set(self.token_principals) - set(self.static_tokens)
+        if missing:
+            raise ValueError("token_principals must reference static bearer tokens")
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,6 +241,14 @@ class RuntimePolicyEngine:
             reason="missing_or_invalid_bearer_token",
             auth_mode=self.auth.mode,
         )
+
+    def resolve_principal(self, context: RuntimeRequestContext) -> ServerPrincipal:
+        if self.auth.mode == "none":
+            return self.auth.local_principal
+        self.authorize(context)
+        if context.auth_token in self.auth.token_principals:
+            return self.auth.token_principals[str(context.auth_token)]
+        return ServerPrincipal(principal_id="static-bearer")
 
     def enforce_deployment(
         self,
@@ -413,6 +444,7 @@ __all__ = [
     "RuntimePolicyEngine",
     "RuntimeRequestContext",
     "ServerAuthConfig",
+    "ServerPrincipal",
     "ServerAuthMode",
     "WebhookDeliveryAttempt",
     "WebhookDeliveryBatch",

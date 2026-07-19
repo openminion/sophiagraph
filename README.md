@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.3-3775A9"></a>
+  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.4-3775A9"></a>
   <a href="https://pypi.org/project/sophiagraph/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/sophiagraph"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-publish--ready%20alpha-5B8DEF">
@@ -42,7 +42,7 @@ and should be treated as a scam.
 
 ## At a glance
 
-- Current public package line: `0.0.3` alpha
+- Current public package line: `0.0.4` alpha
 - Best fit when: you want durable memory records, relations, provenance, trust,
   and exportable graph state outside a host runtime
 - Backends today: a package-local SQLite engine, an in-memory backend for
@@ -76,7 +76,8 @@ and should be treated as a scam.
   workflows
 - Human workflow helpers: candidate review/promotion queues, workspace
   history/recovery previews, typed object templates for explicit creation
-  flows, and collaborative workbench packets in `sophiagraph.workbench`
+  flows, collaborative workbench packets in `sophiagraph.workbench`, and
+  idempotent workbench action execution in `sophiagraph.workbench_actions`
 - Workspace collaboration and sharing: explicit federated workspace query
   packets, structural citations, role/review gates, saved-view rollups,
   publish/share profile shaping, and profile-pack interoperability plans
@@ -88,8 +89,9 @@ and should be treated as a scam.
   caller-owned encryption seams, materialized views, conservative merge
   conflicts, and operator-run scale profiles
 - Public operations: GitHub Actions quality/release workflows, runnable example
-  smoke tests, backend compatibility docs, upgrade guidance, and UI workbench
-  artifact exports
+  smoke tests, backend compatibility docs, upgrade guidance, live UI workbench
+  actions, bounded REST transport, one-shot projection/journal commands, and
+  UI workbench artifact exports
 
 ### Package vs service ownership for governance, lifecycle, and webhooks
 
@@ -134,10 +136,9 @@ The current visual explorer command lives in `sophiagraph.ui` and renders
 through GraphFakos, the shared graph lens package. Sophiagraph owns the
 second-brain adapter and durable-memory semantics; GraphFakos owns the reusable
 viewer shell, graph canvas, local server primitive, and static export surface.
-Browser-facing runtime transport is still expected to route through the
-optional `sophiagraph.server` runtime over the REST design pinned by SSSF-02
-rather than private in-process imports. The `sophiagraph-server` command name
-remains stable for CLI compatibility.
+Live browser actions use the same package-owned executor as the optional
+`sophiagraph.server` REST runtime. Static HTML export remains read-only. The
+`sophiagraph-server` command name remains stable for CLI compatibility.
 
 You can run the package-local visual UI today:
 
@@ -153,6 +154,7 @@ Use a persistent workspace as the preview source:
 ```bash
 sophiagraph-ui \
   --workspace <workspace-root> \
+  --source-root <source-root> \
   --screen views \
   --serve
 ```
@@ -162,6 +164,31 @@ equivalent module form is `python3.11 -m sophiagraph ui-preview`.
 
 Host frameworks remain the orchestrators. `sophiagraph` owns the reusable
 durable wisdom-graph primitives and standalone durable engine.
+
+Run the optional REST transport over the same package store:
+
+```bash
+sophiagraph-server serve-http \
+  --backend sqlite \
+  --sqlite-path .sophiagraph/sophiagraph.sqlite3 \
+  --scope agent:local \
+  --agent-id local \
+  --graph-id main \
+  --workspace-id workspace:local
+```
+
+Run one scheduler-friendly projection batch or inspect the action journal:
+
+```bash
+sophiagraph-server projection-run \
+  --sqlite-path .sophiagraph/sophiagraph.sqlite3 \
+  --target-id graph-main
+
+sophiagraph-server journal-status \
+  --sqlite-path .sophiagraph/sophiagraph.sqlite3 \
+  --scope agent:local \
+  --action-id <action-id>
+```
 
 ## Workspace Quickstart
 

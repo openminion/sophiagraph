@@ -70,9 +70,8 @@ from sophiagraph.storage.memory_sync_store import MemorySyncStoreMixin
 from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from sophiagraph.storage.memory_portability import MemoryPortabilityMixin
 from sophiagraph.storage.memory_projection import MemoryProjectionStateMixin
-from sophiagraph.storage.external_vectors import (
-    mark_memory_external_vector_active,
-)
+from sophiagraph.storage.memory_actions import MemoryWorkbenchActionMixin
+from sophiagraph.storage.external_vectors import mark_memory_external_vector_active
 
 
 class SophiaGraphMemoryStore(
@@ -81,6 +80,7 @@ class SophiaGraphMemoryStore(
     RecordLifecycleMixin,
     MemorySyncStoreMixin,
     MemoryProjectionStateMixin,
+    MemoryWorkbenchActionMixin,
     SophiaGraphStore,
 ):
     """In-memory implementation of the storage contract."""

@@ -19,6 +19,8 @@ from sophiagraph.models import (
     RetentionSnapshot,
     SophiaGraphChangeEvent,
     StructuralLink,
+    WorkbenchActionJournalEntry,
+    WorkbenchActionResult,
 )
 from sophiagraph.connectors import SourceIngestEnvelope, SourceRegistryEntry
 from sophiagraph.freshness import FreshnessLedgerEntry
@@ -173,6 +175,51 @@ class CoreSophiaGraphStore(Protocol):
         candidate_id: str,
         target_scope: str,
     ) -> MemoryRecord: ...
+
+    def reserve_workbench_action(
+        self,
+        entry: WorkbenchActionJournalEntry,
+    ) -> WorkbenchActionJournalEntry: ...
+
+    def get_workbench_action(
+        self,
+        action_id: str,
+        *,
+        scope: str,
+        namespace: MemoryNamespace,
+    ) -> WorkbenchActionJournalEntry | None: ...
+
+    def mark_workbench_action_in_progress(
+        self,
+        action_id: str,
+        *,
+        fencing_token: int,
+        started_at: str,
+    ) -> WorkbenchActionJournalEntry: ...
+
+    def finalize_workbench_action(
+        self,
+        action_id: str,
+        *,
+        fencing_token: int,
+        result: WorkbenchActionResult,
+        completed_at: str,
+    ) -> WorkbenchActionJournalEntry: ...
+
+    def list_workbench_actions(
+        self,
+        *,
+        scope: str | None = None,
+        namespace: MemoryNamespace | None = None,
+        lifecycle: str | None = None,
+        limit: int | None = None,
+    ) -> list[WorkbenchActionJournalEntry]: ...
+
+    def prune_workbench_actions(
+        self,
+        *,
+        completed_before: str,
+    ) -> int: ...
 
     def list_tier_transitions(
         self,

@@ -49,6 +49,24 @@ request size, required authentication, request identifiers, and quotas. It is
 enabled with `sophiagraph-server serve-stdio --production` and requires static
 bearer auth plus a quota configuration.
 
+The same runtime hardening primitives are available for the optional HTTP
+transport:
+
+```bash
+sophiagraph-server serve-http \
+  --backend sqlite \
+  --sqlite-path .sophiagraph/sophiagraph.sqlite3 \
+  --auth-mode static_bearer \
+  --bearer-token <token> \
+  --quota-max-requests 1000 \
+  --production
+```
+
+Loopback development may use `--auth-mode none`; non-loopback HTTP refuses to
+start without authentication. Projection and workbench action journal
+maintenance stay one-shot and externally scheduled through commands such as
+`sophiagraph-server projection-run` and `sophiagraph-server journal-prune`.
+
 ## Views and collaboration
 
 `sophiagraph.materialized_views` caches deterministic saved-view results and

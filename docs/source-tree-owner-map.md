@@ -16,12 +16,15 @@ The public package surface is documented in:
 The preferred public entrypoint is `sophiagraph`, with stable import roots for
 models, query, storage, portability, audit, trust, connectors, graph backends,
 inspection, `sophiagraph.okf`, `sophiagraph.ui`, `sophiagraph.workspace`, and
-`sophiagraph.workspace_sync`. Durable derived-index operations use the stable
-advanced import root `sophiagraph.projections`.
+`sophiagraph.workspace_sync`. Durable workbench action execution uses
+`sophiagraph.workbench_actions`. Durable derived-index operations use the
+stable advanced import root `sophiagraph.projections`.
 
 ## Source-tree owner map
 
 1. `models/` owns typed durable-memory DTOs. Within that layer,
+   `models/action.py` owns the workbench execution context, result, journal,
+   outcome, reason-code, lifecycle, and audit-durability DTOs,
    `models/core.py` remains the stable compatibility re-export seam over the
    canonical split model owners,
    `models/artifact.py` remains the stable multimodal artifact reference DTO
@@ -188,10 +191,14 @@ advanced import root `sophiagraph.projections`.
 7. `human.py` owns the package-local human-management public façade,
    `human_types.py` owns the typed note/import/source contracts, and
    `human_render.py` owns deterministic HTML rendering for the workbench packet.
-8. `operations.py` owns the operational public façade, while
+8. `workbench.py` owns deterministic workbench packet, panel, preview, and
+   review-inbox DTOs, while `workbench_actions.py` owns idempotent executable
+   action handling, trusted execution context use, action-journal replay, and
+   preview/host-required/review-only outcome classification.
+9. `operations.py` owns the operational public façade, while
    `operations_types.py` owns typed run/request/report contracts and
    `operations_codec.py` owns dict hydration/serialization helpers.
-9. `schema.py` remains the deterministic property-graph schema discovery owner,
+10. `schema.py` remains the deterministic property-graph schema discovery owner,
    `vectors.py` remains the deterministic vector similarity and backend
    conformance-harness owner with a closed metric enum and explicit protocol seam,
    `integrity.py` remains the row-level integrity hash owner, `extensions.py`
@@ -200,30 +207,30 @@ advanced import root `sophiagraph.projections`.
    remains the deterministic JSON Canvas DTO, codec, and explicit
    relation-mapping owner. `inspection.py` remains the structural inspection,
    report hydration, and explicit repair-candidate owner.
-10. `storage/operations.py` owns the storage-operation public façade, while
+11. `storage/operations.py` owns the storage-operation public façade, while
    `storage/backups.py` owns backup, restore, and retention-snapshot flows,
    `storage/leases.py` owns write-lease acquisition and heartbeat behavior,
    `storage/compaction.py` owns compaction and coordinated backup helpers,
    `storage/graph_queries.py` remains the cohesive store-neutral local-graph
    and graph-snapshot builder owner, and `storage/operation_support.py` owns
    the small shared private helpers those owners reuse.
-11. `portability/codec.py` is the stable public portability façade,
+12. `portability/codec.py` is the stable public portability façade,
    `portability/row_codec.py` owns JSON helpers plus row hydration for typed
    records, candidates, relations, tier transitions, memory blocks, and change
    events, `portability/bundle_codec.py` owns manifest, checksum, tarball, and
    bundle snapshot read/write behavior, `portability/__init__.py` remains the
    stable portability import seam, and `portability/models.py` remains the
    typed bundle/delta snapshot contract owner.
-12. `workspace.py` is the stable workspace façade for package-local persistent
+13. `workspace.py` is the stable workspace façade for package-local persistent
    workspace posture, status, import, and workbench flows.
-13. `workspace_types.py` owns typed workspace metadata/profile/status
+14. `workspace_types.py` owns typed workspace metadata/profile/status
    contracts plus the workspace JSON/store-path helpers they depend on.
-14. `workspace_sync.py` owns file-primary live-sync helpers, source-ledger
+15. `workspace_sync.py` owns file-primary live-sync helpers, source-ledger
    DTOs, and bounded polling on top of the canonical workspace, vault,
    freshness, and sync owners.
-15. `workspace_notes.py` owns file-primary note/materialize flows that sit on
+16. `workspace_notes.py` owns file-primary note/materialize flows that sit on
    top of the canonical workspace and workspace-sync owners.
-16. `graph_backends/` owns optional graph-adapter contracts and concrete
+17. `graph_backends/` owns optional graph-adapter contracts and concrete
    backends. `base.py` is the stable public facade, `types.py` owns the typed
    backend DTO/protocol contracts, and `support.py` owns shared export,
    namespace, JSON, and shortest-path helpers. `fake.py` remains the
@@ -231,14 +238,20 @@ advanced import root `sophiagraph.projections`.
    stay beside their concrete adapter when that keeps the optional-provider
    seam narrow, such as `kuzu_support.py` and `neo4j_support.py` for the
    provider-specific adapters.
-17. `vault.py` owns the stable vault public façade, while `vault_types.py`
+18. `vault.py` owns the stable vault public façade, while `vault_types.py`
    owns the typed import/export/repair contracts, `vault_support.py` owns
    shared path/id/meta helpers, `vault_io.py` owns import/export and manifest
    flows, and `vault_repairs.py` owns rename/repair planning and application.
-18. `okf.py` owns the stable OKF public façade, while `okf_io.py`,
+19. `okf.py` owns the stable OKF public façade, while `okf_io.py`,
    `okf_navigation.py`, and `okf_support.py` own import/export and navigation
    mechanics over the package-local document substrate.
-19. `ui/` owns typed UI contracts, the Sophiagraph-to-GraphFakos adapter, and
+20. `server/` owns optional service transports and process boundaries.
+   `server/backend.py` owns the bounded store-to-tool bridge, `server/http.py`
+   owns the stdlib REST/workbench transport, `server/runtime_hardening.py` owns
+   auth, principal, quota, health, and deployment policy, and
+   `server/__main__.py` owns `sophiagraph-server` stdio, HTTP, projection, and
+   journal one-shot commands.
+21. `ui/` owns typed UI contracts, the Sophiagraph-to-GraphFakos adapter, and
    package CLI preview wiring. `ui/__init__.py` remains the stable UI import
    seam, `ui/contracts.py` owns typed route and transport-boundary contracts,
    `ui/local_server.py` remains the stable local-viewer compatibility seam,
@@ -251,10 +264,10 @@ advanced import root `sophiagraph.projections`.
    `state.py` owns the tiny cross-screen UI state DTO.
    Shared viewer shell, local server behavior, static export, and reusable
    viewer assertions belong to GraphFakos.
-20. `views.py` is the stable saved-view public façade, `view_types.py` owns the
+22. `views.py` is the stable saved-view public façade, `view_types.py` owns the
    typed saved-view DTO and literal contracts, and `view_eval.py` owns the
    deterministic filter, summary, and formula-evaluation helpers.
-21. `projections.py` is the stable advanced projection import root,
+23. `projections.py` is the stable advanced projection import root,
    `projection.py` owns bounded changefeed delivery and backend projectors,
    and `projection_reconciliation.py` owns deterministic inventory comparison
    plus explicitly authorized repair application.

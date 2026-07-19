@@ -95,6 +95,7 @@ from sophiagraph.storage.external_vectors import (
     mark_sqlite_external_vector_active,
 )
 from .typed_graph import SqliteTypedGraphMixin
+from .workbench_actions import SqliteWorkbenchActionMixin
 
 SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_CONNECT_TIMEOUT_SECONDS = SQLITE_BUSY_TIMEOUT_MS / 1000
@@ -108,6 +109,7 @@ class SophiaGraphSqliteStore(
     SqliteAuxObjectMixin,
     SqliteTypedGraphMixin,
     SqliteProjectionStateMixin,
+    SqliteWorkbenchActionMixin,
     RecordLifecycleMixin,
     SophiaGraphStore,
 ):

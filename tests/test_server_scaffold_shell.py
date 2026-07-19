@@ -17,6 +17,9 @@ def test_cli_help_lists_serve_stdio_subcommand() -> None:
         check=True,
     )
     assert "serve-stdio" in help_run.stdout
+    assert "serve-http" in help_run.stdout
+    assert "projection-run" in help_run.stdout
+    assert "journal-status" in help_run.stdout
 
 
 def test_serve_stdio_help_documents_backend_option_and_kmsr_02_blocker() -> None:
@@ -32,3 +35,19 @@ def test_serve_stdio_help_documents_backend_option_and_kmsr_02_blocker() -> None
     )
     assert "--backend" in help_run.stdout
     assert "contract-only registry" in help_run.stdout
+
+
+def test_serve_http_help_documents_workbench_and_auth_options() -> None:
+    root = Path(__file__).resolve().parents[1]
+    env = {"PYTHONPATH": str(root / "src")}
+    help_run = subprocess.run(
+        [sys.executable, "-m", "sophiagraph.server", "serve-http", "--help"],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    assert "--workspace-root" in help_run.stdout
+    assert "--allowed-origin" in help_run.stdout
+    assert "non-loopback exposure" in help_run.stdout

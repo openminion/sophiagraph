@@ -13,3 +13,4 @@ src/sophiagraph/storage/leases.py	1	0	existing broad exception ratchet
 src/sophiagraph/storage/migration_tooling.py	3	0	existing broad exception ratchet
 src/sophiagraph/storage/sqlite/__init__.py	1	0	existing broad exception ratchet
 src/sophiagraph/vectors.py	1	0	existing broad exception ratchet
+src/sophiagraph/workbench_actions.py	1	0	action executor converts unexpected failures into typed failed results
