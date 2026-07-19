@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.4-3775A9"></a>
+  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.4rc1-3775A9"></a>
   <a href="https://pypi.org/project/sophiagraph/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/sophiagraph"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-publish--ready%20alpha-5B8DEF">
@@ -42,7 +42,7 @@ and should be treated as a scam.
 
 ## At a glance
 
-- Current public package line: `0.0.4` alpha
+- Current public package line: `0.0.4rc1` alpha
 - Best fit when: you want durable memory records, relations, provenance, trust,
   and exportable graph state outside a host runtime
 - Backends today: a package-local SQLite engine, an in-memory backend for
