@@ -30,6 +30,18 @@ The name comes from Greek `Sophia` (`Σοφία`), meaning wisdom; in this packa
 frames durable knowledge as a graph of records, relations, provenance, trust,
 and portable snapshots.
 
+## Read This First
+
+1. Use [At a glance](#at-a-glance) to confirm whether you need durable memory
+   primitives rather than a note app, viewer, or orchestration runtime.
+2. Use [Workspace Quickstart](#workspace-quickstart) for a persistent local
+   workspace.
+3. Use [What Sophiagraph does not provide](#what-sophiagraph-does-not-provide)
+   before expecting hosted UI, webhook delivery, provider calls, or automatic
+   semantic inference.
+4. Use the server examples only when you need the optional service runtime.
+5. Use the GraphFakos UI examples when you want local graph inspection.
+
 ## Trust and Brand Safety
 
 - Official GitHub: `https://github.com/openminion/sophiagraph`
@@ -53,6 +65,14 @@ and should be treated as a scam.
   package-local UI preview boundaries
 - Not the claim: `sophiagraph` does not own orchestration, provider routing,
   hosted webhook delivery, or hosted admin/runtime UI behavior
+
+## Common Commands
+
+```bash
+python3.11 -m pip install sophiagraph
+sophiagraph-smoke
+sophiagraph-ui --screen explore --serve --open
+```
 
 ## What Sophiagraph provides
 
