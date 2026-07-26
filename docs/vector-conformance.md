@@ -104,7 +104,7 @@ from sophiagraph.vectors import (
 )
 
 report = run_conformance_harness(BUILTIN_VECTOR_BACKEND, [case])
-assert report.is_clean      # passed > 0 and failed + errored == 0
+assert report.is_clean  # passed > 0 and failed + errored == 0
 assert report.passed == 1
 ```
 

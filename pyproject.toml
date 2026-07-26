@@ -51,7 +51,7 @@ dev = [
   "build>=1,<2",
   "pre-commit>=4,<5",
   "pytest>=8,<9",
-  "ruff>=0.11,<1",
+  "ruff>=0.11,<0.16",
   "twine>=5,<7",
 ]
 
@@ -71,6 +71,7 @@ addopts = "--import-mode=importlib"
 
 [tool.ruff]
 src = ["src"]
+extend-exclude = ["graphfakos"]
 
 [tool.ruff.lint.isort]
 known-third-party = ["graphfakos"]
