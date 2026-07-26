@@ -85,3 +85,8 @@ GraphFakos adapter mapping, compatibility wrappers for the local visual server
 primitive, live local action handling over package-owned executors, and the
 local visual UI command above so the standalone package has one canonical
 import root for visual/runtime work.
+
+Adapter tests must use `graphfakos.testing.assert_provider_conformance(...)`
+for the shared viewer contract. Sophiagraph-specific tests should then cover
+durable-memory semantics such as candidate promotion, trust fields, note
+capture, and workbench action authorization.

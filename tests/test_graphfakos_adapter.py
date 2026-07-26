@@ -1,10 +1,15 @@
 from __future__ import annotations
 
-from graphfakos import FileGraphProvider, GraphFakosRequest, render_static_html
-from graphfakos import GraphFakosGraphAction, GraphFakosKnowledgeCapture
+import pytest
+from graphfakos import (
+    FileGraphProvider,
+    GraphFakosGraphAction,
+    GraphFakosKnowledgeCapture,
+    GraphFakosRequest,
+    render_static_html,
+)
 from graphfakos.artifacts import write_graph_artifact
 from graphfakos.provider import load_provider_graph
-from graphfakos.testing import assert_graph_viewer_contract
 
 from sophiagraph.models import (
     KnowledgeDocumentBlock,
@@ -101,8 +106,30 @@ def test_sophiagraph_adapter_returns_second_brain_graphfakos_graph() -> None:
         scope="agent:codex",
         namespace=namespace,
     )
-    graph = provider.load_graph(GraphFakosRequest())
-    html = render_static_html(provider, GraphFakosRequest())
+    graphfakos_conformance = pytest.importorskip("graphfakos.testing.conformance")
+    result = graphfakos_conformance.assert_provider_conformance(
+        graphfakos_conformance.GraphFakosProviderConformanceCase(
+            provider=provider,
+            request=GraphFakosRequest(),
+            expected_role="memory",
+            expected_provider="Sophiagraph",
+            expected_node="Auth Decision",
+            expected_edge="supports",
+            required_capabilities=(
+                "search",
+                "neighborhood",
+                "path",
+                "provenance",
+                "timeline",
+                "provider_status",
+                "context_preview",
+                "durable_memory",
+                "static_export",
+                "local_preview",
+            ),
+        )
+    )
+    graph = result.graph
 
     assert graph.provider_id == "sophiagraph"
     assert graph.graph_role == "memory"
@@ -117,13 +144,6 @@ def test_sophiagraph_adapter_returns_second_brain_graphfakos_graph() -> None:
     assert any(edge.kind == "promote_candidate" for edge in graph.edges)
     assert graph.citations
     assert graph.provenance
-    assert_graph_viewer_contract(
-        html,
-        expected_role="memory",
-        expected_provider="Sophiagraph",
-        expected_node="Auth Decision",
-        expected_edge="supports",
-    )
 
 
 def test_sophiagraph_adapter_artifact_round_trip_matches_loaded_graph(tmp_path) -> None:
