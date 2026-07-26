@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import json
 import os
+from dataclasses import replace
 
 import pytest
 

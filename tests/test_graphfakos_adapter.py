@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from graphfakos import FileGraphProvider, GraphFakosRequest, render_static_html
-from graphfakos import GraphFakosGraphAction, GraphFakosKnowledgeCapture
-
+import pytest
+from graphfakos import (
+    FileGraphProvider,
+    GraphFakosGraphAction,
+    GraphFakosKnowledgeCapture,
+    GraphFakosRequest,
+    render_static_html,
+)
 from graphfakos.artifacts import write_graph_artifact
 from graphfakos.provider import load_provider_graph
-import pytest
 
 from sophiagraph.models import (
     KnowledgeDocumentBlock,

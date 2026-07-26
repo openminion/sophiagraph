@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, is_dataclass, replace
-from hashlib import sha256
 import json
 import os
+import uuid
+from dataclasses import asdict, dataclass, is_dataclass, replace
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Literal
-import uuid
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.portability.bundle_codec import MEMORY_BUNDLE_VERSION, build_manifest
@@ -496,12 +496,6 @@ __all__ = [
     "MEMORY_REVIEW_ARTIFACT_VERSION",
     "MEMORY_REVIEW_PLAN_VERSION",
     "MEMORY_REVIEW_RECEIPT_VERSION",
-    "MemoryReviewArtifact",
-    "MemoryReviewDecisionReceipt",
-    "MemoryReviewError",
-    "MemoryReviewOperation",
-    "MemoryReviewPlan",
-    "MemoryReviewSectionSummary",
     "ORIGIN_PROVENANCE_REQUIRED",
     "PLAN_DIGEST_MISMATCH",
     "REVIEW_REJECTED",
@@ -512,6 +506,12 @@ __all__ = [
     "TARGET_STATE_CHANGED",
     "UNSUPPORTED_APPLY_BACKEND",
     "UNSUPPORTED_SECTION",
+    "MemoryReviewArtifact",
+    "MemoryReviewDecisionReceipt",
+    "MemoryReviewError",
+    "MemoryReviewOperation",
+    "MemoryReviewPlan",
+    "MemoryReviewSectionSummary",
     "artifact_from_dict",
     "build_memory_review_artifact",
     "canonical_review_json",
