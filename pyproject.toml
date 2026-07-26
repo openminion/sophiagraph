@@ -68,3 +68,9 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
+
+[tool.ruff]
+src = ["src"]
+
+[tool.ruff.lint.isort]
+known-third-party = ["graphfakos"]
