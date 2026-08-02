@@ -1,60 +1,36 @@
-# Sophiagraph Package Docs
+# SophiaGraph Package Docs
 
 Status: semantic alpha
 
 This directory holds the public package documentation for standalone
 `sophiagraph`.
 
-## Package-local references
+## Start Here
 
-- [`getting-started.md`](getting-started.md) gives the
-  package-local bootstrap and execution summary for contributors and automation.
-- [`engineering-patterns.md`](engineering-patterns.md)
-  summarizes the package-local engineering and boundary rules for contributors.
-- [`code-quality-enforcement.md`](code-quality-enforcement.md)
-  summarizes the active public quality gates and validation posture.
-- [`cleanup-workflow.md`](cleanup-workflow.md) defines the live-inventory,
-  per-file-ledger, and closeout process for broad maintainability work.
-- [`testing-and-validation.md`](testing-and-validation.md)
-  records the package-local install, smoke, test, lint, and release-check
-  flow.
-- [`ci-and-release-automation.md`](ci-and-release-automation.md)
-  records the GitHub Actions quality and release-publishing workflow.
-- [`examples.md`](examples.md) maps runnable public examples to the package
-  surfaces they exercise.
-- [`backend-compatibility-matrix.md`](backend-compatibility-matrix.md)
-  records backend adapter support and optional dependency boundaries.
-- [`durable-projections.md`](durable-projections.md) records ordered
-  at-least-once graph/vector delivery, retries, health, and reconciliation.
-- [`production-foundations.md`](production-foundations.md) records dependency
-  compatibility, Qdrant, ingestion, telemetry, encryption, deployment,
-  materialized-view, collaboration, and scale-certification boundaries.
-- [`storage-retrieval-backends.md`](storage-retrieval-backends.md)
-  records store capability reports, default memory/SQLite backend parity,
-  portability posture, and vector lifecycle boundaries.
-- [`api-stability.md`](api-stability.md) summarizes public import stability,
-  internal boundaries, and new-export checklist.
-- [`migration-and-upgrade.md`](migration-and-upgrade.md) records package-local
-  upgrade, rollback, and generated-artifact guidance.
-- [`benchmark-reports.md`](benchmark-reports.md) explains the deterministic
-  benchmark/conformance scorecard and report-publishing shape.
-- [`ui-workbench.md`](ui-workbench.md) records the local GraphFakos-backed
-  workbench and artifact-export workflow.
-- [`standalone-claim-alignment.md`](standalone-claim-alignment.md)
-  keeps public package claims aligned with the surfaces that ship today.
-- [`certification-readiness-matrix.md`](certification-readiness-matrix.md)
-  maps each public capability area to its current standalone and OpenMinion
-  proof.
-- [`retrieval-boundary.md`](retrieval-boundary.md) records
-  the package-owned retrieval and navigation boundary.
-- [`vector-conformance.md`](vector-conformance.md) records
-  the vector metric registry and backend-neutral conformance harness.
-- [`human-management.md`](human-management.md) records the
-  local note, import, and source-management surface.
-- [`workspace-mode.md`](workspace-mode.md) records the
-  package-owned persistent local workspace and live file-primary sync contract.
-- [`ui-contracts.md`](ui-contracts.md) records the typed
-  `sophiagraph.ui` boundary for deterministic local workbench screens.
+| If you want to... | Read |
+| --- | --- |
+| Install and smoke-test the package | [`getting-started.md`](getting-started.md) |
+| Try runnable examples | [`examples.md`](examples.md) |
+| Understand storage and retrieval backends | [`storage-retrieval-backends.md`](storage-retrieval-backends.md) and [`backend-compatibility-matrix.md`](backend-compatibility-matrix.md) |
+| Understand projections, reconciliation, and graph/vector delivery | [`durable-projections.md`](durable-projections.md) |
+| Use the local workbench | [`ui-workbench.md`](ui-workbench.md) and [`ui-contracts.md`](ui-contracts.md) |
+| Check public claim/proof boundaries | [`standalone-claim-alignment.md`](standalone-claim-alignment.md) and [`certification-readiness-matrix.md`](certification-readiness-matrix.md) |
+
+## Topic Map
+
+- Runtime readiness: [`production-foundations.md`](production-foundations.md),
+  [`migration-and-upgrade.md`](migration-and-upgrade.md), and
+  [`api-stability.md`](api-stability.md).
+- Retrieval and graph behavior: [`retrieval-boundary.md`](retrieval-boundary.md),
+  [`vector-conformance.md`](vector-conformance.md), and
+  [`benchmark-reports.md`](benchmark-reports.md).
+- Human/local workflows: [`human-management.md`](human-management.md) and
+  [`workspace-mode.md`](workspace-mode.md).
+- Contributor workflow: [`engineering-patterns.md`](engineering-patterns.md),
+  [`code-quality-enforcement.md`](code-quality-enforcement.md),
+  [`cleanup-workflow.md`](cleanup-workflow.md),
+  [`testing-and-validation.md`](testing-and-validation.md), and
+  [`ci-and-release-automation.md`](ci-and-release-automation.md).
 
 ## Package-local code/docs boundaries
 
