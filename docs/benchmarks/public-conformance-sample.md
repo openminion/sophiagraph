@@ -1,7 +1,7 @@
 # SophiaGraph Public Benchmark And Conformance
 
 - Suite: `sophiagraph-public-conformance`
-- Package version: `0.0.5`
+- Package version: `0.0.6rc1`
 - Benchmark version: `2026-06-29`
 - Fixture revision: `2026-06-29`
 - Overall: `passed`
