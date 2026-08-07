@@ -36,7 +36,7 @@ from .block import (
     MemoryBlockMode,
     validate_block_for_creation,
 )
-from .candidate import CandidateReview, MemoryCandidate
+from .candidate import CandidateReview, DelegatedCandidateProvenance, MemoryCandidate
 from .convergence import (
     FACT_ACTIVE_STATES,
     FactActiveState,
@@ -243,6 +243,7 @@ from .primitives import (
     RelationDirection,
     Scope,
     ScopeKind,
+    SCOPE_PATTERN,
     SessionSummaryOutcome,
     SessionSummaryThreadStatus,
     coerce_candidate_status,
@@ -297,6 +298,7 @@ __all__ = [
     "ActionJournalLifecycle",
     "CONTRADICTION_DECISIONS",
     "CandidateReview",
+    "DelegatedCandidateProvenance",
     "CandidateStatus",
     "Contradiction",
     "ContradictionDecision",
@@ -448,6 +450,7 @@ __all__ = [
     "RETENTION_OUTCOME_KINDS",
     "Scope",
     "ScopeKind",
+    "SCOPE_PATTERN",
     "SessionSummaryActiveThread",
     "SessionSummaryContent",
     "SessionSummaryOutcome",

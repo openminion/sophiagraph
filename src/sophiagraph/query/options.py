@@ -60,6 +60,7 @@ class CandidateListOptions:
     proposed_scope: str | None = None
     status: CandidateStatus | None = None
     limit: int | None = None
+    namespaces: list["MemoryNamespace"] | None = None
 
 
 @dataclass(slots=True)

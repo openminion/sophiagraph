@@ -37,6 +37,7 @@ from sophiagraph.storage.graph_serialization import (
     raw_episode_to_dict,
 )
 from sophiagraph.storage.graph_support import (
+    filter_candidates,
     graph_edge_from_link,
     graph_node_from_record,
     namespace_matches_filters,
@@ -64,6 +65,7 @@ __all__ = [
     "fact_convergence_link_to_dict",
     "fact_from_dict",
     "fact_to_dict",
+    "filter_candidates",
     "graph_edge_from_link",
     "graph_node_from_record",
     "lifecycle_policy_from_dict",

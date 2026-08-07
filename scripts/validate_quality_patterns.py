@@ -165,7 +165,18 @@ def _python_files(*roots: Path) -> list[Path]:
 def _git_python_files() -> list[Path] | None:
     try:
         result = subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "ls-files", "-z", "--", "*.py"],
+            [
+                "git",
+                "-C",
+                str(REPO_ROOT),
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--",
+                "*.py",
+            ],
             check=True,
             capture_output=True,
             text=False,

@@ -70,6 +70,8 @@ def test_models_public_all_excludes_private_cast_helpers() -> None:
 
     assert "MemoryRecord" in models.__all__
     assert "MemoryCandidate" in models.__all__
+    assert "SCOPE_PATTERN" in models.__all__
+    assert models.SCOPE_PATTERN is models._SCOPE_PATTERN
     assert "_as_memory_type" not in models.__all__
     assert callable(models._as_memory_type)
 

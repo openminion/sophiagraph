@@ -14,6 +14,7 @@ standalone `sophiagraph` package.
 External consumers should treat these import roots as the supported public API:
 
 - `sophiagraph`
+- `sophiagraph.access`
 - `sophiagraph.models`
 - `sophiagraph.query`
 - `sophiagraph.storage`
@@ -74,6 +75,11 @@ The top-level `sophiagraph` package is the preferred entrypoint for common usage
 | Public docs under `docs/` | supported alpha | Source of truth for package-local behavior and operations |
 | Underscore-prefixed names | internal | Do not import |
 | Tests, fixtures, and generated artifacts | internal/generated | Do not depend on |
+
+Compatibility window: `sophiagraph.models.SCOPE_PATTERN` is the public scope
+regex for package consumers. `sophiagraph.models._SCOPE_PATTERN` remains as a
+temporary compatibility alias for existing OpenMinion 0.x consumers and should
+not be used by new code.
 
 See [`docs/api-stability.md`](docs/api-stability.md) for the short-form API
 stability guide and new-export checklist.
@@ -429,6 +435,9 @@ Public-contract confidence should be enforced by tests that cover:
 35. collaborative second-brain workbench packets, GraphFakos panel summaries,
     explicit action previews, idempotent workbench execution/journal behavior,
     REST workbench routes, and host direct-library fixtures.
+36. delegated-memory grant projections, deterministic access decisions, the
+    authorized gateway, candidate handback provenance, and privacy-safe access
+    telemetry.
 
 ## Internal compatibility shims
 

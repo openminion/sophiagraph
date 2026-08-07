@@ -9,6 +9,7 @@ from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import (
     ArtifactRef,
     CandidateReview,
+    DelegatedCandidateProvenance,
     MemoryBlock,
     MemoryCandidate,
     MemoryNamespace,
@@ -149,6 +150,19 @@ def candidate_from_dict(data: dict[str, Any]) -> MemoryCandidate:
         namespace = raw_namespace
     elif isinstance(raw_namespace, dict) and raw_namespace:
         namespace = MemoryNamespace.from_dict(raw_namespace)
+    raw_provenance = data.get("delegation_provenance")
+    delegation_provenance = None
+    if isinstance(raw_provenance, DelegatedCandidateProvenance):
+        delegation_provenance = raw_provenance
+    elif isinstance(raw_provenance, dict) and raw_provenance:
+        provenance_data = dict(raw_provenance)
+        provenance_data["namespace"] = MemoryNamespace.from_dict(
+            dict(provenance_data["namespace"])
+        )
+        provenance_data["source_record_ids"] = tuple(
+            str(value) for value in provenance_data.get("source_record_ids", ())
+        )
+        delegation_provenance = DelegatedCandidateProvenance(**provenance_data)
     return MemoryCandidate(
         candidate_id=str(_required(data, "candidate_id")),
         session_id=str(_required(data, "session_id")),
@@ -183,6 +197,7 @@ def candidate_from_dict(data: dict[str, Any]) -> MemoryCandidate:
         updated_at=str(data.get("updated_at"))
         if data.get("updated_at") is not None
         else None,
+        delegation_provenance=delegation_provenance,
     )
 
 

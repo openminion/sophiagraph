@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sophiagraph.temporal import coerce_temporal_dt
 
-from .candidate import CandidateReview, MemoryCandidate
+from .candidate import CandidateReview, DelegatedCandidateProvenance, MemoryCandidate
 from .namespace import MemoryNamespace, MemoryNamespaceComponent, MemoryScope
 from .primitives import (
     CandidateStatus,
@@ -18,6 +18,7 @@ from .primitives import (
     RelationDirection,
     Scope,
     ScopeKind,
+    SCOPE_PATTERN,
     SessionSummaryOutcome,
     SessionSummaryThreadStatus,
     _SCOPE_PATTERN,
@@ -55,6 +56,7 @@ _coerce_temporal_dt = coerce_temporal_dt
 __all__ = [
     "ArtifactRef",
     "CandidateReview",
+    "DelegatedCandidateProvenance",
     "CandidateStatus",
     "MemoryCandidate",
     "MemoryNamespace",
@@ -75,6 +77,7 @@ __all__ = [
     "RetrievalFilters",
     "Scope",
     "ScopeKind",
+    "SCOPE_PATTERN",
     "SessionSummaryActiveThread",
     "SessionSummaryContent",
     "SessionSummaryOutcome",

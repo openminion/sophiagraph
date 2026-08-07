@@ -13,6 +13,7 @@ This directory holds the public package documentation for standalone
 | Try runnable examples | [`examples.md`](examples.md) |
 | Understand storage and retrieval backends | [`storage-retrieval-backends.md`](storage-retrieval-backends.md) and [`backend-compatibility-matrix.md`](backend-compatibility-matrix.md) |
 | Understand projections, reconciliation, and graph/vector delivery | [`durable-projections.md`](durable-projections.md) |
+| Authorize delegated agents | [`delegated-memory-access.md`](delegated-memory-access.md) |
 | Use the local workbench | [`ui-workbench.md`](ui-workbench.md) and [`ui-contracts.md`](ui-contracts.md) |
 | Check public claim/proof boundaries | [`standalone-claim-alignment.md`](standalone-claim-alignment.md) and [`certification-readiness-matrix.md`](certification-readiness-matrix.md) |
 

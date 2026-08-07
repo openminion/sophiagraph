@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 from sophiagraph.models import MemoryNamespace, WorkbenchActionExecutionContext
+from sophiagraph.access import DelegationMemoryGrantResolver
 from sophiagraph.server.backend import (
     BackendConfig,
     build_wired_registry,
@@ -105,12 +106,14 @@ class SophiagraphHttpService:
         runtime: RuntimePolicyEngine | None = None,
         store: SophiaGraphStore | None = None,
         registry: ToolRegistry | None = None,
+        resolver: DelegationMemoryGrantResolver | None = None,
     ) -> None:
         self.config = config or HttpTransportConfig()
         self.store = store or resolve_backend_store(self.config.backend)
         self.registry = registry or build_wired_registry(
             self.config.backend,
             store=self.store,
+            resolver=resolver,
         )
         self.runtime = runtime or RuntimePolicyEngine(
             backend_name=self.config.backend.backend,
@@ -159,6 +162,7 @@ class SophiagraphHttpService:
                 parse_qs(parsed.query),
                 payload_result,
                 principal=principal,
+                runtime_context=context,
                 request_id=request_id,
             )
         except SophiagraphServerError as exc:
@@ -183,6 +187,7 @@ class SophiagraphHttpService:
         body: dict[str, Any],
         *,
         principal: ServerPrincipal,
+        runtime_context: RuntimeRequestContext,
         request_id: str,
     ) -> HttpResponse:
         banned = _banned_route_name(path)
@@ -237,7 +242,16 @@ class SophiagraphHttpService:
                     request_id,
                 )
             return HttpResponse(200, {"entry": entry.to_dict()})
-        core = self._core_route(method, path, query, body)
+        core = self._core_route(
+            method,
+            path,
+            query,
+            body,
+            access_context=self.runtime.memory_access_context(
+                runtime_context, principal
+            ),
+            grant_id=runtime_context.grant_id,
+        )
         if core is not None:
             return core
         return _error_response(
@@ -253,6 +267,9 @@ class SophiagraphHttpService:
         path: str,
         query: dict[str, list[str]],
         body: dict[str, Any],
+        *,
+        access_context: Any,
+        grant_id: str | None,
     ) -> HttpResponse | None:
         del query
         if method == "GET" and path == "/v1/knowledge/capabilities":
@@ -266,59 +283,58 @@ class SophiagraphHttpService:
             record.setdefault("id", record_id)
             if record["id"] != record_id:
                 raise ValueError("record id must match route record_id")
-            return HttpResponse(
-                200,
-                dict(self.registry.get_handler("knowledge_put_record")(record=record)),
+            return self._knowledge_response(
+                "knowledge_put_record", access_context, grant_id, record=record
             )
         if method == "GET" and path.startswith("/v1/knowledge/records/"):
             if path.endswith("/relations"):
                 record_id = path.removesuffix("/relations").rsplit("/", 1)[-1]
-                return HttpResponse(
-                    200,
-                    dict(
-                        self.registry.get_handler("knowledge_list_relations")(
-                            record_id=record_id,
-                            filters={},
-                        )
-                    ),
+                return self._knowledge_response(
+                    "knowledge_list_relations",
+                    access_context,
+                    grant_id,
+                    record_id=record_id,
+                    filters={},
                 )
             record_id = path.rsplit("/", 1)[-1]
-            return HttpResponse(
-                200,
-                dict(
-                    self.registry.get_handler("knowledge_get_record")(
-                        record_id=record_id
-                    )
-                ),
+            return self._knowledge_response(
+                "knowledge_get_record", access_context, grant_id, record_id=record_id
             )
         if method == "POST" and path == "/v1/knowledge/records/list":
-            return HttpResponse(
-                200,
-                dict(self.registry.get_handler("knowledge_list_records")(filters=body)),
+            return self._knowledge_response(
+                "knowledge_list_records", access_context, grant_id, filters=body
             )
         if method == "POST" and path == "/v1/knowledge/records/search":
-            return HttpResponse(
-                200,
-                dict(self.registry.get_handler("knowledge_search_records")(query=body)),
+            return self._knowledge_response(
+                "knowledge_search_records", access_context, grant_id, query=body
             )
         if method == "POST" and path == "/v1/knowledge/snapshots/export":
-            return HttpResponse(
-                200,
-                dict(
-                    self.registry.get_handler("knowledge_export_snapshot")(options=body)
-                ),
+            return self._knowledge_response(
+                "knowledge_export_snapshot", access_context, grant_id, options=body
             )
         if method == "POST" and path == "/v1/knowledge/snapshots/import":
-            return HttpResponse(
-                200,
-                dict(
-                    self.registry.get_handler("knowledge_import_snapshot")(
-                        bundle=body.get("bundle") or {},
-                        options=body.get("options") or {},
-                    )
-                ),
+            return self._knowledge_response(
+                "knowledge_import_snapshot",
+                access_context,
+                grant_id,
+                bundle=body.get("bundle") or {},
+                options=body.get("options") or {},
             )
         return None
+
+    def _knowledge_response(
+        self,
+        handler_name: str,
+        access_context: Any,
+        grant_id: str | None,
+        **arguments: Any,
+    ) -> HttpResponse:
+        result = self.registry.get_handler(handler_name)(
+            **arguments,
+            _memory_access_context=access_context,
+            _memory_grant_id=grant_id,
+        )
+        return HttpResponse(200, dict(result))
 
     def _action_request(
         self,
@@ -574,6 +590,12 @@ def _runtime_context(
         auth_token=_auth_token(headers),
         tenant_key=headers.get("X-Sophiagraph-Tenant"),
         namespace_key=headers.get("X-Sophiagraph-Namespace"),
+        grant_id=headers.get("X-Sophiagraph-Grant-Id"),
+        audience="sophiagraph",
+        subject_agent_id=headers.get("X-Sophiagraph-Subject-Agent"),
+        parent_run_id=headers.get("X-Sophiagraph-Parent-Run"),
+        child_run_id=headers.get("X-Sophiagraph-Child-Run"),
+        trace_parent_id=headers.get("X-Sophiagraph-Trace-Parent"),
     )
 
 
