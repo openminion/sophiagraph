@@ -7,7 +7,7 @@ from importlib import metadata
 from types import ModuleType
 from typing import Any, Final, cast
 
-GRAPHFAKOS_MIN_VERSION: Final[tuple[int, int, int]] = (0, 0, 5)
+GRAPHFAKOS_MIN_VERSION: Final[tuple[int, int, int]] = (0, 0, 8)
 GRAPHFAKOS_MAX_MAJOR_EXCLUSIVE: Final[int] = 1
 COMPATIBILITY_REPORT_VERSION: Final[str] = "sophiagraph.compatibility.v1"
 
@@ -54,7 +54,7 @@ def graphfakos_compatibility(version: str | None = None) -> DependencyCompatibil
         package="graphfakos",
         installed_version=detected,
         supported=supported,
-        required_range=">=0.0.5,<1",
+        required_range=">=0.0.8,<1",
     )
 
 

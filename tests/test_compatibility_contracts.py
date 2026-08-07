@@ -11,8 +11,8 @@ from sophiagraph.graph_backends import FakeGraphBackendAdapter
 
 
 def test_graphfakos_supported_range_is_explicit() -> None:
-    assert graphfakos_compatibility("0.0.1").supported is False
-    assert graphfakos_compatibility("0.0.5").supported is True
+    assert graphfakos_compatibility("0.0.5").supported is False
+    assert graphfakos_compatibility("0.0.8").supported is True
     assert graphfakos_compatibility("1.0.0").supported is False
 
 

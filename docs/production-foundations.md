@@ -8,10 +8,10 @@ installs local-first and deterministic.
 ## Compatibility
 
 `sophiagraph.compatibility` reports the installed GraphFakos version and emits
-a sorted public API manifest. GraphFakos 0.0.5 is the minimum supported
-release. `make validate-patterns` checks the committed
-manifest, while CI runs focused integration tests against the minimum and
-latest supported GraphFakos versions.
+a sorted public API manifest. GraphFakos 0.0.8 is the minimum supported
+release for the current workbench and provider-action contract.
+`make validate-patterns` checks the committed manifest, while CI runs focused
+integration tests against the minimum and latest supported GraphFakos versions.
 
 ## Vector backends
 

@@ -27,9 +27,11 @@ def _compatible_namespace(
     return MemoryNamespace.from_dict(values)
 
 
-def _intersect_namespaces(
+def intersect_memory_namespaces(
     left: tuple[MemoryNamespace, ...], right: tuple[MemoryNamespace, ...]
 ) -> tuple[MemoryNamespace, ...]:
+    """Return compatible selector intersections without widening either side."""
+
     if not left:
         return right
     if not right:
@@ -97,7 +99,7 @@ def _constraint_intersection(
             continue
         if not constraint.namespaces:
             return None
-        namespaces = _intersect_namespaces(namespaces, constraint.namespaces)
+        namespaces = intersect_memory_namespaces(namespaces, constraint.namespaces)
         workspaces = _intersect_values(workspaces, constraint.workspace_ids)
         record_types = _intersect_values(record_types, constraint.record_types)
         operations = _intersect_values(operations, constraint.operations)
@@ -208,7 +210,7 @@ def _intersect_request_selectors(
     tuple[str, ...],
 ]:
     if request.namespaces:
-        namespaces = _intersect_namespaces(namespaces, request.namespaces)
+        namespaces = intersect_memory_namespaces(namespaces, request.namespaces)
     if delegated and not namespaces:
         return (
             _denied(
@@ -281,7 +283,7 @@ def evaluate_memory_access(
         )
         if denial is not None:
             return denial
-        namespaces = _intersect_namespaces(namespaces, grant.namespaces)
+        namespaces = intersect_memory_namespaces(namespaces, grant.namespaces)
         workspaces = _intersect_values(workspaces, grant.workspace_ids)
         record_types = _intersect_values(record_types, grant.record_types)
         operations = _intersect_values(operations, grant.operations)
@@ -343,7 +345,7 @@ def project_child_memory_grant(
         raise ValueError("parent grant does not permit re-sharing")
     if parent.current_depth >= parent.max_depth:
         raise ValueError("parent grant has no remaining delegation depth")
-    narrowed_namespaces = _intersect_namespaces(parent.namespaces, namespaces)
+    narrowed_namespaces = intersect_memory_namespaces(parent.namespaces, namespaces)
     narrowed_operations = _intersect_values(parent.operations, operations)
     if not namespaces or set(narrowed_namespaces) != set(namespaces):
         raise ValueError("child namespaces must be a strict parent subset")

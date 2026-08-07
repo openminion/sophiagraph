@@ -23,7 +23,8 @@
   <img alt="Status" src="https://img.shields.io/badge/status-alpha-6B7280">
 </p>
 
-SophiaGraph `v0.0.6` is a standalone alpha package for durable, typed memory.
+The current SophiaGraph source is the unreleased `v0.0.7` alpha line for
+durable, typed memory.
 It stores memory records, relations, provenance, lifecycle state, and portable
 workspace data without importing the OpenMinion runtime.
 
@@ -53,7 +54,7 @@ and should be treated as a scam.
 | | |
 | --- | --- |
 | Package | `sophiagraph` |
-| Current line | `v0.0.6` alpha |
+| Source line | `v0.0.7` unreleased alpha |
 | Python | 3.11+ |
 | Best fit | Durable agent memory, provenance, lifecycle, and local knowledge workspaces |
 | Default durable backend | SQLite |

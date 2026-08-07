@@ -1,13 +1,20 @@
 # Sophiagraph Changelog
 
 Status: active
-Last updated: 2026-07-18
+Last updated: 2026-08-06
 
 This file tracks package-facing release notes for `sophiagraph`.
 
 ## Unreleased
 
-No package-facing changes yet.
+### Added
+
+- Added the public `sophiagraph.access` delegated-memory authorization and
+  gateway contracts.
+- Added public namespace-selector intersection for host adapters that must
+  narrow grant projections before authorization.
+- Added public `sophiagraph.models.SCOPE_PATTERN`; the underscore-prefixed
+  spelling remains a temporary compatibility alias for existing 0.x clients.
 
 ## 0.0.4 - 2026-07-18
 
