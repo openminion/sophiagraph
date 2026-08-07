@@ -58,6 +58,7 @@ from sophiagraph.storage.record_lifecycle import (
 )
 from sophiagraph.storage.graph_helpers import (
     block_to_dict,
+    filter_candidates,
     memory_block_to_dict,
     namespace_matches_filters,
     record_matches_structural_query,
@@ -120,6 +121,11 @@ class SophiaGraphMemoryStore(
         self._shared_mirrors: dict[str, Any] = {}
         self._shared_conflicts: dict[str, Any] = {}
         self._shared_usage_events: dict[str, Any] = {}
+        self._ontologies: dict[tuple[str, str], Any] = {}
+        self._artifacts: dict[str, Any] = {}
+        self._artifact_projections: dict[str, Any] = {}
+        self._canvas_boards: dict[str, Any] = {}
+        self._lifecycle_policies: dict[str, Any] = {}
         self._changes: list[Any] = []
         self._next_cursor = 1
         self._integrity_hash_enabled = integrity_hash_enabled
@@ -624,13 +630,9 @@ class SophiaGraphMemoryStore(
         return self._candidates.get(candidate_id)
 
     def list_candidates(self, options: CandidateListOptions) -> list[MemoryCandidate]:
-        candidates = list(self._candidates.values())
+        candidates = filter_candidates([*self._candidates.values()], options.namespaces)
         if options.session_id is not None:
-            candidates = [
-                candidate
-                for candidate in candidates
-                if candidate.session_id == options.session_id
-            ]
+            candidates = [c for c in candidates if c.session_id == options.session_id]
         if options.proposed_scope is not None:
             candidates = [
                 candidate
@@ -1597,9 +1599,7 @@ class SophiaGraphMemoryStore(
         from sophiagraph.storage.graph_helpers import ontology_to_dict
 
         key = (ontology.ontology_id, ontology.version)
-        existing = self._ontologies.get(key) if hasattr(self, "_ontologies") else None
-        if not hasattr(self, "_ontologies"):
-            self._ontologies = {}
+        existing = self._ontologies.get(key)
         if existing is not None and ontology_to_dict(existing) != ontology_to_dict(
             ontology
         ):
@@ -1626,8 +1626,6 @@ class SophiaGraphMemoryStore(
         return key
 
     def get_ontology(self, *, ontology_id, version):
-        if not hasattr(self, "_ontologies"):
-            self._ontologies = {}
         return self._ontologies.get((ontology_id, version))
 
     def list_ontologies(
@@ -1640,8 +1638,6 @@ class SophiaGraphMemoryStore(
     ):
         from sophiagraph.storage.graph_helpers import namespace_matches_filters
 
-        if not hasattr(self, "_ontologies"):
-            self._ontologies = {}
         rows = list(self._ontologies.values())
         if ontology_id:
             rows = [o for o in rows if o.ontology_id == ontology_id]
@@ -1656,10 +1652,6 @@ class SophiaGraphMemoryStore(
     # Artifact reference storage.
 
     def put_artifact(self, artifact):
-        from dataclasses import asdict
-
-        if not hasattr(self, "_artifacts"):
-            self._artifacts = {}
         self._artifacts[artifact.artifact_id] = artifact
         payload = asdict(artifact)
         payload["namespace"] = artifact.namespace.as_dict()
@@ -1676,8 +1668,6 @@ class SophiaGraphMemoryStore(
         return artifact.artifact_id
 
     def get_artifact(self, artifact_id):
-        if not hasattr(self, "_artifacts"):
-            self._artifacts = {}
         return self._artifacts.get(artifact_id)
 
     def list_artifacts(
@@ -1690,8 +1680,6 @@ class SophiaGraphMemoryStore(
     ):
         from sophiagraph.storage.graph_helpers import namespace_matches_filters
 
-        if not hasattr(self, "_artifacts"):
-            self._artifacts = {}
         rows = list(self._artifacts.values())
         rows = [a for a in rows if namespace_matches_filters(a.namespace, namespaces)]
         if target_record_id is not None:
@@ -1704,8 +1692,6 @@ class SophiaGraphMemoryStore(
         return rows
 
     def put_artifact_projection(self, projection):
-        if not hasattr(self, "_artifact_projections"):
-            self._artifact_projections = {}
         self._artifact_projections[projection.projection_id] = projection
         payload = projection.to_dict()
         self._emit_change(
@@ -1722,8 +1708,6 @@ class SophiaGraphMemoryStore(
         return projection.projection_id
 
     def get_artifact_projection(self, projection_id):
-        if not hasattr(self, "_artifact_projections"):
-            self._artifact_projections = {}
         return self._artifact_projections.get(projection_id)
 
     def list_artifact_projections(
@@ -1738,8 +1722,6 @@ class SophiaGraphMemoryStore(
     ):
         from sophiagraph.storage.graph_helpers import namespace_matches_filters
 
-        if not hasattr(self, "_artifact_projections"):
-            self._artifact_projections = {}
         rows = list(self._artifact_projections.values())
         rows = [p for p in rows if namespace_matches_filters(p.namespace, namespaces)]
         if artifact_id is not None:
@@ -1764,8 +1746,6 @@ class SophiaGraphMemoryStore(
         superseded_by_projection_id,
         superseded_at,
     ):
-        from dataclasses import replace
-
         projection = self.get_artifact_projection(projection_id)
         if projection is None:
             raise KeyError(projection_id)
@@ -1782,8 +1762,6 @@ class SophiaGraphMemoryStore(
     def put_canvas_board(self, board):
         from sophiagraph.canvas import canvas_board_to_dict
 
-        if not hasattr(self, "_canvas_boards"):
-            self._canvas_boards = {}
         self._canvas_boards[board.board_id] = board
         self._emit_change(
             object_type="canvas",
@@ -1798,15 +1776,11 @@ class SophiaGraphMemoryStore(
         return board.board_id
 
     def get_canvas_board(self, board_id):
-        if not hasattr(self, "_canvas_boards"):
-            self._canvas_boards = {}
         return self._canvas_boards.get(board_id)
 
     def list_canvas_boards(self, *, namespaces=None, limit=None):
         from sophiagraph.storage.graph_helpers import namespace_matches_filters
 
-        if not hasattr(self, "_canvas_boards"):
-            self._canvas_boards = {}
         rows = list(self._canvas_boards.values())
         rows = [b for b in rows if namespace_matches_filters(b.namespace, namespaces)]
         rows.sort(key=lambda b: b.board_id)
@@ -1815,8 +1789,6 @@ class SophiaGraphMemoryStore(
         return rows
 
     def delete_canvas_board(self, board_id):
-        if not hasattr(self, "_canvas_boards"):
-            self._canvas_boards = {}
         if board_id in self._canvas_boards:
             board = self._canvas_boards.pop(board_id)
             self._emit_change(
@@ -1836,8 +1808,6 @@ class SophiaGraphMemoryStore(
     # Lifecycle policy storage.
 
     def put_lifecycle_policy(self, policy):
-        if not hasattr(self, "_lifecycle_policies"):
-            self._lifecycle_policies = {}
         self._lifecycle_policies[policy.policy_id] = policy
         self._emit_change(
             object_type="lifecycle_policy",
@@ -1857,8 +1827,6 @@ class SophiaGraphMemoryStore(
         return policy.policy_id
 
     def get_lifecycle_policy(self, policy_id):
-        if not hasattr(self, "_lifecycle_policies"):
-            self._lifecycle_policies = {}
         return self._lifecycle_policies.get(policy_id)
 
     def list_lifecycle_policies(
@@ -1869,8 +1837,6 @@ class SophiaGraphMemoryStore(
     ):
         from sophiagraph.storage.graph_helpers import namespace_matches_filters
 
-        if not hasattr(self, "_lifecycle_policies"):
-            self._lifecycle_policies = {}
         rows = list(self._lifecycle_policies.values())
         rows = [
             p for p in rows if namespace_matches_filters(p.namespace_filter, namespaces)

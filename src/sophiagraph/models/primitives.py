@@ -70,6 +70,7 @@ SessionSummaryOutcome = Literal[
 ]
 
 _SCOPE_PATTERN = re.compile(r"^(session|agent|project|global):[A-Za-z0-9._:-]+$")
+SCOPE_PATTERN = _SCOPE_PATTERN
 _NAMESPACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]+$")
 
 
@@ -175,6 +176,7 @@ __all__ = [
     "MemoryTierTransitionReason",
     "SessionSummaryThreadStatus",
     "SessionSummaryOutcome",
+    "SCOPE_PATTERN",
     "_SCOPE_PATTERN",
     "_as_memory_type",
     "_as_memory_source",

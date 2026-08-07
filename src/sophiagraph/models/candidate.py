@@ -38,6 +38,52 @@ class CandidateReview:
             raise InvalidArgumentError("decided_at is required")
 
 
+@dataclass(frozen=True, slots=True)
+class DelegatedCandidateProvenance:
+    """Explicit lineage for a child proposal submitted by its parent host."""
+
+    parent_agent_id: str
+    child_agent_id: str
+    parent_run_id: str
+    child_run_id: str
+    trace_parent_id: str
+    grant_id: str
+    workspace_id: str
+    namespace: MemoryNamespace
+    source_record_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        required = (
+            self.parent_agent_id,
+            self.child_agent_id,
+            self.parent_run_id,
+            self.child_run_id,
+            self.trace_parent_id,
+            self.grant_id,
+            self.workspace_id,
+        )
+        if any(not value for value in required):
+            raise InvalidArgumentError("delegated candidate provenance is incomplete")
+        if not isinstance(self.namespace, MemoryNamespace):
+            raise TypeError("provenance namespace must be MemoryNamespace")
+        if any(not value for value in self.source_record_ids):
+            raise InvalidArgumentError("source_record_ids cannot contain empty values")
+
+
+def _assert_delegation_provenance(
+    namespace: MemoryNamespace | None,
+    provenance: DelegatedCandidateProvenance | None,
+) -> None:
+    if provenance is None:
+        return
+    if not isinstance(provenance, DelegatedCandidateProvenance):
+        raise TypeError("delegation_provenance must be DelegatedCandidateProvenance")
+    if namespace != provenance.namespace:
+        raise InvalidArgumentError(
+            "candidate namespace must match delegated provenance namespace"
+        )
+
+
 @dataclass(frozen=True)
 class MemoryCandidate:
     candidate_id: str
@@ -61,6 +107,7 @@ class MemoryCandidate:
     source_class: MemorySourceClass | None = None
     created_at: str | None = None
     updated_at: str | None = None
+    delegation_provenance: DelegatedCandidateProvenance | None = None
 
     def __post_init__(self) -> None:
         if not self.candidate_id:
@@ -95,6 +142,7 @@ class MemoryCandidate:
             raise TypeError(
                 "namespace must be MemoryNamespace"
             )  # allow-bare-raise: defensive type guard in dataclass __post_init__
+        _assert_delegation_provenance(self.namespace, self.delegation_provenance)
         _assert_literal(self.polarity, get_args(ClaimKeyPolarity), "polarity")
         resolved_meta = dict(self.meta)
         resolved_claim_key = self.claim_key
@@ -153,4 +201,4 @@ class MemoryCandidate:
         object.__setattr__(self, "meta", resolved_meta)
 
 
-__all__ = ["CandidateReview", "MemoryCandidate"]
+__all__ = ["CandidateReview", "DelegatedCandidateProvenance", "MemoryCandidate"]

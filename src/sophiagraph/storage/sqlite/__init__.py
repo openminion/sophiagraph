@@ -65,6 +65,7 @@ from sophiagraph.storage.record_lifecycle import (
 from sophiagraph.storage.graph_helpers import (
     block_from_dict,
     block_to_dict,
+    filter_candidates,
     link_from_dict,
     link_to_dict,
     memory_block_from_dict,
@@ -609,7 +610,7 @@ class SophiaGraphSqliteStore(
             + " AND ".join(clauses)
             + " ORDER BY COALESCE(created_at, ''), link_id DESC"
         )
-        if options.limit is not None:
+        if options.limit is not None and not options.namespaces:
             query += " LIMIT ?"
             params.append(int(options.limit))
         with self._connect() as conn:
@@ -1024,12 +1025,15 @@ class SophiaGraphSqliteStore(
             query += " AND status = ?"
             params.append(options.status)
         query += " ORDER BY COALESCE(updated_at, created_at, '') DESC"
-        if options.limit is not None:
+        if options.limit is not None and not options.namespaces:
             query += " LIMIT ?"
             params.append(int(options.limit))
         with self._connect() as conn:
             rows = conn.execute(query, params).fetchall()
-        return [self._candidate_from_row(row) for row in rows]
+        candidates = filter_candidates(
+            [self._candidate_from_row(row) for row in rows], options.namespaces
+        )
+        return candidates[: int(options.limit)] if options.limit else candidates
 
     def update_candidate(
         self,

@@ -100,6 +100,8 @@ def _handle_tools_call(
     request_id: Any,
     params: Mapping[str, Any],
     registry: ToolRegistry,
+    runtime: RuntimePolicyEngine | None = None,
+    context: RuntimeRequestContext | None = None,
 ) -> dict[str, Any]:
     name = str(params.get("name") or "")
     arguments = params.get("arguments") or {}
@@ -120,8 +122,13 @@ def _handle_tools_call(
         )
     except SophiagraphServerError as err:
         return _err_response(request_id, err.code, str(err), err.details)
+    access_context, grant_id = _memory_access_for_request(runtime, context)
     try:
-        result = handler(**dict(arguments))
+        result = handler(
+            **dict(arguments),
+            _memory_access_context=access_context,
+            _memory_grant_id=grant_id,
+        )
     except SophiagraphServerError as err:
         return _err_response(request_id, err.code, str(err), err.details)
     except Exception as err:  # pragma: no cover - defensive
@@ -173,6 +180,16 @@ def _enforce_runtime_policy(
     runtime.authorize(context)
 
 
+def _memory_access_for_request(
+    runtime: RuntimePolicyEngine | None,
+    context: RuntimeRequestContext | None,
+) -> tuple[Any, str | None]:
+    if runtime is None or context is None:
+        return None, None
+    principal = runtime.resolve_principal(context)
+    return runtime.memory_access_context(context, principal), context.grant_id
+
+
 def dispatch(
     message: Mapping[str, Any],
     *,
@@ -180,10 +197,7 @@ def dispatch(
     server_info: ServerInfo,
     runtime: RuntimePolicyEngine | None = None,
 ) -> dict[str, Any] | None:
-    """Pure dispatcher: takes a parsed JSON-RPC message, returns response or None.
-
-    Returns None for notifications (no `id`). Returns a response dict otherwise.
-    """
+    """Dispatch one parsed JSON-RPC message, returning None for notifications."""
     if not isinstance(message, Mapping):
         return _err_response(None, JSONRPC_INVALID_REQUEST, "request must be an object")
     if message.get("jsonrpc") != "2.0":
@@ -202,7 +216,6 @@ def dispatch(
         return _err_response(
             request_id, JSONRPC_INVALID_PARAMS, "params must be an object"
         )
-    # Notifications (no id) are accepted but produce no response.
     is_notification = "id" not in message
     try:
         if runtime is not None and context is not None:
@@ -266,7 +279,9 @@ def dispatch(
                 if runtime is not None and context is not None
                 else None
             )
-            response = _handle_tools_call(request_id, params, registry)
+            response = _handle_tools_call(
+                request_id, params, registry, runtime, context
+            )
         except (AuthDeniedError, QuotaExceededError, SophiagraphServerError) as err:
             return _attach_meta(
                 _err_response(request_id, err.code, str(err), err.details),

@@ -59,6 +59,7 @@ class WorkspaceActionRequest:
     action: WorkspacePermission
     target_id: str
     payload_kind: str = "record"
+    namespace: MemoryNamespace | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -70,6 +71,10 @@ class WorkspaceActionRequest:
             raise InvalidArgumentError(f"invalid action: {self.action!r}")
         if not self.target_id:
             raise InvalidArgumentError("target_id is required")
+        if self.namespace is not None and not isinstance(
+            self.namespace, MemoryNamespace
+        ):
+            raise TypeError("namespace must be MemoryNamespace")
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +140,11 @@ def evaluate_workspace_action(
         if (
             binding.workspace_id == request.workspace_id
             and binding.actor_id == request.actor_id
+            and (
+                binding.namespace is None
+                or request.namespace is None
+                or (request.namespace.matches(binding.namespace))
+            )
         ):
             allowed = request.action in binding.permissions
             return WorkspaceGateDecision(
@@ -150,6 +160,29 @@ def evaluate_workspace_action(
         action=request.action,
         role=None,
         reason="role_not_found",
+    )
+
+
+def delegated_scratch_namespace(
+    *,
+    child_agent_id: str,
+    context_id: str,
+    tenant_id: str | None = None,
+    user_id: str | None = None,
+    session_id: str | None = None,
+    project_id: str | None = None,
+) -> MemoryNamespace:
+    """Build the isolated namespace for one delegated child's scratch plane."""
+
+    if not child_agent_id or not context_id:
+        raise InvalidArgumentError("child_agent_id and context_id are required")
+    return MemoryNamespace(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        agent_id=child_agent_id,
+        session_id=session_id,
+        conversation_id=context_id,
+        project_id=project_id,
     )
 
 
@@ -208,5 +241,6 @@ __all__ = [
     "WorkspaceRoleName",
     "apply_workspace_review_decision",
     "create_workspace_review_request",
+    "delegated_scratch_namespace",
     "evaluate_workspace_action",
 ]

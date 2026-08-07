@@ -206,6 +206,23 @@ Read [`docs/workspace-mode.md`](docs/workspace-mode.md),
 [`docs/retrieval-boundary.md`](docs/retrieval-boundary.md) before building a
 larger integration.
 
+## Delegated Agent Access
+
+Remote agents and untrusted adapters should use
+`AuthorizedSophiaGraphGateway`, not a raw store. The gateway intersects a
+trusted principal context with a host-resolved `DelegationMemoryGrant` on every
+operation, bounds results and context, and returns the same absent envelope for
+missing and unauthorized direct IDs.
+
+Sophiagraph does not persist grants. OpenMinion or another host remains the
+grant issuer and revocation authority through the package-neutral
+`DelegationMemoryGrantResolver` protocol. Child-authored durable knowledge is
+submitted by the parent as a candidate and follows the existing review and
+promotion flow.
+
+See [`docs/delegated-memory-access.md`](docs/delegated-memory-access.md) for the
+trust boundary, migration steps, and rollback posture.
+
 ## Development
 
 ```bash

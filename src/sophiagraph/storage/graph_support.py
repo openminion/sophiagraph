@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sophiagraph.models import (
     KnowledgeDocumentBlock,
+    MemoryCandidate,
     MemoryNamespace,
     MemoryRecord,
     StructuralLink,
@@ -18,6 +19,24 @@ def namespace_matches_filters(
     if not filters:
         return True
     return any(namespace.matches(item) for item in filters)
+
+
+def filter_candidates(
+    candidates: list[MemoryCandidate],
+    filters: list[MemoryNamespace] | None,
+) -> list[MemoryCandidate]:
+    """Apply candidate namespace filters before caller-owned limits."""
+
+    if not filters:
+        return candidates
+    return [
+        candidate
+        for candidate in candidates
+        if namespace_matches_filters(
+            candidate.namespace or MemoryNamespace.from_scope(candidate.proposed_scope),
+            filters,
+        )
+    ]
 
 
 def graph_node_from_record(

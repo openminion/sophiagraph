@@ -6,6 +6,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Callable, Final, Literal, Mapping
 
+from sophiagraph.access import (
+    AccessConstraint,
+    AccessConstraintMode,
+    MemoryAccessContext,
+)
+from sophiagraph.models import MemoryNamespace
 from sophiagraph.server.contracts import AuthDeniedError, QuotaExceededError
 from sophiagraph.server.deployment import DeploymentProfile, enforce_deployment_profile
 
@@ -34,6 +40,7 @@ def _utc_now_iso() -> str:
 @dataclass(frozen=True, slots=True)
 class ServerPrincipal:
     principal_id: str
+    access_mode: AccessConstraintMode = "allowlist"
     allowed_scopes: tuple[str, ...] = ()
     allowed_namespaces: tuple[str, ...] = ()
     allowed_workspaces: tuple[str, ...] = ()
@@ -49,7 +56,9 @@ class ServerAuthConfig:
     static_tokens: tuple[str, ...] = ()
     token_principals: Mapping[str, ServerPrincipal] = field(default_factory=dict)
     local_principal: ServerPrincipal = field(
-        default_factory=lambda: ServerPrincipal(principal_id="local-operator")
+        default_factory=lambda: ServerPrincipal(
+            principal_id="local-operator", access_mode="unconstrained_trusted"
+        )
     )
     unauthenticated_methods: tuple[str, ...] = tuple(sorted(_PUBLIC_METHODS))
 
@@ -94,6 +103,12 @@ class RuntimeRequestContext:
     tenant_key: str | None = None
     namespace_key: str | None = None
     tool_name: str | None = None
+    grant_id: str | None = None
+    audience: str = "sophiagraph"
+    subject_agent_id: str | None = None
+    parent_run_id: str | None = None
+    child_run_id: str | None = None
+    trace_parent_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +194,24 @@ def _extract_auth_token(meta: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _optional_meta(meta: Mapping[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = meta.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return None
+
+
+def _namespace_from_key(value: str) -> MemoryNamespace:
+    fields: dict[str, str] = {}
+    for part in value.split("|"):
+        key, separator, item = part.partition("=")
+        if not separator or not key or not item:
+            raise ValueError(f"invalid namespace key: {value!r}")
+        fields[key] = item
+    return MemoryNamespace.from_dict(fields)
+
+
 def event_type_for_tool(tool_name: str | None) -> str | None:
     mapping = {
         "knowledge_put_record": "knowledge.record.put",
@@ -227,6 +260,12 @@ class RuntimePolicyEngine:
             tenant_key=str(tenant_value) if tenant_value is not None else None,
             namespace_key=str(namespace_value) if namespace_value is not None else None,
             tool_name=tool_name,
+            grant_id=_optional_meta(meta, "grant_id", "memory_grant_id"),
+            audience="sophiagraph",
+            subject_agent_id=_optional_meta(meta, "subject_agent_id"),
+            parent_run_id=_optional_meta(meta, "parent_run_id"),
+            child_run_id=_optional_meta(meta, "child_run_id"),
+            trace_parent_id=_optional_meta(meta, "trace_parent_id"),
         )
 
     def authorize(self, context: RuntimeRequestContext) -> None:
@@ -248,7 +287,37 @@ class RuntimePolicyEngine:
         self.authorize(context)
         if context.auth_token in self.auth.token_principals:
             return self.auth.token_principals[str(context.auth_token)]
-        return ServerPrincipal(principal_id="static-bearer")
+        return ServerPrincipal(principal_id="static-bearer", access_mode="deny_all")
+
+    def memory_access_context(
+        self,
+        context: RuntimeRequestContext,
+        principal: ServerPrincipal,
+    ) -> MemoryAccessContext:
+        """Project authenticated server state into the package access contract."""
+
+        namespaces = tuple(
+            _namespace_from_key(value) for value in principal.allowed_namespaces
+        )
+        if not namespaces:
+            namespaces = tuple(
+                MemoryNamespace.from_scope(value) for value in principal.allowed_scopes
+            )
+        constraint = AccessConstraint(
+            mode=principal.access_mode,
+            namespaces=namespaces,
+            workspace_ids=principal.allowed_workspaces,
+        )
+        return MemoryAccessContext(
+            principal_id=principal.principal_id,
+            audience=context.audience,
+            subject_agent_id=context.subject_agent_id,
+            parent_run_id=context.parent_run_id,
+            child_run_id=context.child_run_id,
+            trace_parent_id=context.trace_parent_id,
+            constraints=(constraint,),
+            delegated=context.grant_id is not None,
+        )
 
     def enforce_deployment(
         self,
