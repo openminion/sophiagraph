@@ -21,7 +21,10 @@ def test_sophiagraph_package_imports() -> None:
     import sophiagraph.ui
     import sophiagraph.workspace
 
-    assert sophiagraph.__version__ == "0.0.7"
+    root = Path(__file__).resolve().parents[1]
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+
+    assert sophiagraph.__version__ == pyproject["project"]["version"]
     assert callable(sophiagraph.create_sqlite_store)
     assert sophiagraph.DEFAULT_DB_FILENAME == "sophiagraph.sqlite3"
     assert sophiagraph.MemoryNamespace(agent_id="codex").agent_id == "codex"
