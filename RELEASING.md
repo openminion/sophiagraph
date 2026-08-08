@@ -94,6 +94,11 @@ Preferred release path uses GitHub Actions trusted publishing:
 9. Open and merge the release backfill PR, then delete temporary release
    branches after the tag, PyPI artifacts, GitHub Release, and PR are complete.
 
+When merging the release-prep PR, keep GitHub's default `Merge...` subject or
+use the documented conventional commit format, such as
+`chore(release): merge sophiagraph 0.0.7 prep`. A free-form merge subject will
+fail the pushed-commit validation on `main`.
+
 Manual fallback sequence once validation is green:
 
 ```bash
