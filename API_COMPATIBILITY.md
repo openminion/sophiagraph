@@ -440,6 +440,16 @@ Public-contract confidence should be enforced by tests that cover:
 36. delegated-memory grant projections, deterministic access decisions, the
     authorized gateway, candidate handback provenance, and privacy-safe access
     telemetry.
+37. knowledge-explorer alpha cursor pagination with URL-safe opaque cursors,
+    deterministic `(updated_at, record_id)` store ordering, first/middle/final
+    page continuity across memory and SQLite stores, malformed cursor
+    rejection before store access, and facet counts scoped to the returned
+    packet objects rather than hidden continuation sentinels. Cursor stability
+    is request-scoped and does not promise a concurrent-write snapshot.
+38. typed graph-backend pattern-query parity across the fake, Kuzu, and Neo4j
+    adapters, plus operator-owned `PerformanceBudget` assessments under the
+    stable `sophiagraph.production_benchmarks` module. Pattern evaluation is
+    structural and does not accept natural-language or generated query text.
 
 ## Internal compatibility shims
 

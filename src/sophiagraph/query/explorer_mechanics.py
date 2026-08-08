@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from collections import Counter
+from dataclasses import asdict
+import hashlib
+import json
 from time import perf_counter
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryRecord, StructuralLink
 from sophiagraph.query.algorithms import GraphCommonNeighbors, GraphPath
 from sophiagraph.query.community import GraphCommunity
@@ -15,7 +21,7 @@ from sophiagraph.query.graph import (
     GraphSnapshotOptions,
     LinkQueryOptions,
 )
-from sophiagraph.query.options import ListQueryOptions, SearchQueryOptions
+from sophiagraph.query.options import ListQueryOptions, RecordOrder, SearchQueryOptions
 
 from .explorer_types import (
     FacetField,
@@ -32,10 +38,59 @@ from .explorer_types import (
     UnlinkedMentionCandidate,
 )
 
+_CURSOR_VERSION = 1
+
+
+def cursor_offset(request: KnowledgeExplorerRequest) -> int:
+    """Return the raw-record offset represented by an opaque explorer cursor."""
+    if request.cursor is None:
+        return 0
+    payload = _decode_cursor(request.cursor)
+    if payload.get("v") != _CURSOR_VERSION:
+        raise InvalidArgumentError("unsupported explorer cursor version")
+    offset = payload.get("offset")
+    if not isinstance(offset, int) or offset < 0:
+        raise InvalidArgumentError("explorer cursor offset must be non-negative")
+    if payload.get("request_sha256") != request_fingerprint(request):
+        raise InvalidArgumentError("explorer cursor does not match request")
+    return offset
+
+
+def next_cursor(request: KnowledgeExplorerRequest, offset: int) -> str:
+    payload = {
+        "v": _CURSOR_VERSION,
+        "offset": int(offset),
+        "request_sha256": request_fingerprint(request),
+    }
+    data = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+    return base64.urlsafe_b64encode(data).decode().rstrip("=")
+
+
+def request_fingerprint(request: KnowledgeExplorerRequest) -> str:
+    payload = asdict(request)
+    payload["cursor"] = None
+    data = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+    return hashlib.sha256(data).hexdigest()
+
+
+def _decode_cursor(cursor: str) -> dict[str, Any]:
+    try:
+        padded = cursor + ("=" * (-len(cursor) % 4))
+        decoded = base64.urlsafe_b64decode(padded.encode())
+        payload = json.loads(decoded.decode())
+    except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise InvalidArgumentError("invalid explorer cursor") from exc
+    if not isinstance(payload, dict):
+        raise InvalidArgumentError("invalid explorer cursor")
+    return payload
+
 
 def load_records(
     store: KnowledgeExplorerStore,
     request: KnowledgeExplorerRequest,
+    *,
+    offset: int = 0,
+    limit: int | None = None,
 ) -> list[MemoryRecord]:
     common = {
         "scopes": request.scopes,
@@ -47,7 +102,9 @@ def load_records(
             or request.effective_during
             or request.believed_at
         ),
-        "limit": None,
+        "limit": limit,
+        "offset": offset,
+        "order_by": RecordOrder.UPDATED_AT_DESC,
         "namespaces": request.namespaces,
         "as_of": request.as_of,
         "valid_at": request.valid_at,
@@ -57,6 +114,31 @@ def load_records(
     if request.query and request.query.strip():
         return store.search_records(SearchQueryOptions(query=request.query, **common))
     return store.list_records(ListQueryOptions(**common))
+
+
+def load_record_page(
+    store: KnowledgeExplorerStore,
+    request: KnowledgeExplorerRequest,
+) -> tuple[list[MemoryRecord], bool, int]:
+    offset = cursor_offset(request)
+    records = load_records(store, request, offset=offset, limit=request.limit + 1)
+    return records[: request.limit], len(records) > request.limit, offset
+
+
+def record_page_stage(
+    request: KnowledgeExplorerRequest,
+    *,
+    output_count: int,
+    offset: int,
+    started: float,
+) -> KnowledgeQueryPlanStage:
+    return stage(
+        "search" if request.query else "records",
+        0,
+        output_count,
+        started,
+        {"query": request.query or "", "limit": request.limit, "offset": offset},
+    )
 
 
 def filter_records(

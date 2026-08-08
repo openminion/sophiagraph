@@ -9,6 +9,7 @@ from typing import Any
 from .base import (
     GraphBackendCapabilities,
     GraphExportEdge,
+    GraphExportNode,
     GraphBackendQuery,
     GraphBackendResult,
     GraphBackendResultRow,
@@ -22,6 +23,7 @@ from .base import (
     shortest_path_from_edges,
 )
 from .neo4j_support import as_optional_str, import_neo4j, row_namespace
+from .patterns import evaluate_pattern_query
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace
 from sophiagraph.models.projection import ProjectionInventoryItem
@@ -65,13 +67,14 @@ class Neo4jGraphBackendAdapter:
                 "neighbors",
                 "shortest_path",
                 "property_filter",
+                "pattern_query",
                 "batch_delete",
                 "projection_watermark",
                 "inventory",
             ],
             notes={
                 "install_extra": "neo4j",
-                "pattern_query": "unsupported in the second-backend v1",
+                "pattern_query": "deterministic typed payload evaluation",
             },
             batch_behavior="idempotent_partial",
         )
@@ -231,10 +234,11 @@ class Neo4jGraphBackendAdapter:
 
     def query(self, query: GraphBackendQuery) -> GraphBackendResult:
         if query.kind == "pattern":
-            return GraphBackendResult(
-                query_id=query.query_id,
+            return evaluate_pattern_query(
+                query,
                 backend_name=self._capabilities.backend_name,
-                unsupported_reason="pattern_query unsupported by backend",
+                nodes=self._all_nodes(namespace_filter=query.namespace),
+                edges=self._all_edges(namespace_filter=query.namespace),
             )
         if query.kind == "schema":
             schema = self._load_schema()
@@ -437,6 +441,22 @@ class Neo4jGraphBackendAdapter:
         )
 
     def _query_shortest_path(self, query: GraphBackendQuery) -> GraphBackendResult:
+        edges = self._all_edges(namespace_filter=query.namespace)
+        row = shortest_path_from_edges(
+            start_node_id=str(query.start_node_id),
+            target_node_id=str(query.target_node_id),
+            edges=edges,
+            relation_types=query.relation_types,
+        )
+        return GraphBackendResult(
+            query_id=query.query_id,
+            backend_name=self._capabilities.backend_name,
+            rows=[] if row is None else [row],
+        )
+
+    def _all_edges(
+        self, *, namespace_filter: MemoryNamespace | None = None
+    ) -> list[GraphExportEdge]:
         rows = self._rows_as_dict(
             self._execute(
                 (
@@ -461,10 +481,9 @@ class Neo4jGraphBackendAdapter:
             )
         )
         edges = []
-
         for row in rows:
             namespace = MemoryNamespace.from_dict(row_namespace(row, prefix=""))
-            if not namespace_matches_filter(namespace, query.namespace):
+            if not namespace_matches_filter(namespace, namespace_filter):
                 continue
             edges.append(
                 GraphExportEdge(
@@ -478,17 +497,43 @@ class Neo4jGraphBackendAdapter:
                     ),
                 )
             )
-        row = shortest_path_from_edges(
-            start_node_id=str(query.start_node_id),
-            target_node_id=str(query.target_node_id),
-            edges=edges,
-            relation_types=query.relation_types,
+        return edges
+
+    def _all_nodes(
+        self, *, namespace_filter: MemoryNamespace | None = None
+    ) -> list[GraphExportNode]:
+        rows = self._rows_as_dict(
+            self._execute(
+                (
+                    "// sg_op:query_all_nodes\n"
+                    f"MATCH (n:{_NODE_LABEL}) RETURN "
+                    "n.node_id AS node_id, n.labels_json AS labels_json, "
+                    "n.properties_json AS properties_json, "
+                    "n.tenant_id AS tenant_id, n.org_id AS org_id, "
+                    "n.user_id AS user_id, n.agent_id AS agent_id, "
+                    "n.session_id AS session_id, "
+                    "n.conversation_id AS conversation_id, "
+                    "n.project_id AS project_id, n.graph_id AS graph_id "
+                    "ORDER BY node_id"
+                )
+            )
         )
-        return GraphBackendResult(
-            query_id=query.query_id,
-            backend_name=self._capabilities.backend_name,
-            rows=[] if row is None else [row],
-        )
+        nodes: list[GraphExportNode] = []
+        for row in rows:
+            namespace = MemoryNamespace.from_dict(row_namespace(row, prefix=""))
+            if not namespace_matches_filter(namespace, namespace_filter):
+                continue
+            nodes.append(
+                GraphExportNode(
+                    node_id=str(row["node_id"]),
+                    labels=decode_json_list(as_optional_str(row.get("labels_json"))),
+                    namespace=namespace,
+                    properties=decode_json_object(
+                        as_optional_str(row.get("properties_json"))
+                    ),
+                )
+            )
+        return nodes
 
     def _execute(self, statement: str, params: dict[str, Any] | None = None) -> Any:
         session = (

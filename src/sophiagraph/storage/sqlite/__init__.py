@@ -302,9 +302,9 @@ class SophiaGraphSqliteStore(
         if namespace_sql:
             clauses.append(namespace_sql)
             params.extend(namespace_params)
-        order = "updated_at DESC"
+        order = "updated_at DESC, id ASC"
         if options.order_by == RecordOrder.UPDATED_AT_ASC:
-            order = "updated_at ASC"
+            order = "updated_at ASC, id ASC"
         limit_sql = ""
         sql_limit = options.limit
         sql_offset = options.offset
@@ -348,7 +348,7 @@ class SophiaGraphSqliteStore(
                 include_invalidated=options.include_invalidated,
                 limit=None,
                 offset=None,
-                order_by=RecordOrder.UPDATED_AT_DESC,
+                order_by=options.order_by or RecordOrder.UPDATED_AT_DESC,
                 namespaces=options.namespaces,
                 as_of=options.as_of,
                 valid_at=options.valid_at,
@@ -365,9 +365,9 @@ class SophiaGraphSqliteStore(
                 content_serializer=json_dumps,
             )
         ]
-        if options.limit is not None:
-            matches = matches[: int(options.limit)]
-        return matches
+        start = int(options.offset or 0)
+        stop = None if options.limit is None else start + int(options.limit)
+        return matches[start:stop]
 
     def put_relation(self, relation: MemoryRelation) -> str:
         with self._write_connection() as conn:

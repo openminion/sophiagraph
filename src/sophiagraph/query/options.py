@@ -47,6 +47,8 @@ class SearchQueryOptions:
     filters: RetrievalFilters | None = None
     include_invalidated: bool = False
     limit: int | None = None
+    offset: int | None = None
+    order_by: RecordOrder | None = None
     namespaces: list["MemoryNamespace"] | None = None
     as_of: str | None = None
     valid_at: str | None = None

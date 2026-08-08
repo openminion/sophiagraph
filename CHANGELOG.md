@@ -13,6 +13,12 @@ This file tracks package-facing release notes for `sophiagraph`.
   gateway contracts.
 - Added public namespace-selector intersection for host adapters that must
   narrow grant projections before authorization.
+- Added alpha knowledge-explorer cursor pagination with deterministic
+  `(updated_at, record_id)` ordering across in-memory and SQLite stores.
+- Added deterministic typed pattern-query parity across the in-memory, Kuzu,
+  and Neo4j graph adapters without exposing free-form backend query text.
+- Added explicit performance-budget assessments for operator-run scale
+  certification.
 - Added public `sophiagraph.models.SCOPE_PATTERN`; the underscore-prefixed
   spelling remains a temporary compatibility alias for existing 0.x clients.
 

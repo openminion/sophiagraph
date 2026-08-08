@@ -67,6 +67,20 @@ def test_sqlite_store_record_round_trip(tmp_path) -> None:
     assert [item.id for item in searched] == [record.id]
 
 
+def test_sqlite_store_list_and_search_offsets_are_stable(tmp_path) -> None:
+    store = SophiaGraphSqliteStore(tmp_path / "sophiagraph.sqlite3")
+    for record_id in ("rec-a", "rec-b", "rec-c"):
+        store.put_record(_record(record_id, created_at="2026-05-23T00:00:00+00:00"))
+
+    listed = store.list_records(ListQueryOptions(scopes=["agent:test"], offset=1))
+    searched = store.search_records(
+        SearchQueryOptions(query="launched", scopes=["agent:test"], offset=1)
+    )
+
+    assert [record.id for record in listed] == ["rec-b", "rec-c"]
+    assert [record.id for record in searched] == ["rec-b", "rec-c"]
+
+
 def test_sqlite_schema_uses_sophiagraph_table_names(tmp_path) -> None:
     db_path = tmp_path / "sophiagraph.sqlite3"
     SophiaGraphSqliteStore(db_path)

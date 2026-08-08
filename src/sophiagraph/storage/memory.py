@@ -200,12 +200,11 @@ class SophiaGraphMemoryStore(
                 if record_matches_bitemporal(record, options)
             ]
         reverse = options.order_by != RecordOrder.UPDATED_AT_ASC
+        records.sort(key=lambda record: record.id)
         records.sort(key=lambda record: record.updated_at, reverse=reverse)
-        if options.offset is not None:
-            records = records[int(options.offset) :]
-        if options.limit is not None:
-            records = records[: int(options.limit)]
-        return records
+        start = int(options.offset or 0)
+        stop = None if options.limit is None else start + int(options.limit)
+        return records[start:stop]
 
     def search_records(self, options: SearchQueryOptions) -> list[MemoryRecord]:
         records = self.list_records(
@@ -216,7 +215,7 @@ class SophiaGraphMemoryStore(
                 include_invalidated=options.include_invalidated,
                 limit=None,
                 offset=None,
-                order_by=RecordOrder.UPDATED_AT_DESC,
+                order_by=options.order_by or RecordOrder.UPDATED_AT_DESC,
                 namespaces=options.namespaces,
                 as_of=options.as_of,
                 valid_at=options.valid_at,
@@ -227,9 +226,9 @@ class SophiaGraphMemoryStore(
         matches = [
             record for record in records if record_matches_query(record, options.query)
         ]
-        if options.limit is not None:
-            matches = matches[: int(options.limit)]
-        return matches
+        start = int(options.offset or 0)
+        stop = None if options.limit is None else start + int(options.limit)
+        return matches[start:stop]
 
     def put_relation(self, relation: MemoryRelation) -> str:
         self._relations[relation.relation_id] = relation

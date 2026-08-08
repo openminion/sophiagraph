@@ -18,6 +18,7 @@ def _record(
     *,
     scope: str = "agent:memory",
     namespace: MemoryNamespace | None = None,
+    updated_at: str = "2026-05-22T00:00:00+00:00",
 ) -> MemoryRecord:
     return MemoryRecord(
         id=record_id,
@@ -27,7 +28,7 @@ def _record(
         title="Alpha memory",
         content={"text": "memory backend works"},
         created_at="2026-05-22T00:00:00+00:00",
-        updated_at="2026-05-22T00:00:00+00:00",
+        updated_at=updated_at,
         source="validated",
         confidence=1.0,
         event_time="2026-05-22T00:00:00+00:00",
@@ -126,6 +127,20 @@ def test_memory_store_namespace_filters_and_export_boundaries() -> None:
         record.id
         for record in dest.list_records(ListQueryOptions(scopes=["agent:alpha"]))
     ] == ["mem-alpha"]
+
+
+def test_memory_store_list_and_search_offsets_are_stable() -> None:
+    store = SophiaGraphMemoryStore()
+    for record_id in ("mem-a", "mem-b", "mem-c"):
+        store.put_record(_record(record_id, updated_at="2026-05-23T00:00:00+00:00"))
+
+    listed = store.list_records(ListQueryOptions(scopes=["agent:memory"], offset=1))
+    searched = store.search_records(
+        SearchQueryOptions(query="works", scopes=["agent:memory"], offset=1)
+    )
+
+    assert [record.id for record in listed] == ["mem-b", "mem-c"]
+    assert [record.id for record in searched] == ["mem-b", "mem-c"]
 
 
 def test_memory_store_candidate_promotion_preserves_candidate_namespace() -> None:

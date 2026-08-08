@@ -190,7 +190,10 @@ who owns memory truth.
 
 Use the in-memory store for tests and ephemeral consumers. Use SQLite for the
 default durable local path. Optional Kuzu, Neo4j, and Qdrant adapters expose
-capability-specific behavior and should be selected explicitly.
+capability-specific behavior and should be selected explicitly. The Kuzu and
+Neo4j graph adapters support the same typed structural pattern payloads as the
+in-memory conformance backend; they never accept natural-language or generated
+query text.
 
 The workspace surface adds persistent scope, namespace, import, sync, review,
 and publishing workflows on top of those package contracts:
