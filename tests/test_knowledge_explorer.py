@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import base64
+from dataclasses import replace
+import json
+
 import pytest
 
 from sophiagraph import (
@@ -15,6 +19,8 @@ from sophiagraph import (
     explore_knowledge,
 )
 from sophiagraph.contracts.errors import InvalidArgumentError
+from sophiagraph.query.explorer_mechanics import next_cursor, request_fingerprint
+from sophiagraph.query.options import ListQueryOptions, SearchQueryOptions
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
 
 
@@ -38,6 +44,7 @@ def _record(
     tags: list[str] | None = None,
     valid_to: str | None = None,
     source: str = "validated",
+    updated_at: str = "2026-05-02T00:00:00+00:00",
 ) -> MemoryRecord:
     return MemoryRecord(
         id=record_id,
@@ -48,7 +55,7 @@ def _record(
         content={"text": text},
         tags=list(tags or []),
         created_at="2026-05-01T00:00:00+00:00",
-        updated_at="2026-05-02T00:00:00+00:00",
+        updated_at=updated_at,
         event_time="2026-05-01T00:00:00+00:00",
         valid_to=valid_to,
         source=source,  # type: ignore[arg-type]
@@ -65,6 +72,19 @@ def _record(
             },
         },
     )
+
+
+def _cursor_payload(payload: dict[str, object]) -> str:
+    data = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+    return base64.urlsafe_b64encode(data).decode().rstrip("=")
+
+
+class _ExplodingStore:
+    def list_records(self, options: ListQueryOptions):
+        raise AssertionError("store should not be reached")
+
+    def search_records(self, options: SearchQueryOptions):
+        raise AssertionError("store should not be reached")
 
 
 def _link(
@@ -382,10 +402,83 @@ def test_temporal_explorer_filters_records(store) -> None:
     assert after.hits == []
 
 
+def test_explorer_cursor_pages_are_stable_and_non_overlapping(store) -> None:
+    for index in range(5):
+        store.put_record(
+            _record(
+                f"page-{index}",
+                f"Page {index}",
+                "pagination body",
+                tags=["page"],
+            )
+        )
+    request = KnowledgeExplorerRequest(
+        scopes=["agent:agent-a"],
+        namespaces=[_namespace()],
+        include_graph=False,
+        include_facets=False,
+        limit=2,
+    )
+
+    first = explore_knowledge(store, request)
+    second = explore_knowledge(store, replace(request, cursor=first.next_cursor))
+    third = explore_knowledge(store, replace(request, cursor=second.next_cursor))
+
+    assert [hit.record_id for hit in first.hits] == ["page-0", "page-1"]
+    assert [hit.record_id for hit in second.hits] == ["page-2", "page-3"]
+    assert [hit.record_id for hit in third.hits] == ["page-4"]
+    assert first.next_cursor is not None
+    assert second.next_cursor is not None
+    assert third.next_cursor is None
+
+
+def test_explorer_cursor_filters_only_visible_raw_window(store) -> None:
+    for record_id, tags in (
+        ("rec-1", ["drop"]),
+        ("rec-2", ["drop"]),
+        ("rec-3", ["keep"]),
+    ):
+        store.put_record(_record(record_id, record_id, "cursor body", tags=tags))
+    request = KnowledgeExplorerRequest(
+        scopes=["agent:agent-a"],
+        namespaces=[_namespace()],
+        filters=KnowledgeExplorerFilters(tags=["keep"]),
+        include_graph=False,
+        include_facets=True,
+        limit=2,
+    )
+
+    first = explore_knowledge(store, request)
+    second = explore_knowledge(store, replace(request, cursor=first.next_cursor))
+
+    assert first.hits == []
+    assert first.next_cursor is not None
+    assert {facet.value for facet in first.facets} == set()
+    assert [hit.record_id for hit in second.hits] == ["rec-3"]
+    assert second.next_cursor is None
+
+
+def test_explorer_cursor_rejects_invalid_tokens_before_store_access() -> None:
+    request = KnowledgeExplorerRequest(scopes=["agent:agent-a"])
+    fingerprint = request_fingerprint(request)
+
+    bad_cursors = [
+        "not-json",
+        _cursor_payload({"v": 2, "offset": 0, "request_sha256": fingerprint}),
+        _cursor_payload({"v": 1, "offset": -1, "request_sha256": fingerprint}),
+        next_cursor(KnowledgeExplorerRequest(scopes=["agent:other"]), 20),
+    ]
+
+    for cursor in bad_cursors:
+        with pytest.raises(InvalidArgumentError):
+            explore_knowledge(
+                _ExplodingStore(),  # type: ignore[arg-type]
+                KnowledgeExplorerRequest(scopes=["agent:agent-a"], cursor=cursor),
+            )
+
+
 def test_explorer_dtos_reject_invalid_values() -> None:
     with pytest.raises(InvalidArgumentError, match="at least one scope"):
         KnowledgeExplorerRequest(scopes=[])
-    with pytest.raises(InvalidArgumentError, match="cursor"):
-        KnowledgeExplorerRequest(scopes=["agent:agent-a"], cursor="next")
     with pytest.raises(InvalidArgumentError, match="types"):
         KnowledgeExplorerFilters(types=[""])

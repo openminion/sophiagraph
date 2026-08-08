@@ -20,6 +20,7 @@ from .base import (
     schema_result_row,
     shortest_path_from_edges,
 )
+from .patterns import evaluate_pattern_query
 
 
 class FakeGraphBackendAdapter:
@@ -244,47 +245,11 @@ class FakeGraphBackendAdapter:
                 query_id=query.query_id,
                 backend_name=self._capabilities.backend_name,
             )
-        payload = query.pattern_query or {}
-        seeds = [str(item) for item in payload.get("seed_record_ids", [])]
-        relation_types = {
-            str(item) for item in payload.get("relation_types", []) if str(item)
-        }
-        max_hops = int(payload.get("max_hops", 1))
-        edges = list(self._batch.edges)
-        rows: list[GraphBackendResultRow] = []
-        for seed in seeds:
-            current = seed
-            current_edge_ids: list[str] = []
-            current_node_ids = [seed]
-            hops = 0
-            while hops < max_hops:
-                next_edge = next(
-                    (
-                        edge
-                        for edge in edges
-                        if edge.source_node_id == current
-                        and (not relation_types or edge.relation_type in relation_types)
-                    ),
-                    None,
-                )
-                if next_edge is None:
-                    break
-                current_edge_ids.append(next_edge.edge_id)
-                current_node_ids.append(next_edge.target_node_id)
-                current = next_edge.target_node_id
-                hops += 1
-            if len(current_node_ids) > 1:
-                rows.append(
-                    GraphBackendResultRow(
-                        node_ids=current_node_ids,
-                        edge_ids=current_edge_ids,
-                        properties={"query_kind": "pattern"},
-                    )
-                )
-        return GraphBackendResult(
-            query_id=query.query_id,
+        return evaluate_pattern_query(
+            query,
             backend_name=self._capabilities.backend_name,
-            rows=rows,
+            nodes=list(self._batch.nodes),
+            edges=list(self._batch.edges),
         )
 
 

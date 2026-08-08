@@ -91,7 +91,10 @@ def _fixture_batch():
 def backend(request, tmp_path: Path, monkeypatch):
     batch = _fixture_batch()
     if request.param == "fake":
-        adapter = FakeGraphBackendAdapter(support_shortest_path=True)
+        adapter = FakeGraphBackendAdapter(
+            support_shortest_path=True,
+            support_pattern_query=True,
+        )
         adapter.upsert_batch(batch)
         return adapter
     if request.param == "neo4j":
@@ -174,6 +177,31 @@ def test_backends_compute_shortest_path(backend) -> None:
     assert result.rows[0].edge_ids == ["rel-a-b", "rel-b-c"]
 
 
+def test_backends_execute_typed_pattern_queries(backend) -> None:
+    result = backend.query(
+        GraphBackendQuery(
+            query_id="pattern-1",
+            kind="pattern",
+            namespace=_ns(),
+            pattern_query={
+                "seed_record_ids": ["rec-a"],
+                "node_predicates": [{"field": "title", "operator": "eq", "value": "C"}],
+                "relation_types": ["supports"],
+                "direction": "out",
+                "min_hops": 2,
+                "max_hops": 2,
+                "limit": 1,
+            },
+        )
+    )
+
+    assert backend.capabilities().supports("pattern_query")
+    assert result.unsupported_reason is None
+    assert result.rows[0].node_ids == ["rec-a", "rec-b", "rec-c"]
+    assert result.rows[0].edge_ids == ["rel-a-b", "rel-b-c"]
+    assert result.rows[0].properties["title"] == "C"
+
+
 def test_backends_replay_delete_watermark_and_inventory(backend) -> None:
     backend.upsert_batch(_fixture_batch())
     backend.set_projection_watermark(12)
@@ -232,8 +260,14 @@ def test_fake_backend_negotiates_pattern_query_support() -> None:
     assert supported.capabilities().supports("pattern_query")
     result = supported.query(query)
     assert result.unsupported_reason is None
-    assert result.rows[0].node_ids == ["rec-a", "rec-b", "rec-c"]
-    assert result.rows[0].edge_ids == ["rel-a-b", "rel-b-c"]
+    assert [row.node_ids for row in result.rows] == [
+        ["rec-a", "rec-b"],
+        ["rec-a", "rec-b", "rec-c"],
+    ]
+    assert [row.edge_ids for row in result.rows] == [
+        ["rel-a-b"],
+        ["rel-a-b", "rel-b-c"],
+    ]
 
 
 def test_kuzu_adapter_requires_optional_dependency_message(

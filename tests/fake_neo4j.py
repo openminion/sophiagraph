@@ -155,6 +155,25 @@ class FakeNeo4jSession:
                     }
                 )
             return FakeNeo4jResult(rows)
+        if tag == "// sg_op:query_all_nodes":
+            return FakeNeo4jResult(
+                [
+                    {
+                        "node_id": node["node_id"],
+                        "labels_json": node["labels_json"],
+                        "properties_json": node["properties_json"],
+                        "tenant_id": node.get("tenant_id"),
+                        "org_id": node.get("org_id"),
+                        "user_id": node.get("user_id"),
+                        "agent_id": node.get("agent_id"),
+                        "session_id": node.get("session_id"),
+                        "conversation_id": node.get("conversation_id"),
+                        "project_id": node.get("project_id"),
+                        "graph_id": node.get("graph_id"),
+                    }
+                    for node in sorted(nodes.values(), key=lambda item: item["node_id"])
+                ]
+            )
         if tag == "// sg_op:query_all_edges":
             rows = []
             for edge in sorted(edges.values(), key=lambda item: item["edge_id"]):

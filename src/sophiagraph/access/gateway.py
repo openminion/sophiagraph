@@ -185,6 +185,12 @@ class AuthorizedSophiaGraphGateway:
         request: MemoryAccessRequest,
     ) -> list[MemoryRecord]:
         decision = self._require(context, request)
+        offset = max(int(options.offset or 0), 0)
+        if offset >= decision.max_results:
+            return []
+        page_limit = min(
+            options.limit or decision.max_results, decision.max_results - offset
+        )
         narrowed = SearchQueryOptions(
             query=options.query,
             scopes=list(options.scopes),
@@ -192,7 +198,9 @@ class AuthorizedSophiaGraphGateway:
             tiers=options.tiers,
             filters=options.filters,
             include_invalidated=options.include_invalidated,
-            limit=min(options.limit or decision.max_results, decision.max_results),
+            limit=page_limit,
+            offset=offset,
+            order_by=options.order_by,
             namespaces=list(decision.namespaces),
             as_of=options.as_of,
             valid_at=options.valid_at,
@@ -203,7 +211,7 @@ class AuthorizedSophiaGraphGateway:
             record
             for record in self._store.search_records(narrowed)
             if self._record_allowed(record, decision)
-        ][: decision.max_results]
+        ][:page_limit]
 
     def put_record(
         self,

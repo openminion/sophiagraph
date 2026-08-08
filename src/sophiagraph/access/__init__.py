@@ -12,7 +12,11 @@ from sophiagraph.access.contracts import (
     MemoryAccessReason,
     MemoryAccessRequest,
 )
-from sophiagraph.access.policy import evaluate_memory_access, project_child_memory_grant
+from sophiagraph.access.policy import (
+    evaluate_memory_access,
+    intersect_memory_namespaces,
+    project_child_memory_grant,
+)
 from sophiagraph.access.telemetry import (
     AccessTelemetryOutcome,
     MemoryAccessTelemetryEvent,
@@ -43,6 +47,7 @@ __all__ = [
     "MemoryAccessTelemetryRecorder",
     "ResolverTelemetryOutcome",
     "evaluate_memory_access",
+    "intersect_memory_namespaces",
     "noop_access_telemetry_recorder",
     "project_child_memory_grant",
 ]

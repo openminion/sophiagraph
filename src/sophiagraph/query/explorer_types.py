@@ -279,8 +279,6 @@ class KnowledgeExplorerRequest:
             raise InvalidArgumentError("depth must be non-negative")
         if self.context_chars < 0:
             raise InvalidArgumentError("context_chars must be non-negative")
-        if self.cursor is not None:
-            raise InvalidArgumentError("cursor pagination is not implemented yet")
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,6 +11,7 @@ from sophiagraph.access import (
     MemoryAccessContext,
     MemoryAccessRequest,
     evaluate_memory_access,
+    intersect_memory_namespaces,
     project_child_memory_grant,
 )
 from sophiagraph.contracts.errors import InvalidArgumentError
@@ -134,6 +135,13 @@ def test_evaluator_intersects_all_selectors_and_budgets() -> None:
     assert decision.namespaces == (
         MemoryNamespace(project_id="project-1", user_id="user-1"),
     )
+
+
+def test_public_namespace_intersection_narrows_compatible_selectors() -> None:
+    assert intersect_memory_namespaces(
+        (MemoryNamespace(project_id="project-1"),),
+        (MemoryNamespace(project_id="project-1", agent_id="child"),),
+    ) == (MemoryNamespace(project_id="project-1", agent_id="child"),)
 
 
 @pytest.mark.parametrize(

@@ -17,13 +17,14 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.6-3775A9"></a>
+  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.7-3775A9"></a>
   <a href="https://pypi.org/project/sophiagraph/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/sophiagraph?cacheSeconds=300"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-alpha-6B7280">
 </p>
 
-SophiaGraph `v0.0.6` is a standalone alpha package for durable, typed memory.
+The current SophiaGraph source is the `v0.0.7` alpha release line for durable,
+typed memory.
 It stores memory records, relations, provenance, lifecycle state, and portable
 workspace data without importing the OpenMinion runtime.
 
@@ -53,7 +54,7 @@ and should be treated as a scam.
 | | |
 | --- | --- |
 | Package | `sophiagraph` |
-| Current line | `v0.0.6` alpha |
+| Source line | `v0.0.7` alpha |
 | Python | 3.11+ |
 | Best fit | Durable agent memory, provenance, lifecycle, and local knowledge workspaces |
 | Default durable backend | SQLite |
@@ -189,7 +190,10 @@ who owns memory truth.
 
 Use the in-memory store for tests and ephemeral consumers. Use SQLite for the
 default durable local path. Optional Kuzu, Neo4j, and Qdrant adapters expose
-capability-specific behavior and should be selected explicitly.
+capability-specific behavior and should be selected explicitly. The Kuzu and
+Neo4j graph adapters support the same typed structural pattern payloads as the
+in-memory conformance backend; they never accept natural-language or generated
+query text.
 
 The workspace surface adds persistent scope, namespace, import, sync, review,
 and publishing workflows on top of those package contracts:

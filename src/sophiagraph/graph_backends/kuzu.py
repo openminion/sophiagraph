@@ -33,6 +33,7 @@ from .kuzu_support import (
     memory_namespace_from_row,
     row_namespace,
 )
+from .patterns import evaluate_pattern_query
 
 _NODE_TABLE = "SGNode"
 _EDGE_TABLE = "SGEdge"
@@ -57,13 +58,14 @@ class KuzuGraphBackendAdapter:
                 "neighbors",
                 "shortest_path",
                 "property_filter",
+                "pattern_query",
                 "batch_delete",
                 "projection_watermark",
                 "inventory",
             ],
             notes={
                 "install_extra": "kuzu",
-                "pattern_query": "unsupported in the concrete backend MVP",
+                "pattern_query": "deterministic typed payload evaluation",
             },
             batch_behavior="idempotent_partial",
         )
@@ -142,10 +144,11 @@ class KuzuGraphBackendAdapter:
 
     def query(self, query: GraphBackendQuery) -> GraphBackendResult:
         if query.kind == "pattern":
-            return GraphBackendResult(
-                query_id=query.query_id,
+            return evaluate_pattern_query(
+                query,
                 backend_name=self._capabilities.backend_name,
-                unsupported_reason="pattern_query unsupported by backend",
+                nodes=self._all_nodes(namespace_filter=query.namespace),
+                edges=self._all_edges(namespace_filter=query.namespace),
             )
         if query.kind == "schema":
             schema = self._load_schema()
@@ -479,6 +482,40 @@ class KuzuGraphBackendAdapter:
                 )
             )
         return edges
+
+    def _all_nodes(
+        self, *, namespace_filter: MemoryNamespace | None = None
+    ) -> list[GraphExportNode]:
+        rows = self._rows_as_dict(
+            self._execute(
+                (
+                    f"MATCH (n:{_NODE_TABLE}) RETURN "
+                    "n.node_id AS node_id, n.labels_json AS labels_json, "
+                    "n.properties_json AS properties_json, "
+                    "n.tenant_id AS tenant_id, n.org_id AS org_id, "
+                    "n.user_id AS user_id, n.agent_id AS agent_id, "
+                    "n.session_id AS session_id, "
+                    "n.conversation_id AS conversation_id, "
+                    "n.project_id AS project_id, n.graph_id AS graph_id;"
+                )
+            )
+        )
+        nodes: list[GraphExportNode] = []
+        for row in rows:
+            namespace = memory_namespace_from_row(row, prefix="")
+            if namespace_filter is not None and not namespace.matches(namespace_filter):
+                continue
+            nodes.append(
+                GraphExportNode(
+                    node_id=str(row["node_id"]),
+                    labels=decode_json_list(as_optional_str(row["labels_json"])),
+                    namespace=namespace,
+                    properties=decode_json_object(
+                        as_optional_str(row["properties_json"])
+                    ),
+                )
+            )
+        return nodes
 
     def _execute(self, statement: str, params: dict[str, Any] | None = None):
         if params is None:

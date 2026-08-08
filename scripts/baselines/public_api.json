@@ -2,7 +2,7 @@
   "dependencies": [
     {
       "package": "graphfakos",
-      "required_range": ">=0.0.5,<1"
+      "required_range": ">=0.0.8,<1"
     }
   ],
   "exports": [
@@ -500,6 +500,6 @@
     "workspace_workbench_to_dict",
     "write_okf_bundle"
   ],
-  "package_version": "0.0.6",
+  "package_version": "0.0.7",
   "report_version": "sophiagraph.compatibility.v1"
 }

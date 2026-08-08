@@ -35,8 +35,10 @@ from .explorer_mechanics import (
     filter_orphans,
     filter_records,
     hit_for_record,
-    load_records,
+    load_record_page,
     navigation,
+    next_cursor,
+    record_page_stage,
     stage,
     unlinked_mentions,
 )
@@ -67,30 +69,25 @@ def explore_knowledge(
     """Build one structural explorer packet from existing store APIs."""
     plan: list[KnowledgeQueryPlanStage] = []
     started = perf_counter()
-    records = load_records(store, request)
+    page_records, has_next_page, offset = load_record_page(store, request)
     plan.append(
-        stage(
-            "search" if request.query else "records",
-            0,
-            len(records),
-            started,
-            {"query": request.query or "", "limit": request.limit},
+        record_page_stage(
+            request, output_count=len(page_records), offset=offset, started=started
         )
     )
 
     started = perf_counter()
-    filtered = filter_records(records, request.filters)
+    filtered = filter_records(page_records, request.filters)
     filtered = filter_orphans(store, filtered, request)
     plan.append(
         stage(
             "filters",
-            len(records),
-            min(len(filtered), request.limit),
+            len(page_records),
+            len(filtered),
             started,
             filter_details(request.filters),
         )
     )
-    filtered = filtered[: request.limit]
 
     hits = [
         hit_for_record(record, request.query or "", request.context_chars)
@@ -241,13 +238,13 @@ def explore_knowledge(
         started = perf_counter()
         mentions = unlinked_mentions(
             store,
-            records,
+            filtered,
             request,
         )
         plan.append(
             stage(
                 "unlinked_mentions",
-                len(records),
+                len(filtered),
                 len(mentions),
                 started,
                 {"persisted_edges": 0},
@@ -281,6 +278,9 @@ def explore_knowledge(
         navigation=navigation_actions,
         query_plan=KnowledgeQueryPlan(plan) if request.include_query_plan else None,
         warnings=warnings,
+        next_cursor=next_cursor(request, offset + request.limit)
+        if has_next_page
+        else None,
     )
 
 
