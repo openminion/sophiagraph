@@ -1,11 +1,11 @@
 # Sophiagraph Changelog
 
 Status: active
-Last updated: 2026-08-06
+Last updated: 2026-08-08
 
 This file tracks package-facing release notes for `sophiagraph`.
 
-## Unreleased
+## 0.0.7 - 2026-08-08
 
 ### Added
 

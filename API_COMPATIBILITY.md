@@ -80,8 +80,8 @@ Compatibility window: `sophiagraph.models.SCOPE_PATTERN` is the public scope
 regex for package consumers. `sophiagraph.models._SCOPE_PATTERN` remains as a
 temporary compatibility alias for existing OpenMinion 0.x consumers and should
 not be used by new code. The public delegated-access and scope-pattern contract
-begins with the unreleased `0.0.7` source line; published `0.0.6` does not
-contain `sophiagraph.access`.
+begins with the `0.0.7` release line; `0.0.6` and earlier do not contain
+`sophiagraph.access`.
 
 See [`docs/api-stability.md`](docs/api-stability.md) for the short-form API
 stability guide and new-export checklist.
