@@ -23,11 +23,7 @@ def normalize_workspace_relative_path(path: str) -> str:
     if not path:
         raise InvalidArgumentError("relative_path is required")
     normalized = PurePosixPath(path).as_posix()
-    if (
-        normalized.startswith("/")
-        or normalized.startswith("../")
-        or "/../" in normalized
-    ):
+    if normalized.startswith(("/", "../")) or "/../" in normalized:
         raise InvalidArgumentError("relative_path must stay under the source root")
     return normalized
 

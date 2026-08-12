@@ -25,7 +25,7 @@ def _validate_path(path: str) -> str:
     normalized = str(PurePosixPath(str(path or "").replace("\\", "/")))
     if not normalized or normalized == ".":
         raise InvalidArgumentError("path is required")
-    if normalized.startswith("/") or normalized.startswith("../"):
+    if normalized.startswith(("/", "../")):
         raise InvalidArgumentError("path must be relative and cannot traverse parents")
     if ".." in normalized.split("/"):
         raise InvalidArgumentError("path must be relative and cannot traverse parents")

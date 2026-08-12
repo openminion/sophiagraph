@@ -38,7 +38,7 @@ MemoryAccessTelemetryRecorder = Callable[[MemoryAccessTelemetryEvent], None]
 
 
 def noop_access_telemetry_recorder(
-    event: MemoryAccessTelemetryEvent,
+    _event: MemoryAccessTelemetryEvent,
 ) -> None:  # pragma: no cover - trivial callback
     return None
 

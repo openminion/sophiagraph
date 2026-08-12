@@ -188,10 +188,7 @@ def filter_orphans(
 
 def record_has_properties(record: MemoryRecord, expected: dict[str, Any]) -> bool:
     properties = record_properties(record)
-    for key, value in expected.items():
-        if properties.get(key) != value:
-            return False
-    return True
+    return all(properties.get(key) == value for key, value in expected.items())
 
 
 def filter_links(

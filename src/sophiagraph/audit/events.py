@@ -14,7 +14,7 @@ MemoryAuditRecorder = Callable[["MemoryAuditEvent"], None]
 
 
 def noop_audit_recorder(
-    event: "MemoryAuditEvent",
+    _event: "MemoryAuditEvent",
 ) -> None:  # pragma: no cover - trivial
     return None
 

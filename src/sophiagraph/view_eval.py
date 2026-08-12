@@ -230,7 +230,7 @@ class FormulaValidator(ast.NodeVisitor):
         if node.id not in self._allowed_names and node.id not in _ALLOWED_FUNCTIONS:
             raise InvalidArgumentError(f"unknown formula field: {node.id!r}")
 
-    def visit_Attribute(self, node: ast.Attribute) -> None:
+    def visit_Attribute(self, _node: ast.Attribute) -> None:
         raise InvalidArgumentError("attribute access is not allowed in formulas")
 
     def visit_Call(self, node: ast.Call) -> None:

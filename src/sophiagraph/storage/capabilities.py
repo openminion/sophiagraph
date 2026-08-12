@@ -134,7 +134,7 @@ def _sqlite_fts_tables_available(store: Any, sqlite_schema_version: int) -> bool
                 ).fetchall()
             except sqlite3.OperationalError:
                 return False
-    return SQLITE_SCHEMA_VERSION == sqlite_schema_version
+    return sqlite_schema_version == SQLITE_SCHEMA_VERSION
 
 
 __all__ = [

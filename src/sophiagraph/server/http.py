@@ -553,7 +553,7 @@ def make_http_server(
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, format: str, *args: object) -> None:
+        def log_message(self, _format: str, *_args: object) -> None:
             return
 
     server = SophiagraphHttpServer((resolved.host, resolved.port), Handler)
