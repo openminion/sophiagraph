@@ -90,3 +90,18 @@ Adapter tests must use `graphfakos.testing.assert_provider_conformance(...)`
 for the shared viewer contract. Sophiagraph-specific tests should then cover
 durable-memory semantics such as candidate promotion, trust fields, note
 capture, and workbench action authorization.
+
+## Reuse guidance
+
+Use `graphfakos` directly for provider-neutral graph visualization, artifact
+replay, local static previews, and viewer contract assertions. Use
+`sophiagraph.ui` when the source graph is a Sophiagraph durable-memory store or
+workspace and the viewer needs Sophiagraph-specific context such as candidate
+status, trust/provenance payloads, saved views, or local workbench actions.
+
+This keeps the package split stable for future consumers:
+
+1. new graph providers implement the GraphFakos provider contract,
+2. Sophiagraph keeps memory semantics in the Sophiagraph adapter,
+3. OpenMinion can consume both as installed dependencies without owning a
+   separate viewer fork.
