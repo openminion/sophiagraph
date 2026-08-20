@@ -42,6 +42,24 @@ sophiagraph-ui \
   --serve
 ```
 
+Run the package-local walkthrough:
+
+```bash
+python3.11 examples/ui_workbench_export.py
+```
+
+The walkthrough builds a small durable-memory graph, writes a replayable
+GraphFakos artifact, renders static HTML, approves a candidate, promotes it,
+and prints a compact JSON proof summary.
+
+## Inspector fields
+
+Sophiagraph supplies memory-specific inspector fields through provider payloads
+while GraphFakos stays provider-neutral. Record nodes expose stable id, scope,
+namespace, type, tier, source, confidence, and evidence references. Candidate
+nodes expose candidate id, status, claim key, polarity, source class, proposed
+scope, reviewer, and evidence references.
+
 ## Live action posture
 
 The live local server injects the trusted local principal, workspace id, scope,

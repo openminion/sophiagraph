@@ -34,8 +34,14 @@ EXAMPLE_EXPECTATIONS = {
         "failed": 0,
     },
     "ui_workbench_export.py": {
+        "provider_id": "sophiagraph",
+        "graph_role": "memory",
+        "candidate_status": "promoted",
+        "approve_status": "applied",
+        "promote_status": "applied",
         "artifact_written": True,
-        "report_written": True,
+        "html_mentions_candidate": True,
+        "promoted_record_exists": True,
     },
     "storage_retrieval_backends.py": {
         "memory_backend": "memory",

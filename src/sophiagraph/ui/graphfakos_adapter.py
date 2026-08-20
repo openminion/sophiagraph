@@ -127,10 +127,16 @@ class SophiagraphViewerProvider(GraphFakosProvider):
             },
             generated_at="2026-06-22T00:00:00+00:00",
             provider_payload={
+                "integration_summary": (
+                    "Inspect Sophiagraph durable-memory records, candidates, "
+                    "trust fields, provenance, citations, and local workbench "
+                    "actions through the shared GraphFakos viewer."
+                ),
                 "integration_commands": (
                     "sophiagraph-ui --workspace <workspace-root> --screen explore --serve --open",
                     "python -m sophiagraph ui-preview --screen views --serve",
-                )
+                ),
+                "inspector_schemas": _inspector_schemas(),
             },
         )
 
@@ -294,11 +300,21 @@ def _record_node(record: object, block: object | None) -> GraphFakosNode:
         provenance_ids=(f"provenance:{getattr(record, 'id')}",),
         citation_ids=citation_ids,
         provider_payload={
+            "record_id": getattr(record, "id"),
             "key": getattr(record, "key", None),
             "scope": getattr(record, "scope", None),
-            "claim_key": getattr(record, "claim_key", None),
-            "source_class": getattr(record, "source_class", None),
-            "polarity": getattr(record, "polarity", None),
+            "namespace": _namespace_payload(getattr(record, "namespace", None)),
+            "memory_type": getattr(record, "type", None),
+            "tier": getattr(record, "tier", None),
+            "source": getattr(record, "source", None),
+            "visibility": getattr(record, "visibility", None),
+            "confidence": getattr(record, "confidence", None),
+            "access_count": getattr(record, "access_count", None),
+            "is_deleted": getattr(record, "is_deleted", False),
+            "supersedes_id": getattr(record, "supersedes_id", None),
+            "superseded_by_id": getattr(record, "superseded_by_id", None),
+            "valid_to": getattr(record, "valid_to", None),
+            "evidence_refs": _artifact_refs(getattr(record, "evidence_refs", ())),
         },
     )
 
@@ -344,10 +360,17 @@ def _candidate_node(candidate: object) -> GraphFakosNode:
             "updated_at": str(getattr(candidate, "updated_at", "")),
         },
         provider_payload={
+            "candidate_id": getattr(candidate, "candidate_id"),
+            "status": getattr(candidate, "status", None),
+            "session_id": getattr(candidate, "session_id", None),
+            "memory_type": getattr(candidate, "type", None),
+            "namespace": _namespace_payload(getattr(candidate, "namespace", None)),
             "claim_key": getattr(candidate, "claim_key", None),
             "polarity": getattr(candidate, "polarity", None),
             "source_class": getattr(candidate, "source_class", None),
             "proposed_scope": getattr(candidate, "proposed_scope", None),
+            "evidence_refs": _artifact_refs(getattr(candidate, "evidence_refs", ())),
+            "reviewed_by": _reviewer(getattr(candidate, "review", None)),
         },
     )
 
@@ -376,6 +399,78 @@ def _record_provenance(record: object) -> GraphFakosProvenance:
         created_at=str(getattr(record, "created_at", "")),
         updated_at=str(getattr(record, "updated_at", "")),
         confidence=getattr(record, "confidence", None),
+    )
+
+
+def _namespace_payload(namespace: object | None) -> dict[str, str]:
+    if isinstance(namespace, MemoryNamespace):
+        return namespace.as_dict()
+    return {}
+
+
+def _artifact_refs(refs: object) -> tuple[str, ...]:
+    return tuple(str(getattr(ref, "ref")) for ref in refs or ())
+
+
+def _reviewer(review: object | None) -> str:
+    return str(getattr(review, "reviewer", "") or "")
+
+
+def _inspector_schemas() -> tuple[dict[str, object], ...]:
+    return (
+        {
+            "schema_id": "sophiagraph-memory-record",
+            "node_kind": "memory_record",
+            "fields": (
+                {
+                    "key": "record_id",
+                    "label": "Record id",
+                    "source": "provider_payload",
+                },
+                {"key": "scope", "label": "Scope", "source": "provider_payload"},
+                {"key": "memory_type", "label": "Type", "source": "provider_payload"},
+                {"key": "tier", "label": "Tier", "source": "provider_payload"},
+                {
+                    "key": "confidence",
+                    "label": "Confidence",
+                    "source": "provider_payload",
+                },
+                {"key": "source", "label": "Source", "source": "provider_payload"},
+                {
+                    "key": "evidence_refs",
+                    "label": "Evidence",
+                    "source": "provider_payload",
+                },
+            ),
+        },
+        {
+            "schema_id": "sophiagraph-memory-candidate",
+            "node_kind": "memory_candidate",
+            "fields": (
+                {
+                    "key": "candidate_id",
+                    "label": "Candidate id",
+                    "source": "provider_payload",
+                },
+                {"key": "status", "label": "Status", "source": "provider_payload"},
+                {
+                    "key": "claim_key",
+                    "label": "Claim key",
+                    "source": "provider_payload",
+                },
+                {"key": "polarity", "label": "Polarity", "source": "provider_payload"},
+                {
+                    "key": "source_class",
+                    "label": "Source class",
+                    "source": "provider_payload",
+                },
+                {
+                    "key": "evidence_refs",
+                    "label": "Evidence",
+                    "source": "provider_payload",
+                },
+            ),
+        },
     )
 
 
