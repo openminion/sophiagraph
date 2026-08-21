@@ -17,13 +17,13 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.8-3775A9"></a>
+  <a href="https://pypi.org/project/sophiagraph/"><img alt="PyPI" src="https://img.shields.io/badge/pypi-v0.0.9rc1-3775A9"></a>
   <a href="https://pypi.org/project/sophiagraph/"><img alt="Python" src="https://img.shields.io/pypi/pyversions/sophiagraph?cacheSeconds=300"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-alpha-6B7280">
 </p>
 
-The current SophiaGraph source is the `v0.0.8` alpha release line for durable,
+The current SophiaGraph source is the `v0.0.9rc1` alpha release line for durable,
 typed memory.
 It stores memory records, relations, provenance, lifecycle state, and portable
 workspace data without importing the OpenMinion runtime.
@@ -54,7 +54,7 @@ and should be treated as a scam.
 | | |
 | --- | --- |
 | Package | `sophiagraph` |
-| Source line | `v0.0.8` alpha |
+| Source line | `v0.0.9rc1` alpha |
 | Python | 3.11+ |
 | Best fit | Durable agent memory, provenance, lifecycle, and local knowledge workspaces |
 | Default durable backend | SQLite |
