@@ -22,6 +22,14 @@ from sophiagraph.models import (
 from sophiagraph.storage import SophiaGraphMemoryStore
 from sophiagraph.ui.graphfakos_adapter import SophiagraphViewerProvider
 
+SCOPE = "agent:demo"
+AUTH_RECORD_ID = "auth-decision"
+REFRESH_RECORD_ID = "refresh-plan"
+CANDIDATE_ID = "candidate-graph-navigation"
+OPERATOR_NOTE_REF = "artifact:operator-note"
+STAMP = "2026-06-22T00:00:00+00:00"
+REVIEW_STAMP = "2026-06-22T00:05:00+00:00"
+
 
 def run_example(root: str | Path) -> dict[str, object]:
     root = Path(root)
@@ -30,11 +38,11 @@ def run_example(root: str | Path) -> dict[str, object]:
     seed_review_store(store, namespace=namespace)
     provider = SophiagraphViewerProvider(
         store=store,
-        scope="agent:demo",
+        scope=SCOPE,
         namespace=namespace,
         principal_id="local-operator",
     )
-    request = GraphFakosRequest(screen="explore", focus_node_id="auth-decision")
+    request = GraphFakosRequest(screen="explore", focus_node_id=AUTH_RECORD_ID)
     graph = load_provider_graph(provider, request)
     html = render_static_html(provider, request)
     artifact_path = root / "sophiagraph-artifact.json"
@@ -44,18 +52,18 @@ def run_example(root: str | Path) -> dict[str, object]:
         GraphFakosGraphAction(
             action_id="approve-demo-candidate",
             action_type="approve_candidate",
-            target_id="candidate:candidate-graph-navigation",
+            target_id=f"candidate:{CANDIDATE_ID}",
         )
     )
     promote = provider.submit_graph_action(
         GraphFakosGraphAction(
             action_id="promote-demo-candidate",
             action_type="promote_candidate",
-            target_id="candidate:candidate-graph-navigation",
-            provider_payload={"evidence_refs": ["artifact:operator-note"]},
+            target_id=f"candidate:{CANDIDATE_ID}",
+            provider_payload={"evidence_refs": [OPERATOR_NOTE_REF]},
         )
     )
-    reviewed_candidate = store.get_candidate("candidate-graph-navigation")
+    reviewed_candidate = store.get_candidate(CANDIDATE_ID)
     promoted_payload = promote.provider_payload["result"]["provider_payload"]
     promoted_record_id = str(promoted_payload["record_id"])
     return {
@@ -78,8 +86,8 @@ def seed_review_store(
     namespace: MemoryNamespace,
 ) -> None:
     auth = MemoryRecord(
-        id="auth-decision",
-        scope="agent:demo",
+        id=AUTH_RECORD_ID,
+        scope=SCOPE,
         type="fact",
         key="auth.decision",
         title="Auth Decision",
@@ -88,13 +96,13 @@ def seed_review_store(
         source="validated",
         confidence=0.91,
         tier="archival",
-        created_at="2026-06-22T00:00:00+00:00",
-        updated_at="2026-06-22T00:00:00+00:00",
+        created_at=STAMP,
+        updated_at=STAMP,
         evidence_refs=[operator_note_ref()],
     )
     refresh = MemoryRecord(
-        id="refresh-plan",
-        scope="agent:demo",
+        id=REFRESH_RECORD_ID,
+        scope=SCOPE,
         type="procedure",
         key="ui.refresh",
         title="Preview Refresh Plan",
@@ -103,8 +111,8 @@ def seed_review_store(
         source="agent_inferred",
         confidence=0.83,
         tier="working",
-        created_at="2026-06-22T00:00:00+00:00",
-        updated_at="2026-06-22T00:00:00+00:00",
+        created_at=STAMP,
+        updated_at=STAMP,
     )
     store.put_record(auth)
     store.put_record(refresh)
@@ -118,7 +126,7 @@ def seed_review_store(
             resolution_status="resolved",
             namespace=namespace,
             relation_type="supports",
-            created_at="2026-06-22T00:00:00+00:00",
+            created_at=STAMP,
         )
     )
     store.put_document_blocks(
@@ -136,9 +144,9 @@ def seed_review_store(
     )
     store.put_candidate(
         MemoryCandidate(
-            candidate_id="candidate-graph-navigation",
+            candidate_id=CANDIDATE_ID,
             session_id="session-demo",
-            proposed_scope="agent:demo",
+            proposed_scope=SCOPE,
             type="fact",
             title="Navigation Candidate",
             content={
@@ -152,15 +160,15 @@ def seed_review_store(
             polarity="asserts",
             source_class="user_input",
             evidence_refs=[operator_note_ref()],
-            created_at="2026-06-22T00:05:00+00:00",
-            updated_at="2026-06-22T00:05:00+00:00",
+            created_at=REVIEW_STAMP,
+            updated_at=REVIEW_STAMP,
         )
     )
 
 
 def operator_note_ref() -> ArtifactRef:
     return ArtifactRef(
-        ref="artifact:operator-note",
+        ref=OPERATOR_NOTE_REF,
         mime="text/markdown",
         sha256="demo-auth-note",
         size_bytes=128,

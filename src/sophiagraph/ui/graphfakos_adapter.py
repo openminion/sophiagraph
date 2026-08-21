@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import cast
+from collections.abc import Sequence
+from typing import Any, cast
 
 from graphfakos import (
     GraphFakosActionStatus,
@@ -18,10 +19,17 @@ from graphfakos import (
 )
 
 from sophiagraph.query import CandidateListOptions, LinkQueryOptions, ListQueryOptions
+from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.workbench import WorkbenchActionKind, WorkbenchActionRequest
 from sophiagraph.workbench_actions import execute_workbench_action
 from sophiagraph.models import (
+    ArtifactRef,
+    CandidateReview,
+    KnowledgeDocumentBlock,
+    MemoryCandidate,
     MemoryNamespace,
+    MemoryRecord,
+    StructuralLink,
     WorkbenchActionExecutionContext,
     WorkbenchActionResult,
 )
@@ -50,9 +58,9 @@ class SophiagraphViewerProvider(GraphFakosProvider):
     def __init__(
         self,
         *,
-        store: object,
+        store: SophiaGraphStore,
         scope: str,
-        namespace: object,
+        namespace: MemoryNamespace,
         principal_id: str = "",
         workspace_id: str = "workspace:local",
         workspace_root: str = "",
@@ -249,171 +257,167 @@ class SophiagraphViewerProvider(GraphFakosProvider):
         return bool(self._principal_id)
 
     def _context(self, *, action_id: str) -> WorkbenchActionExecutionContext:
-        namespace = (
-            self._namespace
-            if isinstance(self._namespace, MemoryNamespace)
-            else MemoryNamespace.from_scope(self._scope)
-        )
         return WorkbenchActionExecutionContext(
             action_id=action_id,
             request_id=action_id,
             principal_id=self._principal_id,
             workspace_id=self._workspace_id,
             scope=self._scope,
-            namespace=namespace,
+            namespace=self._namespace,
             workspace_root=self._workspace_root,
             source_root=self._source_root,
         )
 
 
-def _graph_id(namespace: object) -> str:
-    graph_id = getattr(namespace, "graph_id", None)
-    agent_id = getattr(namespace, "agent_id", None)
+def _graph_id(namespace: MemoryNamespace) -> str:
+    graph_id = namespace.graph_id
+    agent_id = namespace.agent_id
     return ":".join(part for part in (agent_id, graph_id) if part) or "sophiagraph"
 
 
-def _record_node(record: object, block: object | None) -> GraphFakosNode:
-    meta = getattr(record, "meta", {}) or {}
-    title = getattr(record, "title", None) or getattr(record, "id")
-    content = getattr(record, "content", {}) or {}
-    text = (
-        content.get("text", str(content)) if isinstance(content, dict) else str(content)
-    )
+def _record_node(
+    record: MemoryRecord,
+    block: KnowledgeDocumentBlock | None,
+) -> GraphFakosNode:
+    title = record.title or record.id
+    text = _memory_summary(record.content)
     tags = (
         "record",
-        str(getattr(record, "type", "memory")),
-        str(getattr(record, "tier", "stored")),
+        record.type,
+        record.tier,
     )
     citation_ids = (f"citation:{block.block_id}",) if block else ()
     return GraphFakosNode(
-        id=str(getattr(record, "id")),
+        id=record.id,
         label=str(title),
         kind="memory_record",
         summary=text,
         tags=tags,
-        confidence=getattr(record, "confidence", None),
-        source=str(getattr(record, "source", "") or meta.get("document", "")),
+        confidence=record.confidence,
+        source=record.source or str(record.meta.get("document", "")),
         timestamps={
-            "created_at": str(getattr(record, "created_at", "")),
-            "updated_at": str(getattr(record, "updated_at", "")),
+            "created_at": record.created_at,
+            "updated_at": record.updated_at,
         },
-        provenance_ids=(f"provenance:{getattr(record, 'id')}",),
+        provenance_ids=(f"provenance:{record.id}",),
         citation_ids=citation_ids,
         provider_payload={
-            "record_id": getattr(record, "id"),
-            "key": getattr(record, "key", None),
-            "scope": getattr(record, "scope", None),
-            "namespace": _namespace_payload(getattr(record, "namespace", None)),
-            "memory_type": getattr(record, "type", None),
-            "tier": getattr(record, "tier", None),
-            "source": getattr(record, "source", None),
-            "visibility": getattr(record, "visibility", None),
-            "confidence": getattr(record, "confidence", None),
-            "access_count": getattr(record, "access_count", None),
-            "is_deleted": getattr(record, "is_deleted", False),
-            "supersedes_id": getattr(record, "supersedes_id", None),
-            "superseded_by_id": getattr(record, "superseded_by_id", None),
-            "valid_to": getattr(record, "valid_to", None),
-            "evidence_refs": _artifact_refs(getattr(record, "evidence_refs", ())),
+            "record_id": record.id,
+            "key": record.key,
+            "scope": record.scope,
+            "namespace": record.effective_namespace.as_dict(),
+            "memory_type": record.type,
+            "tier": record.tier,
+            "source": record.source,
+            "visibility": record.visibility,
+            "confidence": record.confidence,
+            "access_count": record.access_count,
+            "is_deleted": record.is_deleted,
+            "supersedes_id": record.supersedes_id,
+            "superseded_by_id": record.superseded_by_id,
+            "valid_to": record.valid_to,
+            "evidence_refs": _artifact_refs(record.evidence_refs),
         },
     )
 
 
 def _record_links(
-    store: object,
-    records: tuple[object, ...],
-    namespace: object,
-) -> tuple[object, ...]:
-    links_by_id: dict[str, object] = {}
+    store: SophiaGraphStore,
+    records: tuple[MemoryRecord, ...],
+    namespace: MemoryNamespace,
+) -> tuple[StructuralLink, ...]:
+    links_by_id: dict[str, StructuralLink] = {}
     for record in records:
         for link in store.list_links(
             LinkQueryOptions(
-                record_id=str(getattr(record, "id")),
+                record_id=record.id,
                 direction="both",
                 namespaces=[namespace],
             )
         ):
-            links_by_id[str(getattr(link, "link_id"))] = link
+            links_by_id[link.link_id] = link
     return tuple(links_by_id.values())
 
 
-def _candidate_node(candidate: object) -> GraphFakosNode:
-    title = getattr(candidate, "title", None) or getattr(candidate, "candidate_id")
-    content = getattr(candidate, "content", {}) or {}
-    text = (
-        content.get("text", str(content)) if isinstance(content, dict) else str(content)
-    )
+def _candidate_node(candidate: MemoryCandidate) -> GraphFakosNode:
+    title = candidate.title or candidate.candidate_id
+    text = _memory_summary(candidate.content)
     return GraphFakosNode(
-        id=f"candidate:{getattr(candidate, 'candidate_id')}",
+        id=f"candidate:{candidate.candidate_id}",
         label=str(title),
         kind="memory_candidate",
         summary=text,
         tags=(
             "candidate",
-            str(getattr(candidate, "status", "")),
-            str(getattr(candidate, "type", "")),
+            candidate.status,
+            candidate.type,
         ),
-        confidence=getattr(candidate, "confidence", None),
-        source=str(getattr(candidate, "source", "")),
+        confidence=candidate.confidence,
+        source=candidate.source,
         timestamps={
-            "created_at": str(getattr(candidate, "created_at", "")),
-            "updated_at": str(getattr(candidate, "updated_at", "")),
+            "created_at": str(candidate.created_at or ""),
+            "updated_at": str(candidate.updated_at or ""),
         },
         provider_payload={
-            "candidate_id": getattr(candidate, "candidate_id"),
-            "status": getattr(candidate, "status", None),
-            "session_id": getattr(candidate, "session_id", None),
-            "memory_type": getattr(candidate, "type", None),
-            "namespace": _namespace_payload(getattr(candidate, "namespace", None)),
-            "claim_key": getattr(candidate, "claim_key", None),
-            "polarity": getattr(candidate, "polarity", None),
-            "source_class": getattr(candidate, "source_class", None),
-            "proposed_scope": getattr(candidate, "proposed_scope", None),
-            "evidence_refs": _artifact_refs(getattr(candidate, "evidence_refs", ())),
-            "reviewed_by": _reviewer(getattr(candidate, "review", None)),
+            "candidate_id": candidate.candidate_id,
+            "status": candidate.status,
+            "session_id": candidate.session_id,
+            "memory_type": candidate.type,
+            "namespace": _candidate_namespace(candidate).as_dict(),
+            "claim_key": candidate.claim_key,
+            "polarity": candidate.polarity,
+            "source_class": candidate.source_class,
+            "proposed_scope": candidate.proposed_scope,
+            "evidence_refs": _artifact_refs(candidate.evidence_refs),
+            "reviewed_by": _reviewer(candidate.review),
         },
     )
 
 
-def _candidate_in_scope(candidate: object, scope: str, namespace: object) -> bool:
-    candidate_namespace = getattr(candidate, "namespace", None)
-    if candidate_namespace is None:
-        candidate_namespace = MemoryNamespace.from_scope(
-            str(getattr(candidate, "proposed_scope", ""))
-        )
+def _candidate_in_scope(
+    candidate: MemoryCandidate,
+    scope: str,
+    namespace: MemoryNamespace,
+) -> bool:
     return (
-        str(getattr(candidate, "proposed_scope", "")) == scope
-        and candidate_namespace == namespace
+        candidate.proposed_scope == scope
+        and _candidate_namespace(candidate) == namespace
     )
 
 
-def _record_provenance(record: object) -> GraphFakosProvenance:
-    record_id = getattr(record, "id")
-    source = str(getattr(record, "source", "") or "sophiagraph")
+def _record_provenance(record: MemoryRecord) -> GraphFakosProvenance:
     return GraphFakosProvenance(
-        id=f"provenance:{record_id}",
+        id=f"provenance:{record.id}",
         provider_id="sophiagraph",
         source_type="durable_memory",
-        source_label=source,
-        excerpt=str(getattr(record, "title", None) or record_id),
-        created_at=str(getattr(record, "created_at", "")),
-        updated_at=str(getattr(record, "updated_at", "")),
-        confidence=getattr(record, "confidence", None),
+        source_label=record.source or "sophiagraph",
+        excerpt=str(record.title or record.id),
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+        confidence=record.confidence,
     )
 
 
-def _namespace_payload(namespace: object | None) -> dict[str, str]:
-    if isinstance(namespace, MemoryNamespace):
-        return namespace.as_dict()
-    return {}
+def _candidate_namespace(candidate: MemoryCandidate) -> MemoryNamespace:
+    return candidate.namespace or MemoryNamespace.from_scope(candidate.proposed_scope)
 
 
-def _artifact_refs(refs: object) -> tuple[str, ...]:
-    return tuple(str(getattr(ref, "ref")) for ref in refs or ())
+def _memory_summary(content: dict[str, Any] | str) -> str:
+    if isinstance(content, dict):
+        return str(content.get("text", content))
+    return content
 
 
-def _reviewer(review: object | None) -> str:
-    return str(getattr(review, "reviewer", "") or "")
+def _artifact_refs(refs: Sequence[ArtifactRef]) -> tuple[str, ...]:
+    return tuple(ref.ref for ref in refs)
+
+
+def _reviewer(review: CandidateReview | None) -> str:
+    return review.reviewer if review else ""
+
+
+def _payload_field(key: str, label: str) -> dict[str, str]:
+    return {"key": key, "label": label, "source": "provider_payload"}
 
 
 def _inspector_schemas() -> tuple[dict[str, object], ...]:
@@ -422,86 +426,55 @@ def _inspector_schemas() -> tuple[dict[str, object], ...]:
             "schema_id": "sophiagraph-memory-record",
             "node_kind": "memory_record",
             "fields": (
-                {
-                    "key": "record_id",
-                    "label": "Record id",
-                    "source": "provider_payload",
-                },
-                {"key": "scope", "label": "Scope", "source": "provider_payload"},
-                {"key": "memory_type", "label": "Type", "source": "provider_payload"},
-                {"key": "tier", "label": "Tier", "source": "provider_payload"},
-                {
-                    "key": "confidence",
-                    "label": "Confidence",
-                    "source": "provider_payload",
-                },
-                {"key": "source", "label": "Source", "source": "provider_payload"},
-                {
-                    "key": "evidence_refs",
-                    "label": "Evidence",
-                    "source": "provider_payload",
-                },
+                _payload_field("record_id", "Record id"),
+                _payload_field("scope", "Scope"),
+                _payload_field("memory_type", "Type"),
+                _payload_field("tier", "Tier"),
+                _payload_field("confidence", "Confidence"),
+                _payload_field("source", "Source"),
+                _payload_field("evidence_refs", "Evidence"),
             ),
         },
         {
             "schema_id": "sophiagraph-memory-candidate",
             "node_kind": "memory_candidate",
             "fields": (
-                {
-                    "key": "candidate_id",
-                    "label": "Candidate id",
-                    "source": "provider_payload",
-                },
-                {"key": "status", "label": "Status", "source": "provider_payload"},
-                {
-                    "key": "claim_key",
-                    "label": "Claim key",
-                    "source": "provider_payload",
-                },
-                {"key": "polarity", "label": "Polarity", "source": "provider_payload"},
-                {
-                    "key": "source_class",
-                    "label": "Source class",
-                    "source": "provider_payload",
-                },
-                {
-                    "key": "evidence_refs",
-                    "label": "Evidence",
-                    "source": "provider_payload",
-                },
+                _payload_field("candidate_id", "Candidate id"),
+                _payload_field("status", "Status"),
+                _payload_field("claim_key", "Claim key"),
+                _payload_field("polarity", "Polarity"),
+                _payload_field("source_class", "Source class"),
+                _payload_field("evidence_refs", "Evidence"),
             ),
         },
     )
 
 
-def _link_edge(link: object) -> GraphFakosEdge:
+def _link_edge(link: StructuralLink) -> GraphFakosEdge:
+    label = link.relation_type or link.link_kind
     return GraphFakosEdge(
-        id=str(getattr(link, "link_id")),
-        source_id=str(getattr(link, "source_record_id")),
-        target_id=str(getattr(link, "target_record_id")),
-        kind=str(
-            getattr(link, "relation_type", None) or getattr(link, "link_kind", "")
-        ),
-        label=str(
-            getattr(link, "relation_type", None) or getattr(link, "link_kind", "")
-        ),
+        id=link.link_id,
+        source_id=link.source_record_id,
+        target_id=link.target_record_id,
+        kind=label,
+        label=label,
         confidence=1.0,
     )
 
 
 def _candidate_edge(
-    candidate: object,
-    records: tuple[object, ...],
+    candidate: MemoryCandidate,
+    records: tuple[MemoryRecord, ...],
 ) -> GraphFakosEdge | None:
     if not records:
         return None
     return GraphFakosEdge(
-        id=f"edge:candidate:{getattr(candidate, 'candidate_id')}",
-        source_id=f"candidate:{getattr(candidate, 'candidate_id')}",
-        target_id=str(getattr(records[0], "id")),
+        id=f"edge:candidate:{candidate.candidate_id}",
+        source_id=f"candidate:{candidate.candidate_id}",
+        target_id=records[0].id,
         kind="promote_candidate",
         label="promote candidate",
-        confidence=getattr(candidate, "confidence", None),
+        confidence=candidate.confidence,
     )
 
 

@@ -194,6 +194,11 @@ def test_sophiagraph_adapter_artifact_round_trip_matches_loaded_graph(tmp_path) 
     assert replay_graph.to_dict() == graph.to_dict()
     assert "Sophiagraph Durable Memory" in replay_html
     assert "Auth Decision" in replay_html
+    assert graph.provider_payload["integration_commands"][0].startswith(
+        "sophiagraph-ui"
+    )
+    assert graph.provider_payload["inspector_schemas"]
+    assert "graph_actions" not in graph.capabilities
 
 
 def test_sophiagraph_adapter_executes_candidate_action_through_provider() -> None:
