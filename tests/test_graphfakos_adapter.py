@@ -134,8 +134,22 @@ def test_sophiagraph_adapter_returns_second_brain_graphfakos_graph() -> None:
     assert graph.provider_id == "sophiagraph"
     assert graph.graph_role == "memory"
     assert any(node.label == "Auth Decision" for node in graph.nodes)
+    record = next(node for node in graph.nodes if node.label == "Auth Decision")
+    assert record.provider_payload["record_id"] == "auth"
+    assert record.provider_payload["scope"] == "agent:codex"
+    assert record.provider_payload["namespace"] == namespace.as_dict()
+    schemas = graph.provider_payload["inspector_schemas"]
+    record_schema = next(
+        schema for schema in schemas if schema["node_kind"] == "memory_record"
+    )
+    assert any(field["key"] == "scope" for field in record_schema["fields"])
     assert any(node.kind == "memory_candidate" for node in graph.nodes)
     candidate = next(node for node in graph.nodes if node.kind == "memory_candidate")
+    candidate_schema = next(
+        schema for schema in schemas if schema["node_kind"] == "memory_candidate"
+    )
+    assert any(field["key"] == "status" for field in candidate_schema["fields"])
+    assert candidate.provider_payload["candidate_id"] == "candidate-auth-rule"
     assert candidate.provider_payload["claim_key"] == "auth.jwt"
     assert candidate.provider_payload["polarity"] == "asserts"
     assert candidate.provider_payload["source_class"] == "user_input"
@@ -180,6 +194,11 @@ def test_sophiagraph_adapter_artifact_round_trip_matches_loaded_graph(tmp_path) 
     assert replay_graph.to_dict() == graph.to_dict()
     assert "Sophiagraph Durable Memory" in replay_html
     assert "Auth Decision" in replay_html
+    assert graph.provider_payload["integration_commands"][0].startswith(
+        "sophiagraph-ui"
+    )
+    assert graph.provider_payload["inspector_schemas"]
+    assert "graph_actions" not in graph.capabilities
 
 
 def test_sophiagraph_adapter_executes_candidate_action_through_provider() -> None:

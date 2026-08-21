@@ -31,8 +31,9 @@ PYTHONPATH=src python3.11 -m pytest -q tests/test_public_examples.py
 - `privacy_redaction.py` applies a typed privacy policy, redacts export output,
   and shows which record was omitted or redacted.
 - `benchmark_conformance.py` emits the built-in benchmark scorecard summary.
-- `ui_workbench_export.py` writes deterministic local HTML, artifact, embed,
-  JSON report, and Markdown report files.
+- `ui_workbench_export.py` builds a small durable-memory graph, writes a
+  replayable GraphFakos artifact, renders static HTML, and exercises
+  candidate approval plus promotion through the Sophiagraph viewer bridge.
 - `storage_retrieval_backends.py` prints typed storage capability posture for
   the in-memory and SQLite stores after a portability round-trip.
 
@@ -40,7 +41,8 @@ PYTHONPATH=src python3.11 -m pytest -q tests/test_public_examples.py
 
 Examples should stay small and deterministic:
 
-1. Use public imports from `sophiagraph`.
+1. Use public imports from `sophiagraph`; UI examples may also use public
+   GraphFakos imports for viewer artifacts and actions.
 2. Avoid local machine paths in output.
 3. Avoid network calls and provider credentials.
 4. Prefer temporary directories for generated files.

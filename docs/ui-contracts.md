@@ -86,6 +86,13 @@ primitive, live local action handling over package-owned executors, and the
 local visual UI command above so the standalone package has one canonical
 import root for visual/runtime work.
 
+The legacy `render`, `screens`, `screen_builders`, and `workbench` modules are
+still the package-owned typed packet and deterministic HTML compatibility
+surface. They should not grow a second interactive graph viewer. New visual
+navigation, canvas behavior, artifact replay, and browser assertions belong in
+GraphFakos, with only Sophiagraph-specific memory semantics kept in
+`sophiagraph.ui.graphfakos_adapter`.
+
 Adapter tests must use `graphfakos.testing.assert_provider_conformance(...)`
 for the shared viewer contract. Sophiagraph-specific tests should then cover
 durable-memory semantics such as candidate promotion, trust fields, note
