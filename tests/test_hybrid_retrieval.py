@@ -8,7 +8,7 @@ import pytest
 
 from sophiagraph import SophiaGraphMemoryStore, SophiaGraphSqliteStore
 from sophiagraph.contracts.errors import InvalidArgumentError
-from sophiagraph.models import MemoryNamespace, MemoryRecord
+from sophiagraph.models import MemoryNamespace, MemoryRecord, MemoryRelation
 from sophiagraph.query import (
     GraphStageOptions,
     KeywordStageOptions,
@@ -164,6 +164,41 @@ def test_namespace_isolation_with_isolated_store(tmp_path: Path) -> None:
         ),
     )
     assert [h.record.id for h in res.hits] == ["only-a"]
+
+
+def test_graph_expansion_keeps_requested_scope(store) -> None:
+    store.put_record(
+        MemoryRecord(
+            id="private-neighbor",
+            scope="agent:private",
+            type="fact",
+            content="Private graph detail.",
+            created_at="2026-05-29T10:00:00+00:00",
+            updated_at="2026-05-29T10:00:00+00:00",
+            namespace=MemoryNamespace(agent_id="private"),
+            source="user_said",
+        )
+    )
+    store.put_relation(
+        MemoryRelation(
+            relation_id="cross-scope-edge",
+            source_record_id="rec-1",
+            target_record_id="private-neighbor",
+            relation_type="related_to",
+            created_at="2026-05-29T10:00:00+00:00",
+        )
+    )
+
+    result = assemble_retrieval(
+        store,
+        RetrievalRequest(
+            scopes=["agent:alpha"],
+            keyword=KeywordStageOptions(query="Sophiagraph"),
+            graph=GraphStageOptions(depth=1, max_expanded_records=10),
+        ),
+    )
+
+    assert [hit.record.id for hit in result.hits] == ["rec-1"]
 
 
 def test_vector_stage_without_adapter_raises(store) -> None:

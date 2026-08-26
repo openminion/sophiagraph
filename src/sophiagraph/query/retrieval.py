@@ -251,7 +251,7 @@ def _expand_graph_stage(
                 component_map.setdefault(neighbor_id, []).append(component)
                 continue
             neighbor = store.get_record(neighbor_id)
-            if neighbor is None:
+            if neighbor is None or neighbor.scope not in request.scopes:
                 continue
             record_map[neighbor_id] = neighbor
             component_map.setdefault(neighbor_id, []).append(component)
