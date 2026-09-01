@@ -1,9 +1,25 @@
 # Sophiagraph Changelog
 
 Status: active
-Last updated: 2026-08-08
+Last updated: 2026-09-01
 
 This file tracks package-facing release notes for `sophiagraph`.
+
+## 0.0.10 - 2026-09-01
+
+### Added
+
+- Added typed retrieval-eligibility decisions so callers can distinguish
+  eligible, omitted, and policy-excluded memory candidates.
+- Added structured retrieval omissions with stable reason and detail fields
+  for runtime evidence and repair flows.
+- Added hybrid-retrieval support for caller-supplied eligibility decisions,
+  omission reporting, and deterministic result accounting.
+
+### Fixed
+
+- Preserved graph scope isolation while combining ranked retrieval sources.
+- Validated release pull-request commit history against the correct base range.
 
 ## 0.0.7 - 2026-08-08
 
