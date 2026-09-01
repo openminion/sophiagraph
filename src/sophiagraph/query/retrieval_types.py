@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Final, Literal, Sequence
+from typing import Any, Callable, Final, Literal, Sequence
 
 from sophiagraph.contracts.errors import InvalidArgumentError
 from sophiagraph.models import MemoryNamespace, MemoryRecord
@@ -49,6 +49,28 @@ SCORE_COMPONENT_KINDS: Final[frozenset[str]] = frozenset(
         "rerank",
     }
 )
+
+
+@dataclass(frozen=True)
+class RetrievalEligibilityDecision:
+    """Caller-owned eligibility decision for one record at one retrieval stage."""
+
+    eligible: bool
+    reason_code: str
+
+
+@dataclass(frozen=True)
+class RetrievalOmission:
+    """Content-free record of a candidate excluded from one retrieval stage."""
+
+    item_id: str
+    stage: RetrievalStage
+    reason_code: str
+
+
+RetrievalEligibilityCallback = Callable[
+    [MemoryRecord, RetrievalStage], RetrievalEligibilityDecision
+]
 
 
 @dataclass(frozen=True)
@@ -149,6 +171,7 @@ class RetrievalRequest:
     trust: TrustStageOptions | None = None
     rerank: RerankStageOptions | None = None
     limit: int = 20
+    eligibility_callback: RetrievalEligibilityCallback | None = None
 
     def __post_init__(self) -> None:
         if not self.scopes:
@@ -221,6 +244,7 @@ class RetrievalResult:
     request_stage_order: list[str]
     namespaces_applied: list[MemoryNamespace] | None
     truncated: bool = False
+    omissions: list[RetrievalOmission] = field(default_factory=list)
 
 
 class RerankAdapter:
