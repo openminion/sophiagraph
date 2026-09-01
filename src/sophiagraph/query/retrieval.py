@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import Any
 
 from sophiagraph.contracts.errors import InvalidArgumentError
@@ -13,7 +14,10 @@ from sophiagraph.query.retrieval_types import (
     RerankAdapter,
     RerankStageOptions,
     RetrievalExplanation,
+    RetrievalEligibilityCallback,
+    RetrievalEligibilityDecision,
     RetrievalHit,
+    RetrievalOmission,
     RetrievalRequest,
     RetrievalResult,
     RETRIEVAL_STAGES,
@@ -26,6 +30,43 @@ from sophiagraph.query.retrieval_types import (
     VectorAdapter,
     VectorStageOptions,
 )
+
+
+class _Eligibility:
+    def __init__(self, callback: RetrievalEligibilityCallback | None) -> None:
+        self.callback = callback
+        self._decisions: dict[tuple[str, RetrievalStage], bool] = {}
+        self._omissions: dict[tuple[str, RetrievalStage, str], RetrievalOmission] = {}
+
+    def allows(self, record: MemoryRecord, stage: RetrievalStage) -> bool:
+        if self.callback is None:
+            return True
+        key = (record.id, stage)
+        cached = self._decisions.get(key)
+        if cached is not None:
+            return cached
+        try:
+            decision = self.callback(record, stage)
+        except Exception:
+            decision = RetrievalEligibilityDecision(
+                eligible=False,
+                reason_code="eligibility_callback_error",
+            )
+        self._decisions[key] = decision.eligible
+        if not decision.eligible:
+            omission = RetrievalOmission(
+                item_id=record.id,
+                stage=stage,
+                reason_code=decision.reason_code,
+            )
+            self._omissions.setdefault(
+                (omission.item_id, omission.stage, omission.reason_code), omission
+            )
+        return decision.eligible
+
+    @property
+    def omissions(self) -> list[RetrievalOmission]:
+        return list(self._omissions.values())
 
 
 def _rrf_scores(
@@ -76,6 +117,125 @@ def _recency_score(updated_at: str, *, now_iso: str, half_life_days: float) -> f
     return 0.5 ** (delta_days / float(half_life_days))
 
 
+def _apply_keyword_stage(
+    store: Any,
+    *,
+    request: RetrievalRequest,
+    record_map: dict[str, MemoryRecord],
+    component_map: dict[str, list[ScoreComponent]],
+    eligibility: _Eligibility,
+) -> None:
+    if request.keyword is None:
+        return
+    from sophiagraph.query import SearchQueryOptions
+
+    eligible_index = 0
+    offset = 0
+    while eligible_index < request.keyword.limit:
+        page = store.search_records(
+            SearchQueryOptions(
+                query=request.keyword.query,
+                scopes=request.scopes,
+                namespaces=request.namespaces,
+                limit=request.keyword.limit,
+                offset=(None if request.eligibility_callback is None else offset),
+            )
+        )
+        for record in page:
+            if not eligibility.allows(record, "keyword"):
+                continue
+            record_map[record.id] = record
+            raw = max(
+                0.0,
+                1.0 - (eligible_index / max(1, request.keyword.limit)),
+            )
+            component_map.setdefault(record.id, []).append(
+                ScoreComponent(
+                    kind="keyword",
+                    raw_score=raw,
+                    weight=1.0,
+                    detail={"rank": eligible_index},
+                )
+            )
+            eligible_index += 1
+            if eligible_index >= request.keyword.limit:
+                break
+        if request.eligibility_callback is None or len(page) < request.keyword.limit:
+            break
+        offset += len(page)
+
+
+def _apply_vector_stage(
+    store: Any,
+    *,
+    request: RetrievalRequest,
+    record_map: dict[str, MemoryRecord],
+    component_map: dict[str, list[ScoreComponent]],
+    via_relations: dict[str, list[str]],
+    eligibility: _Eligibility,
+    vector_adapter: VectorAdapter | None,
+) -> None:
+    if request.vector is None:
+        return
+    from sophiagraph.query import EmbeddingListOptions
+
+    embeddings = store.list_embeddings(
+        EmbeddingListOptions(
+            vector_space=request.vector.vector_space,
+            namespaces=request.namespaces,
+        )
+    )
+    candidates: list[tuple[str, list[float]]] = []
+    vector_records: dict[str, MemoryRecord] = {}
+    for embedding in embeddings:
+        if embedding.vector is None:
+            continue
+        if request.eligibility_callback is not None:
+            record = record_map.get(embedding.record_id) or store.get_record(
+                embedding.record_id
+            )
+            if record is None:
+                continue
+            if not eligibility.allows(record, "vector"):
+                _remove_record(
+                    record.id,
+                    record_map,
+                    component_map,
+                    via_relations,
+                )
+                continue
+            vector_records[record.id] = record
+        candidates.append((embedding.record_id, list(embedding.vector)))
+    if not candidates or vector_adapter is None:
+        return
+    results = vector_adapter.search(
+        query_embedding=list(request.vector.query_embedding),
+        vector_space=request.vector.vector_space,
+        candidates=candidates,
+        limit=request.vector.limit,
+        metric=request.vector.metric,
+    )
+    for record_id, score in results:
+        if request.eligibility_callback is not None and record_id not in vector_records:
+            continue
+        record = (
+            vector_records.get(record_id)
+            or record_map.get(record_id)
+            or store.get_record(record_id)
+        )
+        if record is None:
+            continue
+        record_map[record_id] = record
+        component_map.setdefault(record_id, []).append(
+            ScoreComponent(
+                kind="vector",
+                raw_score=float(score),
+                weight=1.0,
+                detail={"vector_space": request.vector.vector_space},
+            )
+        )
+
+
 def assemble_retrieval(
     store: Any,
     request: RetrievalRequest,
@@ -101,63 +261,24 @@ def assemble_retrieval(
     component_map: dict[str, list[ScoreComponent]] = {}
     record_map: dict[str, MemoryRecord] = {}
     via_relations: dict[str, list[str]] = {}
+    eligibility = _Eligibility(request.eligibility_callback)
 
-    if request.keyword is not None:
-        from sophiagraph.query import SearchQueryOptions
-
-        options = SearchQueryOptions(
-            query=request.keyword.query,
-            scopes=request.scopes,
-            namespaces=request.namespaces,
-            limit=request.keyword.limit,
-        )
-        for index, record in enumerate(store.search_records(options)):
-            record_map[record.id] = record
-            raw = max(0.0, 1.0 - (index / max(1, request.keyword.limit)))
-            component_map.setdefault(record.id, []).append(
-                ScoreComponent(
-                    kind="keyword",
-                    raw_score=raw,
-                    weight=1.0,
-                    detail={"rank": index},
-                )
-            )
-
-    if request.vector is not None:
-        from sophiagraph.query import EmbeddingListOptions
-
-        embeddings = store.list_embeddings(
-            EmbeddingListOptions(
-                vector_space=request.vector.vector_space,
-                namespaces=request.namespaces,
-            )
-        )
-        candidates = [
-            (embedding.record_id, list(embedding.vector or []))
-            for embedding in embeddings
-            if embedding.vector is not None
-        ]
-        if candidates and vector_adapter is not None:
-            results = vector_adapter.search(
-                query_embedding=list(request.vector.query_embedding),
-                vector_space=request.vector.vector_space,
-                candidates=candidates,
-                limit=request.vector.limit,
-                metric=request.vector.metric,
-            )
-            for record_id, score in results:
-                record = record_map.get(record_id) or store.get_record(record_id)
-                if record is None:
-                    continue
-                record_map[record_id] = record
-                component_map.setdefault(record_id, []).append(
-                    ScoreComponent(
-                        kind="vector",
-                        raw_score=float(score),
-                        weight=1.0,
-                        detail={"vector_space": request.vector.vector_space},
-                    )
-                )
+    _apply_keyword_stage(
+        store,
+        request=request,
+        record_map=record_map,
+        component_map=component_map,
+        eligibility=eligibility,
+    )
+    _apply_vector_stage(
+        store,
+        request=request,
+        record_map=record_map,
+        component_map=component_map,
+        via_relations=via_relations,
+        eligibility=eligibility,
+        vector_adapter=vector_adapter,
+    )
 
     if request.graph is not None and request.graph.depth > 0:
         _expand_graph_stage(
@@ -166,10 +287,14 @@ def assemble_retrieval(
             record_map=record_map,
             component_map=component_map,
             via_relations=via_relations,
+            eligibility=eligibility,
         )
 
     if request.recency is not None and now_iso:
-        for record_id, record in record_map.items():
+        for record_id, record in list(record_map.items()):
+            if not eligibility.allows(record, "recency"):
+                _remove_record(record_id, record_map, component_map, via_relations)
+                continue
             score = _recency_score(
                 record.updated_at,
                 now_iso=now_iso,
@@ -185,7 +310,10 @@ def assemble_retrieval(
             )
 
     if request.trust is not None:
-        for record_id, record in record_map.items():
+        for record_id, record in list(record_map.items()):
+            if not eligibility.allows(record, "trust"):
+                _remove_record(record_id, record_map, component_map, via_relations)
+                continue
             weight = request.trust.source_weights.get(
                 str(record.source), request.trust.default_weight
             )
@@ -204,6 +332,8 @@ def assemble_retrieval(
             record_map=record_map,
             component_map=component_map,
             rerank_adapter=rerank_adapter,
+            eligibility=eligibility,
+            via_relations=via_relations,
         )
 
     return _build_retrieval_result(
@@ -212,7 +342,19 @@ def assemble_retrieval(
         component_map=component_map,
         via_relations=via_relations,
         active_stages=active,
+        omissions=eligibility.omissions,
     )
+
+
+def _remove_record(
+    record_id: str,
+    record_map: dict[str, MemoryRecord],
+    component_map: dict[str, list[ScoreComponent]],
+    via_relations: dict[str, list[str]],
+) -> None:
+    record_map.pop(record_id, None)
+    component_map.pop(record_id, None)
+    via_relations.pop(record_id, None)
 
 
 def _expand_graph_stage(
@@ -222,23 +364,37 @@ def _expand_graph_stage(
     record_map: dict[str, MemoryRecord],
     component_map: dict[str, list[ScoreComponent]],
     via_relations: dict[str, list[str]],
+    eligibility: _Eligibility,
 ) -> None:
     for seed in list(record_map):
-        try:
+        seed_record = record_map[seed]
+        if not eligibility.allows(seed_record, "graph"):
+            _remove_record(seed, record_map, component_map, via_relations)
+            continue
+        relations = []
+        with suppress(Exception):
             relations = store.list_relations(
                 seed,
                 direction="both",
                 relation_types=request.graph.relation_types if request.graph else None,
-                limit=request.graph.max_expanded_records if request.graph else 0,
+                limit=(
+                    request.graph.max_expanded_records
+                    if request.graph and request.eligibility_callback is None
+                    else None
+                ),
             )
-        except Exception:
-            continue
+        expanded = 0
         for relation in relations:
             neighbor_id = (
                 relation.target_record_id
                 if relation.source_record_id == seed
                 else relation.source_record_id
             )
+            neighbor = record_map.get(neighbor_id) or store.get_record(neighbor_id)
+            if neighbor is None or neighbor.scope not in request.scopes:
+                continue
+            if not eligibility.allows(neighbor, "graph"):
+                continue
             via_relations.setdefault(neighbor_id, []).append(relation.relation_id)
             component = ScoreComponent(
                 kind="graph_proximity",
@@ -249,12 +405,12 @@ def _expand_graph_stage(
             if neighbor_id in record_map:
                 component.detail.pop("depth")
                 component_map.setdefault(neighbor_id, []).append(component)
-                continue
-            neighbor = store.get_record(neighbor_id)
-            if neighbor is None:
-                continue
-            record_map[neighbor_id] = neighbor
-            component_map.setdefault(neighbor_id, []).append(component)
+            else:
+                record_map[neighbor_id] = neighbor
+                component_map.setdefault(neighbor_id, []).append(component)
+            expanded += 1
+            if request.graph and expanded >= request.graph.max_expanded_records:
+                break
 
 
 def _apply_rerank_stage(
@@ -263,9 +419,14 @@ def _apply_rerank_stage(
     record_map: dict[str, MemoryRecord],
     component_map: dict[str, list[ScoreComponent]],
     rerank_adapter: RerankAdapter | None,
+    eligibility: _Eligibility,
+    via_relations: dict[str, list[str]],
 ) -> None:
     if request.rerank is None:
         return
+    for record_id, record in list(record_map.items()):
+        if not eligibility.allows(record, "rerank"):
+            _remove_record(record_id, record_map, component_map, via_relations)
     if rerank_adapter is not None:
         limit = request.rerank.limit or request.limit
         ranked_records = [record_map[record_id] for record_id in sorted(record_map)]
@@ -304,6 +465,7 @@ def _build_retrieval_result(
     component_map: dict[str, list[ScoreComponent]],
     via_relations: dict[str, list[str]],
     active_stages: list[str],
+    omissions: list[RetrievalOmission],
 ) -> RetrievalResult:
     rrf_scores = _rrf_scores(component_map)
     explanations: list[RetrievalExplanation] = []
@@ -342,6 +504,7 @@ def _build_retrieval_result(
         request_stage_order=active_stages,
         namespaces_applied=request.namespaces,
         truncated=truncated,
+        omissions=omissions,
     )
 
 
@@ -352,7 +515,10 @@ __all__ = [
     "RerankAdapter",
     "RerankStageOptions",
     "RetrievalExplanation",
+    "RetrievalEligibilityCallback",
+    "RetrievalEligibilityDecision",
     "RetrievalHit",
+    "RetrievalOmission",
     "RetrievalRequest",
     "RetrievalResult",
     "RETRIEVAL_STAGES",
