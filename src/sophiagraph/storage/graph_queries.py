@@ -50,13 +50,13 @@ def build_local_graph(
             if link.link_id not in edge_ids and len(edges) < options.max_edges:
                 edges.append(graph_edge_from_link(link))
                 edge_ids.add(link.link_id)
-            if link.target_record_id:
-                degree_out[link.source_record_id] = (
-                    degree_out.get(link.source_record_id, 0) + 1
-                )
-                degree_in[link.target_record_id] = (
-                    degree_in.get(link.target_record_id, 0) + 1
-                )
+                if link.target_record_id:
+                    degree_out[link.source_record_id] = (
+                        degree_out.get(link.source_record_id, 0) + 1
+                    )
+                    degree_in[link.target_record_id] = (
+                        degree_in.get(link.target_record_id, 0) + 1
+                    )
             next_id = (
                 link.target_record_id
                 if link.source_record_id == record_id
