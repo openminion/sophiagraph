@@ -1,9 +1,16 @@
 # Sophiagraph Changelog
 
 Status: active
-Last updated: 2026-09-01
+Last updated: 2026-09-12
 
 This file tracks package-facing release notes for `sophiagraph`.
+
+## Unreleased
+
+### Fixed
+
+- Renamed the private SQLite auxiliary-storage module so the wheel installs on
+  Windows filesystems.
 
 ## 0.0.10 - 2026-09-01
 

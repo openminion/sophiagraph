@@ -127,7 +127,7 @@ stable advanced import root `sophiagraph.projections`.
    helpers, `storage/sqlite/fts.py` owns SQLite record/block FTS helpers,
    `storage/sqlite/typed_graph.py` owns typed entity fact contradiction
    summary episode procedure and convergence persistence for the SQLite store,
-   `storage/sqlite/aux.py` remains the narrow SQLite-only auxiliary-object
+   `storage/sqlite/auxiliary.py` remains the narrow SQLite-only auxiliary-object
    persistence owner for sync conflicts freshness entries source-ingest
    records and shared-block mirrors, `storage/sqlite/changefeed.py` remains
    the tight SQLite-only row-codec and event-write owner for the durable

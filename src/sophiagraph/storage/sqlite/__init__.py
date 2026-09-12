@@ -75,7 +75,7 @@ from sophiagraph.storage.graph_helpers import (
 from sophiagraph.storage.memory_block_helpers import (
     enforce_block_edit_gate as _enforce_block_edit_gate,
 )
-from .aux import SqliteAuxObjectMixin
+from .auxiliary import SqliteAuxObjectMixin
 from .changefeed import SqliteChangefeedMixin
 from sophiagraph.storage.graph_queries import build_graph_snapshot, build_local_graph
 from .fts import (
