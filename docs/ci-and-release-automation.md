@@ -35,6 +35,7 @@ That is not the final publish gate. A release sign-off should run the default
 - pushed commit-message subjects
 - `make check`
 - release smoke through `scripts/release_check.py --skip-twine`
+- a Windows wheel build, install, and command smoke
 
 The release-smoke step builds artifacts and runs a fresh-wheel smoke without
 attempting an upload.
