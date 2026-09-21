@@ -5,7 +5,7 @@ Last updated: 2026-09-12
 
 This file tracks package-facing release notes for `sophiagraph`.
 
-## Unreleased
+## 0.0.11 - 2026-09-20
 
 ### Fixed
 
