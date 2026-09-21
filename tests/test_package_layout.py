@@ -15,6 +15,26 @@ def test_root_layout_stays_clean_and_intentional() -> None:
     assert not (root / "handoff").exists()
 
 
+def test_package_paths_are_windows_compatible() -> None:
+    package_root = Path(__file__).resolve().parents[1] / "src" / "sophiagraph"
+    reserved_names = {
+        "AUX",
+        "CON",
+        "NUL",
+        "PRN",
+        *(f"COM{number}" for number in range(1, 10)),
+        *(f"LPT{number}" for number in range(1, 10)),
+    }
+
+    for path in package_root.rglob("*"):
+        if path.suffix == ".pyc":
+            continue
+        for part in path.relative_to(package_root).parts:
+            assert part.split(".", 1)[0].upper() not in reserved_names, (
+                f"{path} contains a Windows-reserved path component"
+            )
+
+
 def test_docs_surface_contains_expected_package_refs() -> None:
     root = Path(__file__).resolve().parents[1] / "docs"
 

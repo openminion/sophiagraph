@@ -10,6 +10,21 @@ permissions:
   contents: read
 
 jobs:
+  windows-wheel:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Build and smoke-test the wheel
+        shell: bash
+        run: |
+          python -m pip install "build>=1,<2"
+          python -m build --wheel
+          python -m pip install dist/*.whl
+          sophiagraph-smoke --root smoke-root --seed --json
+
   qdrant-compatibility:
     runs-on: ubuntu-latest
     strategy:

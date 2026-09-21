@@ -163,6 +163,13 @@ def test_local_graph_handles_depth_cycles_and_snapshot(store) -> None:
 
     assert {node.record_id for node in graph.nodes} == {"rec-a", "rec-b", "rec-c"}
     assert len(graph.edges) == 3
+    assert {
+        node.record_id: (node.degree_in, node.degree_out) for node in graph.nodes
+    } == {
+        "rec-a": (1, 1),
+        "rec-b": (1, 1),
+        "rec-c": (1, 1),
+    }
     assert len(snapshot.nodes) == 3
     assert len(snapshot.edges) == 3
 
