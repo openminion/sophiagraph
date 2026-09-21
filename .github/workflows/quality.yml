@@ -141,11 +141,12 @@ jobs:
           set -euo pipefail
           commits=()
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            if [[ "${GITHUB_BASE_REF}" == "main" \
-              && ( "${GITHUB_HEAD_REF}" == "dev" || "${GITHUB_HEAD_REF}" == release/* ) ]]; then
-              # Long-lived dev and release branches already validate each new
-              # commit on push. Re-validating the full ancestry here would fail
-              # on older branch history that predates the current commit policy.
+            if [[ ( "${GITHUB_BASE_REF}" == "main" \
+                && ( "${GITHUB_HEAD_REF}" == "dev" || "${GITHUB_HEAD_REF}" == release/* ) ) \
+              || ( "${GITHUB_BASE_REF}" == "dev" && "${GITHUB_HEAD_REF}" == sync-* ) ]]; then
+              # Release and sync branches contain ancestry already validated on
+              # their source branch. Re-validating that history would fail on
+              # commits that predate the current commit policy.
               commits=(HEAD)
             else
               git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
