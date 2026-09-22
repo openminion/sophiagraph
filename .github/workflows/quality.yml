@@ -137,27 +137,29 @@ jobs:
       - name: Validate pushed commit messages
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           commits=()
+          range=
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            if [[ ( "${GITHUB_BASE_REF}" == "main" \
-                && ( "${GITHUB_HEAD_REF}" == "dev" || "${GITHUB_HEAD_REF}" == release/* ) ) \
-              || ( "${GITHUB_BASE_REF}" == "dev" && "${GITHUB_HEAD_REF}" == sync-* ) ]]; then
-              # Release and sync branches contain ancestry already validated on
-              # their source branch. Re-validating that history would fail on
-              # commits that predate the current commit policy.
-              commits=(HEAD)
-            else
-              git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
-              base_commit="$(git merge-base HEAD FETCH_HEAD)"
-              mapfile -t commits < <(git rev-list --reverse "${base_commit}..HEAD")
-            fi
+            range="${PR_BASE_SHA}..${PR_HEAD_SHA}"
           elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
-            mapfile -t commits < <(git rev-list --reverse "${BEFORE_SHA}..HEAD")
-          fi
-          if [[ ${#commits[@]} -eq 0 ]]; then
+            range="${BEFORE_SHA}..HEAD"
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_NAME}" != "${DEFAULT_BRANCH}" ]]; then
+            range="origin/${DEFAULT_BRANCH}..HEAD"
+          else
             commits=(HEAD)
+          fi
+          if [[ -n "${range}" ]]; then
+            commit_list="$(git rev-list --reverse "${range}")"
+            if [[ -n "${commit_list}" ]]; then
+              while IFS= read -r commit; do
+                commits+=("${commit}")
+              done <<< "${commit_list}"
+            fi
           fi
           for commit in "${commits[@]}"; do
             subject="$(git log -1 --format=%s "${commit}")"

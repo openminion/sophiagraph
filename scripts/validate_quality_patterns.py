@@ -625,37 +625,115 @@ CHECKS = {
 }
 
 
+def _validated_baseline_rows(
+    path: Path,
+    rows: list[tuple[object, ...]],
+    *,
+    width: int,
+    key_columns: int,
+    numeric_columns: tuple[int, ...] = (),
+    members_column: int | None = None,
+    preserve_reason: bool = False,
+) -> list[tuple[str, ...]] | None:
+    if not path.exists():
+        raise SystemExit(f"{path.name}: missing baseline; review its initial contents")
+    baseline = _load_tsv(path, width)
+    previous = {row[:key_columns]: row for row in baseline}
+    accepted: list[tuple[str, ...]] = []
+    for raw_row in rows:
+        row = tuple(map(str, raw_row))
+        old = previous.get(row[:key_columns])
+        if old is None:
+            raise SystemExit(f"{path.name}: new debt for {row[:key_columns]}")
+        if any(int(row[index]) > int(old[index]) for index in numeric_columns):
+            raise SystemExit(f"{path.name}: increased debt for {row[:key_columns]}")
+        if members_column is not None and set(row[members_column].split(",")) - set(
+            old[members_column].split(",")
+        ):
+            raise SystemExit(
+                f"{path.name}: added duplicate member for {row[:key_columns]}"
+            )
+        if preserve_reason:
+            row = (*row[:-1], old[-1])
+        accepted.append(row)
+    return accepted if set(accepted) != baseline else None
+
+
 def write_baselines(project: ProjectInfo) -> None:
-    _write_tsv(
-        MAX_FILE_LOC_BASELINE,
-        "# Format: path<TAB>loc<TAB>reason",
-        _max_file_loc_rows(project),
-    )
-    _write_tsv(
-        METHOD_LOC_BASELINE,
-        "# Format: path<TAB>qualname<TAB>loc<TAB>reason",
-        _method_loc_rows(project),
-    )
-    _write_tsv(
-        HELPER_DUPLICATES_BASELINE,
-        "# Format: directory<TAB>function<TAB>files<TAB>reason",
-        _helper_duplicate_rows(project),
-    )
-    _write_tsv(
-        FILENAME_UNDERSCORE_BASELINE,
-        "# Format: path<TAB>underscore_count",
-        _filename_underscore_rows(project),
-    )
-    _write_tsv(
-        BROAD_EXCEPTION_BASELINE,
-        "# Format: path<TAB>total<TAB>silent_pass<TAB>reason",
-        _broad_exception_rows(project),
-    )
-    _write_tsv(
-        PATH_STRUCTURE_BASELINE,
-        "# Format: source_relative_path<TAB>finding",
-        _path_structure_rows(project),
-    )
+    updates = [
+        (
+            MAX_FILE_LOC_BASELINE,
+            "# Format: path<TAB>loc<TAB>reason",
+            _validated_baseline_rows(
+                MAX_FILE_LOC_BASELINE,
+                _max_file_loc_rows(project),
+                width=3,
+                key_columns=1,
+                numeric_columns=(1,),
+                preserve_reason=True,
+            ),
+        ),
+        (
+            METHOD_LOC_BASELINE,
+            "# Format: path<TAB>qualname<TAB>loc<TAB>reason",
+            _validated_baseline_rows(
+                METHOD_LOC_BASELINE,
+                _method_loc_rows(project),
+                width=4,
+                key_columns=2,
+                numeric_columns=(2,),
+                preserve_reason=True,
+            ),
+        ),
+        (
+            HELPER_DUPLICATES_BASELINE,
+            "# Format: directory<TAB>function<TAB>files<TAB>reason",
+            _validated_baseline_rows(
+                HELPER_DUPLICATES_BASELINE,
+                _helper_duplicate_rows(project),
+                width=4,
+                key_columns=2,
+                members_column=2,
+                preserve_reason=True,
+            ),
+        ),
+        (
+            FILENAME_UNDERSCORE_BASELINE,
+            "# Format: path<TAB>underscore_count",
+            _validated_baseline_rows(
+                FILENAME_UNDERSCORE_BASELINE,
+                _filename_underscore_rows(project),
+                width=2,
+                key_columns=1,
+                numeric_columns=(1,),
+            ),
+        ),
+        (
+            BROAD_EXCEPTION_BASELINE,
+            "# Format: path<TAB>total<TAB>silent_pass<TAB>reason",
+            _validated_baseline_rows(
+                BROAD_EXCEPTION_BASELINE,
+                _broad_exception_rows(project),
+                width=4,
+                key_columns=1,
+                numeric_columns=(1, 2),
+                preserve_reason=True,
+            ),
+        ),
+        (
+            PATH_STRUCTURE_BASELINE,
+            "# Format: source_relative_path<TAB>finding",
+            _validated_baseline_rows(
+                PATH_STRUCTURE_BASELINE,
+                _path_structure_rows(project),
+                width=2,
+                key_columns=2,
+            ),
+        ),
+    ]
+    for path, header, rows in updates:
+        if rows is not None:
+            _write_tsv(path, header, rows)
 
 
 def run_checks(project: ProjectInfo, selected: list[str]) -> int:
