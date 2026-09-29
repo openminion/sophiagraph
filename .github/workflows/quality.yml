@@ -145,6 +145,7 @@ jobs:
           commits=()
           range=
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${PR_BASE_SHA}" "${PR_HEAD_SHA}"
             merge_base="$(git merge-base "${PR_BASE_SHA}" "${PR_HEAD_SHA}")"
             range="${merge_base}..${PR_HEAD_SHA}"
           elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
