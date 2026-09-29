@@ -104,7 +104,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
+            git fetch --no-tags origin "${GITHUB_BASE_REF}"
             base_commit="$(git merge-base HEAD FETCH_HEAD)"
             ./.venv/bin/python3.11 -m pre_commit run \
               --from-ref "${base_commit}" \
@@ -144,7 +144,6 @@ jobs:
           commits=()
           range=
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            git fetch --no-tags origin "${PR_BASE_SHA}" "${PR_HEAD_SHA}"
             merge_base="$(git merge-base "${PR_BASE_SHA}" "${PR_HEAD_SHA}")"
             range="${merge_base}..${PR_HEAD_SHA}"
           elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
