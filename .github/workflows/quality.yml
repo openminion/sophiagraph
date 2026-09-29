@@ -74,19 +74,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Select GraphFakos ref
-        id: graphfakos-ref
-        run: |
-          if [[ "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" == "dev" ]]; then
-            echo "ref=dev" >> "$GITHUB_OUTPUT"
-          else
-            echo "ref=main" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/checkout@v4
+        if: github.head_ref == 'dev' || github.ref_name == 'dev'
         with:
           repository: openminion/graphfakos
-          ref: ${{ steps.graphfakos-ref.outputs.ref }}
+          ref: 620ad045a3cda025d5201e0ff0a1d82646df831a
+          path: graphfakos
+
+      - uses: actions/checkout@v4
+        if: github.head_ref != 'dev' && github.ref_name != 'dev'
+        with:
+          repository: openminion/graphfakos
+          ref: c597466dbf8bfbea8e1fc902c896d4b5c97699af
           path: graphfakos
 
       - uses: actions/setup-python@v5
@@ -105,7 +104,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
+            git fetch --no-tags origin "${GITHUB_BASE_REF}"
             base_commit="$(git merge-base HEAD FETCH_HEAD)"
             ./.venv/bin/python3.11 -m pre_commit run \
               --from-ref "${base_commit}" \
@@ -137,26 +136,30 @@ jobs:
       - name: Validate pushed commit messages
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           commits=()
+          range=
           if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            if [[ "${GITHUB_BASE_REF}" == "main" \
-              && ( "${GITHUB_HEAD_REF}" == "dev" || "${GITHUB_HEAD_REF}" == release/* ) ]]; then
-              # Long-lived dev and release branches already validate each new
-              # commit on push. Re-validating the full ancestry here would fail
-              # on older branch history that predates the current commit policy.
-              commits=(HEAD)
-            else
-              git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}"
-              base_commit="$(git merge-base HEAD FETCH_HEAD)"
-              mapfile -t commits < <(git rev-list --reverse "${base_commit}..HEAD")
-            fi
+            merge_base="$(git merge-base "${PR_BASE_SHA}" "${PR_HEAD_SHA}")"
+            range="${merge_base}..${PR_HEAD_SHA}"
           elif [[ -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
-            mapfile -t commits < <(git rev-list --reverse "${BEFORE_SHA}..HEAD")
-          fi
-          if [[ ${#commits[@]} -eq 0 ]]; then
+            range="${BEFORE_SHA}..HEAD"
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_NAME}" != "${DEFAULT_BRANCH}" ]]; then
+            range="origin/${DEFAULT_BRANCH}..HEAD"
+          else
             commits=(HEAD)
+          fi
+          if [[ -n "${range}" ]]; then
+            commit_list="$(git rev-list --reverse "${range}")"
+            if [[ -n "${commit_list}" ]]; then
+              while IFS= read -r commit; do
+                commits+=("${commit}")
+              done <<< "${commit_list}"
+            fi
           fi
           for commit in "${commits[@]}"; do
             subject="$(git log -1 --format=%s "${commit}")"

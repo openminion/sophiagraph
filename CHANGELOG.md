@@ -1,9 +1,21 @@
 # Sophiagraph Changelog
 
 Status: active
-Last updated: 2026-09-12
+Last updated: 2026-09-29
 
 This file tracks package-facing release notes for `sophiagraph`.
+
+## 0.0.12 - 2026-09-29
+
+### Added
+
+- Added explicit ascending or descending update-time ordering for candidate
+  listings across in-memory, SQLite, and authorized-gateway surfaces.
+
+### Fixed
+
+- Enabled host consolidation loops to rotate deferred candidates instead of
+  repeatedly selecting the same oldest candidate from a bounded batch.
 
 ## 0.0.11 - 2026-09-20
 

@@ -644,9 +644,10 @@ class SophiaGraphMemoryStore(
                 for candidate in candidates
                 if candidate.status == options.status
             ]
+        candidates.sort(key=lambda candidate: candidate.candidate_id)
         candidates.sort(
             key=lambda candidate: candidate.updated_at or candidate.created_at or "",
-            reverse=True,
+            reverse=options.order_by != RecordOrder.UPDATED_AT_ASC,
         )
         if options.limit is not None:
             candidates = candidates[: int(options.limit)]
