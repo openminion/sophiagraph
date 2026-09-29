@@ -29,6 +29,7 @@ from sophiagraph.query import (
     CandidateListOptions,
     ListQueryOptions,
     LocalGraphOptions,
+    RecordOrder,
     SearchQueryOptions,
 )
 from sophiagraph.storage import SophiaGraphMemoryStore, SophiaGraphSqliteStore
@@ -339,9 +340,20 @@ def test_candidate_namespace_filter_applies_before_limit(store) -> None:
             updated_at="2026-08-06T00:00:01+00:00",
         )
     )
+    store.put_candidate(
+        MemoryCandidate(
+            candidate_id="visible-newer",
+            session_id="session",
+            proposed_scope="agent:child",
+            type="fact",
+            content={"text": "visible newer"},
+            namespace=child,
+            updated_at="2026-08-06T00:00:02+00:00",
+        )
+    )
     gateway = AuthorizedSophiaGraphGateway(store, resolver=Resolver(_grant(child)))
     candidates = gateway.list_candidates(
-        CandidateListOptions(limit=1),
+        CandidateListOptions(limit=1, order_by=RecordOrder.UPDATED_AT_ASC),
         context=_context(child),
         request=_request(),
     )

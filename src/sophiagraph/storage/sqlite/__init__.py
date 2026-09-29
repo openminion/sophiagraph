@@ -1024,7 +1024,7 @@ class SophiaGraphSqliteStore(
         if options.status is not None:
             query += " AND status = ?"
             params.append(options.status)
-        query += " ORDER BY COALESCE(updated_at, created_at, '') DESC"
+        query += f" ORDER BY COALESCE(updated_at, created_at, '') {'ASC' if options.order_by == RecordOrder.UPDATED_AT_ASC else 'DESC'}, candidate_id ASC"
         if options.limit is not None and not options.namespaces:
             query += " LIMIT ?"
             params.append(int(options.limit))

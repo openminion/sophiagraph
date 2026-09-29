@@ -259,6 +259,7 @@ class AuthorizedSophiaGraphGateway:
             status=options.status,
             limit=min(options.limit or decision.max_results, decision.max_results),
             namespaces=list(decision.namespaces),
+            order_by=options.order_by,
         )
         return [
             candidate

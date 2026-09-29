@@ -63,6 +63,7 @@ class CandidateListOptions:
     status: CandidateStatus | None = None
     limit: int | None = None
     namespaces: list["MemoryNamespace"] | None = None
+    order_by: RecordOrder | None = None
 
 
 @dataclass(slots=True)
