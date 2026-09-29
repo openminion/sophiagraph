@@ -74,19 +74,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Select GraphFakos ref
-        id: graphfakos-ref
-        run: |
-          if [[ "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" == "dev" ]]; then
-            echo "ref=dev" >> "$GITHUB_OUTPUT"
-          else
-            echo "ref=main" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/checkout@v4
+        if: github.head_ref == 'dev' || github.ref_name == 'dev'
         with:
           repository: openminion/graphfakos
-          ref: ${{ steps.graphfakos-ref.outputs.ref }}
+          ref: 620ad045a3cda025d5201e0ff0a1d82646df831a
+          path: graphfakos
+
+      - uses: actions/checkout@v4
+        if: github.head_ref != 'dev' && github.ref_name != 'dev'
+        with:
+          repository: openminion/graphfakos
+          ref: c597466dbf8bfbea8e1fc902c896d4b5c97699af
           path: graphfakos
 
       - uses: actions/setup-python@v5
