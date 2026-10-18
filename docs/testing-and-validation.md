@@ -26,17 +26,21 @@ make dev-install
 From the package root:
 
 ```bash
+sophiagraph --help
 sophiagraph --version
 sophiagraph doctor --json
-sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
+sophiagraph smoke --root /tmp/sophiagraph-smoke --seed --json
 ```
 
 Expected outcome:
 
-1. the version and doctor commands exit successfully,
+1. help, version, and doctor exit successfully without creating runtime state,
 2. the doctor reports supported Python and GraphFakos versions,
 3. the smoke command returns JSON,
 4. the seeded store contains at least one record.
+
+`sophiagraph-smoke` remains available as a compatibility alias for the explicit
+`sophiagraph smoke` command.
 
 ## Package validation gates
 

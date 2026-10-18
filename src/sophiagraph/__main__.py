@@ -52,6 +52,24 @@ _OPTIONAL_EXTRA_PACKAGES = (
     ("telemetry", "opentelemetry-api"),
 )
 
+_WORKSPACE_COMMANDS = (
+    ("workspace-init", "initialize a persistent workspace"),
+    ("workspace-status", "show workspace metadata and counts"),
+    ("workspace-note-put", "write one human-authored note"),
+    ("workspace-import-plan", "plan a vault import without applying it"),
+    ("workspace-import-apply", "apply a reviewed vault import"),
+    ("workspace-workbench", "render the local workspace workbench"),
+    ("workspace-sync-plan", "plan file-primary workspace synchronization"),
+    ("workspace-sync-apply", "apply a reviewed synchronization plan"),
+    ("workspace-sync-status", "show synchronization status"),
+    ("workspace-sync-poll", "poll for workspace changes"),
+    ("workspace-file-note-put", "write one file-primary note"),
+    ("workspace-note-materialize", "materialize one stored note"),
+    ("ui-preview", "render or serve the local UI preview"),
+    ("benchmark", "run the package benchmark suite"),
+)
+_WORKSPACE_COMMAND_NAMES = frozenset(name for name, _ in _WORKSPACE_COMMANDS)
+
 
 def _seed_record() -> MemoryRecord:
     return MemoryRecord(
@@ -128,6 +146,21 @@ def _run_doctor_cli(argv: list[str]) -> int:
             print(f"  {extra}: {version}")
         print(f"Status: {status}")
     return 0 if status == "ok" else 1
+
+
+def _build_main_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="sophiagraph",
+        description="durable local knowledge graph and memory workspace",
+        epilog="Run `sophiagraph COMMAND --help` for command-specific options.",
+    )
+    parser.add_argument("-V", "--version", action="version", version=__version__)
+    commands = parser.add_subparsers(title="commands", metavar="COMMAND")
+    commands.add_parser("doctor", add_help=False, help="inspect the local install")
+    commands.add_parser("smoke", add_help=False, help="run a local storage smoke test")
+    for name, help_text in _WORKSPACE_COMMANDS:
+        commands.add_parser(name, add_help=False, help=help_text)
+    return parser
 
 
 def _namespace_from_args(args: argparse.Namespace) -> MemoryNamespace:
@@ -504,29 +537,23 @@ def _run_smoke_cli(argv: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if not args or args[0] in {"-h", "--help"}:
+        _build_main_parser().print_help()
+        return 0
     if args in (["--version"], ["-V"]):
         print(__version__)
         return 0
     if args and args[0] == "doctor":
         return _run_doctor_cli(args[1:])
-    if args and args[0] in {
-        "workspace-init",
-        "workspace-status",
-        "workspace-note-put",
-        "workspace-import-plan",
-        "workspace-import-apply",
-        "workspace-workbench",
-        "workspace-sync-plan",
-        "workspace-sync-apply",
-        "workspace-sync-status",
-        "workspace-sync-poll",
-        "workspace-file-note-put",
-        "workspace-note-materialize",
-        "ui-preview",
-        "benchmark",
-    }:
+    if args[0] == "smoke":
+        return _run_smoke_cli(args[1:])
+    if args[0] in _WORKSPACE_COMMAND_NAMES:
         return _run_workspace_cli(args)
-    return _run_smoke_cli(args)
+    if args[0].startswith("-"):
+        return _run_smoke_cli(args)
+    print(f"sophiagraph: unknown command: {args[0]}", file=sys.stderr)
+    _build_main_parser().print_help(sys.stderr)
+    return 2
 
 
 def smoke_main(argv: list[str] | None = None) -> int:

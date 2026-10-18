@@ -11,10 +11,14 @@ This file tracks package-facing release notes for `sophiagraph`.
 
 - Added a canonical `sophiagraph` console entrypoint with `--version` and a
   read-only `doctor` report for Python, GraphFakos, and optional extras.
+- Added discoverable top-level help and an explicit `sophiagraph smoke`
+  subcommand.
 
 ### Fixed
 
 - Aligned the minimum GraphFakos CI case with the documented supported range.
+- Prevented bare or unknown canonical CLI invocations from creating local
+  runtime state.
 
 ## 0.0.12 - 2026-09-29
 

@@ -149,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
             install_cmd.append(str(wheel))
             _run(install_cmd, cwd=root)
             _run([str(cli), "--version"], cwd=root)
+            _run([str(cli), "--help"], cwd=root)
             _run([str(cli), "doctor", "--json"], cwd=root)
             _run(
                 [
@@ -172,7 +173,18 @@ def main(argv: list[str] | None = None) -> int:
                 ],
                 cwd=root,
             )
-            _run([str(smoke), "--root", str(smoke_root), "--seed", "--json"], cwd=root)
+            _run(
+                [
+                    str(cli),
+                    "smoke",
+                    "--root",
+                    str(smoke_root),
+                    "--seed",
+                    "--json",
+                ],
+                cwd=root,
+            )
+            _run([str(smoke), "--root", str(smoke_root), "--json"], cwd=root)
             _run([str(server_cli), "--help"], cwd=root)
             _run([str(server_cli), "serve-stdio"], cwd=root)
             _run(
