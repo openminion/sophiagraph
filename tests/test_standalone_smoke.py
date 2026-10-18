@@ -165,6 +165,70 @@ def test_workspace_error_uses_concise_human_message(tmp_path) -> None:
     assert "Traceback" not in result.stderr
 
 
+def test_missing_body_file_uses_typed_json_error(tmp_path) -> None:
+    body_path = tmp_path / "missing.md"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sophiagraph",
+            "workspace-note-put",
+            str(tmp_path / "workspace"),
+            "note",
+            "--title",
+            "Note",
+            "--body-file",
+            str(body_path),
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert json.loads(result.stderr) == {
+        "status": "error",
+        "error": {
+            "code": "NOT_FOUND",
+            "message": f"body file not found: {body_path}",
+            "details": {"path": str(body_path)},
+        },
+    }
+    assert "Traceback" not in result.stderr
+
+
+def test_invalid_body_file_uses_concise_store_read_error(tmp_path) -> None:
+    body_path = tmp_path / "invalid.md"
+    body_path.write_bytes(b"\xff")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sophiagraph",
+            "workspace-file-note-put",
+            str(tmp_path / "workspace"),
+            str(tmp_path / "notes"),
+            "note",
+            "--title",
+            "Note",
+            "--body-file",
+            str(body_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith(
+        f"sophiagraph: STORE_READ_FAILED: unable to read body file: {body_path}"
+    )
+    assert "Traceback" not in result.stderr
+
+
 @pytest.mark.parametrize("entrypoint", ["smoke", "ui"])
 def test_compatibility_entrypoints_render_typed_json_errors(
     monkeypatch: pytest.MonkeyPatch,

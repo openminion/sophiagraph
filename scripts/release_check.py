@@ -180,6 +180,23 @@ def main(argv: list[str] | None = None) -> int:
                 cwd=root,
                 expected_error_code="NOT_FOUND",
             )
+            invalid_body = tmp / "invalid-body.md"
+            invalid_body.write_bytes(b"\xff")
+            _assert_json_failure(
+                [
+                    str(cli),
+                    "workspace-note-put",
+                    str(tmp / "missing-workspace"),
+                    "note",
+                    "--title",
+                    "Note",
+                    "--body-file",
+                    str(invalid_body),
+                    "--json",
+                ],
+                cwd=root,
+                expected_error_code="STORE_READ_FAILED",
+            )
             _run(
                 [
                     str(wheel_python),

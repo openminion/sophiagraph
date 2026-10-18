@@ -459,6 +459,8 @@ Public-contract confidence should be enforced by tests that cover:
     adapters, plus operator-owned `PerformanceBudget` assessments under the
     stable `sophiagraph.production_benchmarks` module. Pattern evaluation is
     structural and does not accept natural-language or generated query text.
+39. traceback-free canonical CLI failures, including typed missing and
+    unreadable note body-file errors from source and built-wheel entrypoints.
 
 ## Internal compatibility shims
 

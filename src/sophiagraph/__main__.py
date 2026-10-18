@@ -14,7 +14,7 @@ from uuid import uuid4
 from sophiagraph import __version__
 from sophiagraph.benchmarks import run_default_benchmark_suite
 from sophiagraph.compatibility import graphfakos_compatibility
-from sophiagraph.contracts.errors import MemctlError
+from sophiagraph.contracts.errors import MemctlError, NotFoundError, StoreReadError
 from sophiagraph.human import HumanWorkbenchPacket
 from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.storage import create_sqlite_store, default_db_path
@@ -346,7 +346,18 @@ def _build_workspace_parser() -> argparse.ArgumentParser:
 def _read_note_body(args: argparse.Namespace) -> str:
     if args.body is not None:
         return args.body
-    return Path(args.body_file).read_text(encoding="utf-8")
+    path = Path(args.body_file)
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise NotFoundError(
+            f"body file not found: {path}", details={"path": str(path)}
+        ) from exc
+    except (OSError, UnicodeError) as exc:
+        raise StoreReadError(
+            f"unable to read body file: {path}",
+            details={"path": str(path), "reason": str(exc)},
+        ) from exc
 
 
 def _run_ui_preview_cli(args: argparse.Namespace) -> int:

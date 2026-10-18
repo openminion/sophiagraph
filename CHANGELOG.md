@@ -21,6 +21,8 @@ This file tracks package-facing release notes for `sophiagraph`.
   runtime state.
 - Rendered typed CLI failures as concise stderr or JSON error envelopes instead
   of Python tracebacks.
+- Rendered missing, unreadable, and invalidly encoded note body files through
+  typed CLI errors instead of Python tracebacks.
 
 ## 0.0.12 - 2026-09-29
 

@@ -46,6 +46,10 @@ Expected package failures are traceback-free. Human-readable commands write a
 concise coded error to stderr; commands using `--json` write the typed error
 envelope to stderr and exit with status `1`.
 
+Commands accepting `--body-file` report missing files as `NOT_FOUND` and
+unreadable or invalidly encoded files as `STORE_READ_FAILED` through that same
+error contract.
+
 ## Package validation gates
 
 Run from the package root:
