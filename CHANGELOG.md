@@ -19,6 +19,8 @@ This file tracks package-facing release notes for `sophiagraph`.
 - Aligned the minimum GraphFakos CI case with the documented supported range.
 - Prevented bare or unknown canonical CLI invocations from creating local
   runtime state.
+- Rendered typed CLI failures as concise stderr or JSON error envelopes instead
+  of Python tracebacks.
 
 ## 0.0.12 - 2026-09-29
 

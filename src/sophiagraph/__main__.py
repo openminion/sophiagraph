@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from importlib import metadata
 import json
 from pathlib import Path
@@ -13,6 +14,7 @@ from uuid import uuid4
 from sophiagraph import __version__
 from sophiagraph.benchmarks import run_default_benchmark_suite
 from sophiagraph.compatibility import graphfakos_compatibility
+from sophiagraph.contracts.errors import MemctlError
 from sophiagraph.human import HumanWorkbenchPacket
 from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.storage import create_sqlite_store, default_db_path
@@ -161,6 +163,22 @@ def _build_main_parser() -> argparse.ArgumentParser:
     for name, help_text in _WORKSPACE_COMMANDS:
         commands.add_parser(name, add_help=False, help=help_text)
     return parser
+
+
+def _run_cli(dispatch: Callable[[list[str]], int], argv: list[str]) -> int:
+    try:
+        return dispatch(argv)
+    except MemctlError as error:
+        if "--json" in argv:
+            print(
+                json.dumps(
+                    {"status": "error", "error": error.to_dict()}, sort_keys=True
+                ),
+                file=sys.stderr,
+            )
+        else:
+            print(f"sophiagraph: {error.code}: {error.message}", file=sys.stderr)
+        return 1
 
 
 def _namespace_from_args(args: argparse.Namespace) -> MemoryNamespace:
@@ -535,8 +553,7 @@ def _run_smoke_cli(argv: list[str]) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
+def _dispatch_main(args: list[str]) -> int:
     if not args or args[0] in {"-h", "--help"}:
         _build_main_parser().print_help()
         return 0
@@ -556,14 +573,23 @@ def main(argv: list[str] | None = None) -> int:
     return 2
 
 
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    return _run_cli(_dispatch_main, args)
+
+
 def smoke_main(argv: list[str] | None = None) -> int:
-    return _run_smoke_cli(list(sys.argv[1:] if argv is None else argv))
+    args = list(sys.argv[1:] if argv is None else argv)
+    return _run_cli(_run_smoke_cli, args)
+
+
+def _run_ui_preview_entry(argv: list[str]) -> int:
+    return _run_workspace_cli(["ui-preview", *argv])
 
 
 def ui_preview_main(argv: list[str] | None = None) -> int:
-    return _run_workspace_cli(
-        ["ui-preview", *list(sys.argv[1:] if argv is None else argv)]
-    )
+    args = list(sys.argv[1:] if argv is None else argv)
+    return _run_cli(_run_ui_preview_entry, args)
 
 
 if __name__ == "__main__":

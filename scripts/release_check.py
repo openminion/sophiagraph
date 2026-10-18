@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -18,6 +19,24 @@ def _run(cmd: list[str], *, cwd: Path, extra_env: dict[str, str] | None = None) 
     if extra_env:
         env.update(extra_env)
     subprocess.run(cmd, cwd=cwd, check=True, env=env)
+
+
+def _assert_json_failure(
+    cmd: list[str], *, cwd: Path, expected_error_code: str
+) -> None:
+    print("+", " ".join(cmd), f"# expect {expected_error_code}")
+    result = subprocess.run(cmd, cwd=cwd, check=False, capture_output=True, text=True)
+    if result.returncode != 1 or result.stdout:
+        raise RuntimeError(
+            f"unexpected CLI failure shape: exit={result.returncode}, "
+            f"stdout={result.stdout!r}, stderr={result.stderr!r}"
+        )
+    payload = json.loads(result.stderr)
+    if (
+        payload.get("status") != "error"
+        or payload.get("error", {}).get("code") != expected_error_code
+    ):
+        raise RuntimeError(f"unexpected CLI error payload: {payload!r}")
 
 
 def _graphfakos_root(root: Path) -> Path | None:
@@ -151,6 +170,16 @@ def main(argv: list[str] | None = None) -> int:
             _run([str(cli), "--version"], cwd=root)
             _run([str(cli), "--help"], cwd=root)
             _run([str(cli), "doctor", "--json"], cwd=root)
+            _assert_json_failure(
+                [
+                    str(cli),
+                    "workspace-status",
+                    str(tmp / "missing-workspace"),
+                    "--json",
+                ],
+                cwd=root,
+                expected_error_code="NOT_FOUND",
+            )
             _run(
                 [
                     str(wheel_python),

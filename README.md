@@ -79,6 +79,11 @@ commands. The `sophiagraph-smoke` compatibility command remains available.
 compatibility posture plus installed optional extras without creating a
 workspace, probing a network, or loading provider SDKs.
 
+Typed package failures exit with status `1` and print a concise message to
+stderr. Commands using `--json` receive the same failure as a stable JSON
+envelope with `status`, `error.code`, `error.message`, and `error.details`.
+Command-line usage errors continue to exit with status `2`.
+
 Create and inspect a persistent workspace:
 
 ```bash
