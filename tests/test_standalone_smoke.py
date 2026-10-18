@@ -66,6 +66,56 @@ def test_python_m_sophiagraph_reports_version_and_install_health() -> None:
     }
 
 
+def test_bare_cli_shows_help_without_creating_runtime_state(tmp_path) -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "sophiagraph"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "commands:" in result.stdout
+    assert "doctor" in result.stdout
+    assert "workspace-init" in result.stdout
+    assert not (tmp_path / ".sophiagraph-runtime").exists()
+
+
+def test_explicit_smoke_subcommand_seeds_store(tmp_path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sophiagraph",
+            "smoke",
+            "--root",
+            str(tmp_path),
+            "--seed",
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert json.loads(result.stdout)["record_count"] == 1
+
+
+def test_unknown_command_fails_without_creating_runtime_state(tmp_path) -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "sophiagraph", "unknown-command"],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "unknown command: unknown-command" in result.stderr
+    assert "commands:" in result.stderr
+    assert not (tmp_path / ".sophiagraph-runtime").exists()
+
+
 def test_doctor_returns_failure_for_unsupported_required_dependency(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -185,7 +235,9 @@ def test_console_script_contract_and_release_smoke_shape() -> None:
         "sophiagraph.server.__main__:main"
     )
     assert "twine" in release_check
+    assert '"--help"' in release_check
     assert '"doctor"' in release_check
+    assert '"smoke"' in release_check
     assert "sophiagraph-smoke" in release_check
     assert "sophiagraph-ui" in release_check
     assert "sophiagraph-server" in release_check
