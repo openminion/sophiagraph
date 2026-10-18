@@ -88,7 +88,9 @@ Supported console entrypoints include `sophiagraph`, `sophiagraph-smoke`,
 provides `--version`, read-only `doctor` diagnostics, and the documented
 workspace, benchmark, and preview commands. Bare invocation and `--help` are
 read-only. Storage mutation requires an explicit smoke or workspace command;
-`sophiagraph-smoke` remains a compatibility entrypoint.
+`sophiagraph-smoke` remains a compatibility entrypoint. Typed package failures
+exit with status `1`; `--json` commands emit the canonical error dictionary
+under an `error` key, while command-line usage errors retain status `2`.
 
 See [`docs/api-stability.md`](docs/api-stability.md) for the short-form API
 stability guide and new-export checklist.

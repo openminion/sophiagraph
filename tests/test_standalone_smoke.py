@@ -12,6 +12,7 @@ import pytest
 import sophiagraph
 import sophiagraph.__main__ as sophiagraph_cli
 from sophiagraph.compatibility import DependencyCompatibility
+from sophiagraph.contracts.errors import InvalidArgumentError
 
 
 def test_python_m_sophiagraph_smoke(tmp_path) -> None:
@@ -114,6 +115,83 @@ def test_unknown_command_fails_without_creating_runtime_state(tmp_path) -> None:
     assert "unknown command: unknown-command" in result.stderr
     assert "commands:" in result.stderr
     assert not (tmp_path / ".sophiagraph-runtime").exists()
+
+
+def test_workspace_error_uses_json_envelope_without_traceback(tmp_path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sophiagraph",
+            "workspace-status",
+            str(tmp_path / "missing"),
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert json.loads(result.stderr) == {
+        "status": "error",
+        "error": {
+            "code": "NOT_FOUND",
+            "message": f"workspace file not found: {tmp_path / 'missing/workspace.json'}",
+            "details": {},
+        },
+    }
+    assert "Traceback" not in result.stderr
+
+
+def test_workspace_error_uses_concise_human_message(tmp_path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "sophiagraph",
+            "workspace-status",
+            str(tmp_path / "missing"),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("sophiagraph: NOT_FOUND: workspace file not found:")
+    assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("entrypoint", ["smoke", "ui"])
+def test_compatibility_entrypoints_render_typed_json_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    entrypoint: str,
+) -> None:
+    def fail(_argv: list[str]) -> int:
+        raise InvalidArgumentError("invalid test input", details={"field": "value"})
+
+    if entrypoint == "smoke":
+        monkeypatch.setattr(sophiagraph_cli, "_run_smoke_cli", fail)
+        result = sophiagraph_cli.smoke_main(["--json"])
+    else:
+        monkeypatch.setattr(sophiagraph_cli, "_run_ui_preview_entry", fail)
+        result = sophiagraph_cli.ui_preview_main(["--json"])
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert captured.out == ""
+    assert json.loads(captured.err) == {
+        "status": "error",
+        "error": {
+            "code": "INVALID_ARGUMENT",
+            "message": "invalid test input",
+            "details": {"field": "value"},
+        },
+    }
 
 
 def test_doctor_returns_failure_for_unsupported_required_dependency(

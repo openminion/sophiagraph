@@ -42,6 +42,10 @@ Expected outcome:
 `sophiagraph-smoke` remains available as a compatibility alias for the explicit
 `sophiagraph smoke` command.
 
+Expected package failures are traceback-free. Human-readable commands write a
+concise coded error to stderr; commands using `--json` write the typed error
+envelope to stderr and exit with status `1`.
+
 ## Package validation gates
 
 Run from the package root:
