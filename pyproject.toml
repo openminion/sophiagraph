@@ -56,7 +56,8 @@ dev = [
 ]
 
 [project.scripts]
-sophiagraph-smoke = "sophiagraph.__main__:main"
+sophiagraph = "sophiagraph.__main__:main"
+sophiagraph-smoke = "sophiagraph.__main__:smoke_main"
 sophiagraph-ui = "sophiagraph.__main__:ui_preview_main"
 sophiagraph-server = "sophiagraph.server.__main__:main"
 

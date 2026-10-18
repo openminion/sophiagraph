@@ -83,6 +83,12 @@ not be used by new code. The public delegated-access and scope-pattern contract
 begins with the `0.0.7` release line; `0.0.6` and earlier do not contain
 `sophiagraph.access`.
 
+Supported console entrypoints include `sophiagraph`, `sophiagraph-smoke`,
+`sophiagraph-ui`, and `sophiagraph-server`. The canonical `sophiagraph` command
+provides `--version`, read-only `doctor` diagnostics, and the documented
+workspace, benchmark, and preview commands. `sophiagraph-smoke` remains the
+focused storage smoke entrypoint.
+
 See [`docs/api-stability.md`](docs/api-stability.md) for the short-form API
 stability guide and new-export checklist.
 

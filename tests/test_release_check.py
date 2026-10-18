@@ -20,3 +20,5 @@ def test_release_check_covers_package_local_contracts() -> None:
     assert "plan_human_vault_import" in release_check
     assert "decide_replay" in release_check
     assert "initialize_workspace" in release_check
+    assert '"doctor"' in release_check
+    assert 'bin" / "sophiagraph"' in release_check

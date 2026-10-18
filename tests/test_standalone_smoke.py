@@ -9,6 +9,10 @@ from urllib.request import urlopen
 
 import pytest
 
+import sophiagraph
+import sophiagraph.__main__ as sophiagraph_cli
+from sophiagraph.compatibility import DependencyCompatibility
+
 
 def test_python_m_sophiagraph_smoke(tmp_path) -> None:
     result = subprocess.run(
@@ -28,6 +32,56 @@ def test_python_m_sophiagraph_smoke(tmp_path) -> None:
     payload = json.loads(result.stdout)
     assert payload["record_count"] == 1
     assert payload["db_path"].endswith("sophiagraph.sqlite3")
+
+
+def test_python_m_sophiagraph_reports_version_and_install_health() -> None:
+    version = subprocess.run(
+        [sys.executable, "-m", "sophiagraph", "--version"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    doctor = subprocess.run(
+        [sys.executable, "-m", "sophiagraph", "doctor", "--json"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(doctor.stdout)
+
+    assert version.stdout.strip() == sophiagraph.__version__
+    assert payload["status"] == "ok"
+    assert payload["package"] == {
+        "name": "sophiagraph",
+        "version": sophiagraph.__version__,
+    }
+    assert payload["python"]["supported"] is True
+    assert payload["graphfakos"]["supported"] is True
+    assert set(payload["optional_extras"]) == {
+        "encryption",
+        "kuzu",
+        "neo4j",
+        "qdrant",
+        "telemetry",
+    }
+
+
+def test_doctor_returns_failure_for_unsupported_required_dependency(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        sophiagraph_cli,
+        "graphfakos_compatibility",
+        lambda: DependencyCompatibility(
+            package="graphfakos",
+            installed_version="0.0.5",
+            supported=False,
+            required_range=">=0.0.8,<1",
+        ),
+    )
+
+    assert sophiagraph_cli.main(["doctor", "--json"]) == 1
+    assert json.loads(capsys.readouterr().out)["status"] == "error"
 
 
 def test_python_m_sophiagraph_ui_preview_writes_html(tmp_path) -> None:
@@ -119,6 +173,9 @@ def test_console_script_contract_and_release_smoke_shape() -> None:
     release_check = (root / "scripts" / "release_check.py").read_text()
 
     assert pyproject["project"]["scripts"]["sophiagraph-smoke"] == (
+        "sophiagraph.__main__:smoke_main"
+    )
+    assert pyproject["project"]["scripts"]["sophiagraph"] == (
         "sophiagraph.__main__:main"
     )
     assert pyproject["project"]["scripts"]["sophiagraph-ui"] == (
@@ -128,6 +185,7 @@ def test_console_script_contract_and_release_smoke_shape() -> None:
         "sophiagraph.server.__main__:main"
     )
     assert "twine" in release_check
+    assert '"doctor"' in release_check
     assert "sophiagraph-smoke" in release_check
     assert "sophiagraph-ui" in release_check
     assert "sophiagraph-server" in release_check

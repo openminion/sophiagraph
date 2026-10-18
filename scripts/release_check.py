@@ -138,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
             pip = venv_dir / "bin" / "pip"
             wheel_python = venv_dir / "bin" / "python"
             graphfakos_ui = venv_dir / "bin" / "graphfakos-ui"
+            cli = venv_dir / "bin" / "sophiagraph"
             smoke = venv_dir / "bin" / "sophiagraph-smoke"
             server_cli = venv_dir / "bin" / "sophiagraph-server"
             ui_preview = venv_dir / "bin" / "sophiagraph-ui"
@@ -147,6 +148,8 @@ def main(argv: list[str] | None = None) -> int:
                 install_cmd.append(str(graphfakos_wheel))
             install_cmd.append(str(wheel))
             _run(install_cmd, cwd=root)
+            _run([str(cli), "--version"], cwd=root)
+            _run([str(cli), "doctor", "--json"], cwd=root)
             _run(
                 [
                     str(wheel_python),

@@ -25,7 +25,7 @@ the package does and does not own.
 
 ## Quick start
 
-1. Fork and create a branch.
+1. Fork and create a focused branch from `dev`.
 2. Make focused changes.
 3. Add or update tests.
 4. Open a PR with a clear summary.
@@ -160,7 +160,7 @@ Validation
 
 ## Submitting a pull request
 
-1. Fork and create a branch from `main`.
+1. Fork and create a focused branch from `dev`.
 2. Make your change; add or update tests; run the relevant local validation.
 3. Open a PR with a clear summary. In the description, include:
    - what changed and why,

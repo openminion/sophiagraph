@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import argparse
+from importlib import metadata
 import json
 from pathlib import Path
+import platform
 import sys
 from uuid import uuid4
 
+from sophiagraph import __version__
 from sophiagraph.benchmarks import run_default_benchmark_suite
+from sophiagraph.compatibility import graphfakos_compatibility
 from sophiagraph.human import HumanWorkbenchPacket
 from sophiagraph.models import MemoryNamespace, MemoryRecord
 from sophiagraph.storage import create_sqlite_store, default_db_path
@@ -40,6 +44,14 @@ from sophiagraph.workspace_sync import (
     workspace_sync_status,
 )
 
+_OPTIONAL_EXTRA_PACKAGES = (
+    ("encryption", "cryptography"),
+    ("kuzu", "kuzu"),
+    ("neo4j", "neo4j"),
+    ("qdrant", "qdrant-client"),
+    ("telemetry", "opentelemetry-api"),
+)
+
 
 def _seed_record() -> MemoryRecord:
     return MemoryRecord(
@@ -62,6 +74,60 @@ def _print_payload(payload: object, *, json_mode: bool) -> None:
         print(json.dumps(payload, sort_keys=True))
     else:
         print(payload)
+
+
+def _installed_version(package: str) -> str | None:
+    try:
+        return metadata.version(package)
+    except metadata.PackageNotFoundError:
+        return None
+
+
+def _run_doctor_cli(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="inspect the sophiagraph install")
+    parser.add_argument("--json", action="store_true", help="emit JSON report")
+    args = parser.parse_args(argv)
+    graphfakos = graphfakos_compatibility()
+    python_version = platform.python_version()
+    python_supported = sys.version_info >= (3, 11)
+    optional_versions = {
+        extra: _installed_version(package)
+        for extra, package in _OPTIONAL_EXTRA_PACKAGES
+    }
+    status = "ok" if python_supported and graphfakos.supported else "error"
+    payload = {
+        "status": status,
+        "package": {"name": "sophiagraph", "version": __version__},
+        "python": {"version": python_version, "supported": python_supported},
+        "graphfakos": {
+            "installed_version": graphfakos.installed_version,
+            "required_range": graphfakos.required_range,
+            "supported": graphfakos.supported,
+        },
+        "optional_extras": {
+            extra: {"package": package, "installed_version": optional_versions[extra]}
+            for extra, package in _OPTIONAL_EXTRA_PACKAGES
+        },
+    }
+    if args.json:
+        print(json.dumps(payload, sort_keys=True))
+    else:
+        print(f"Sophiagraph {__version__}")
+        print(
+            f"Python {python_version}: "
+            f"{'supported' if python_supported else 'unsupported'}"
+        )
+        print(
+            f"GraphFakos {graphfakos.installed_version or 'not installed'}: "
+            f"{'supported' if graphfakos.supported else 'unsupported'} "
+            f"({graphfakos.required_range})"
+        )
+        print("Optional extras:")
+        for extra, version in optional_versions.items():
+            version = version or "not installed"
+            print(f"  {extra}: {version}")
+        print(f"Status: {status}")
+    return 0 if status == "ok" else 1
 
 
 def _namespace_from_args(args: argparse.Namespace) -> MemoryNamespace:
@@ -438,6 +504,11 @@ def _run_smoke_cli(argv: list[str]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if args in (["--version"], ["-V"]):
+        print(__version__)
+        return 0
+    if args and args[0] == "doctor":
+        return _run_doctor_cli(args[1:])
     if args and args[0] in {
         "workspace-init",
         "workspace-status",
@@ -456,6 +527,10 @@ def main(argv: list[str] | None = None) -> int:
     }:
         return _run_workspace_cli(args)
     return _run_smoke_cli(args)
+
+
+def smoke_main(argv: list[str] | None = None) -> int:
+    return _run_smoke_cli(list(sys.argv[1:] if argv is None else argv))
 
 
 def ui_preview_main(argv: list[str] | None = None) -> int:

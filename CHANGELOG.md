@@ -1,9 +1,20 @@
 # Sophiagraph Changelog
 
 Status: active
-Last updated: 2026-09-29
+Last updated: 2026-10-18
 
 This file tracks package-facing release notes for `sophiagraph`.
+
+## Unreleased
+
+### Added
+
+- Added a canonical `sophiagraph` console entrypoint with `--version` and a
+  read-only `doctor` report for Python, GraphFakos, and optional extras.
+
+### Fixed
+
+- Aligned the minimum GraphFakos CI case with the documented supported range.
 
 ## 0.0.12 - 2026-09-29
 

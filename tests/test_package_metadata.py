@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from sophiagraph.compatibility import GRAPHFAKOS_MIN_VERSION
+
 
 def test_package_release_artifacts_exist() -> None:
     root = Path(__file__).resolve().parents[1]
@@ -48,3 +50,11 @@ def test_package_metadata_exposes_canonical_public_urls() -> None:
     assert "https://pypi.org/project/sophiagraph/" in pyproject
     assert "https://github.com/openminion/sophiagraph" in readme
     assert "https://pypi.org/project/sophiagraph" in readme
+
+
+def test_quality_workflow_uses_supported_graphfakos_minimum() -> None:
+    root = Path(__file__).resolve().parents[1]
+    workflow = (root / ".github" / "workflows" / "quality.yml").read_text()
+    minimum = ".".join(str(part) for part in GRAPHFAKOS_MIN_VERSION)
+
+    assert f"graphfakos=={minimum}" in workflow
