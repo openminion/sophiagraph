@@ -1,7 +1,7 @@
 # Sophiagraph Testing And Validation
 
 Status: active
-Last updated: 2026-06-20
+Last updated: 2026-10-18
 
 Purpose: give package users and contributors one package-local reference for
 the validation commands that prove `sophiagraph` installs and runs correctly.
@@ -26,14 +26,17 @@ make dev-install
 From the package root:
 
 ```bash
+sophiagraph --version
+sophiagraph doctor --json
 sophiagraph-smoke --root /tmp/sophiagraph-smoke --seed --json
 ```
 
 Expected outcome:
 
-1. the command exits successfully,
-2. it returns JSON,
-3. the seeded store contains at least one record.
+1. the version and doctor commands exit successfully,
+2. the doctor reports supported Python and GraphFakos versions,
+3. the smoke command returns JSON,
+4. the seeded store contains at least one record.
 
 ## Package validation gates
 

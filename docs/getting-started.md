@@ -1,7 +1,7 @@
 # Sophiagraph Getting Started
 
 Status: active
-Last updated: 2026-06-20
+Last updated: 2026-10-18
 
 Purpose: give contributors and automation authors a package-local bootstrap
 and execution summary for work inside the `sophiagraph` repo.
@@ -29,12 +29,14 @@ Before substantial code changes, read:
 
 ## Normal execution loop
 
-1. Pick one focused change.
-2. Implement code and docs together when the public surface changes.
-3. Add or update tests for the behavior you changed.
-4. Run focused validation while iterating.
-5. Run `make check` before calling the work ready.
-6. Record validation commands in the PR description.
+1. Create a focused feature branch from current `origin/dev`.
+2. Pick one focused change.
+3. Implement code and docs together when the public surface changes.
+4. Add or update tests for the behavior you changed.
+5. Reconcile with current `origin/dev` before final validation.
+6. Run focused validation while iterating.
+7. Run `make check` before calling the work ready.
+8. Open the PR against `dev` and record validation commands in its description.
 
 ## Pull request shape
 

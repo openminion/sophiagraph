@@ -48,7 +48,7 @@ jobs:
       matrix:
         include:
           - dependency-label: minimum
-            graphfakos-spec: graphfakos==0.0.5
+            graphfakos-spec: graphfakos==0.0.8
           - dependency-label: latest
             graphfakos-spec: graphfakos
     steps:

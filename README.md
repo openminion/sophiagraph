@@ -65,9 +65,15 @@ and should be treated as a scam.
 
 ```bash
 python3.11 -m pip install sophiagraph
+sophiagraph --version
+sophiagraph doctor --json
 sophiagraph-smoke
 sophiagraph-ui --screen explore --serve --open
 ```
+
+`sophiagraph doctor` is read-only. It reports the Python and GraphFakos
+compatibility posture plus installed optional extras without creating a
+workspace, probing a network, or loading provider SDKs.
 
 Create and inspect a persistent workspace:
 
