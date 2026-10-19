@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import sqlite3
 from typing import Any, Mapping
 
 from sophiagraph import (
@@ -38,7 +39,10 @@ from sophiagraph.portability.models import (
 from sophiagraph.storage.base import SophiaGraphStore
 from sophiagraph.storage.sqlite import SophiaGraphSqliteStore
 
-from sophiagraph.server.contracts import SophiagraphServerError
+from sophiagraph.server.contracts import (
+    JSONRPC_INVALID_PARAMS,
+    SophiagraphServerError,
+)
 from sophiagraph.server.service_core import to_json_dict as _to_json_dict
 from sophiagraph.server.tools import (
     SUPPORTED_TOOL_NAMES,
@@ -88,11 +92,22 @@ def _resolve_store(config: BackendConfig) -> SophiaGraphStore:
             if config.sqlite_path is not None
             else Path(DEFAULT_DB_FILENAME)
         )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        return SophiaGraphSqliteStore(path)
+        try:
+            return SophiaGraphSqliteStore(path)
+        except (OSError, sqlite3.Error) as exc:
+            raise SophiagraphServerError(
+                f"unable to open sqlite backend at {str(path)!r}",
+                code=JSONRPC_INVALID_PARAMS,
+                details={
+                    "backend": "sqlite",
+                    "sqlite_path": str(path),
+                    "reason": "backend_unavailable",
+                    "error_type": type(exc).__name__,
+                },
+            ) from exc
     raise SophiagraphServerError(
         f"unknown backend {config.backend!r}; supported: memory|sqlite",
-        code=-32602,
+        code=JSONRPC_INVALID_PARAMS,
         details={"backend": config.backend},
     )
 

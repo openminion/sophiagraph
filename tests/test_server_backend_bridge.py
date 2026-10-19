@@ -128,6 +128,30 @@ def test_sqlite_backend_round_trips(tmp_path):
     assert result["record"]["content"] == {"text": "persisted"}
 
 
+def test_sqlite_backend_path_failure_raises_typed_error(tmp_path):
+    from sophiagraph.server.contracts import SophiagraphServerError
+
+    blocked_parent = tmp_path / "not-a-directory"
+    blocked_parent.write_text("blocked", encoding="utf-8")
+    sqlite_path = blocked_parent / "sophiagraph.sqlite3"
+
+    with pytest.raises(SophiagraphServerError) as excinfo:
+        build_wired_registry(
+            BackendConfig(backend="sqlite", sqlite_path=str(sqlite_path))
+        )
+
+    assert (
+        str(excinfo.value) == f"unable to open sqlite backend at {str(sqlite_path)!r}"
+    )
+    assert excinfo.value.code == -32602
+    assert excinfo.value.details == {
+        "backend": "sqlite",
+        "sqlite_path": str(sqlite_path),
+        "reason": "backend_unavailable",
+        "error_type": "FileExistsError",
+    }
+
+
 def test_unknown_backend_raises_typed_error():
     from sophiagraph.server.contracts import SophiagraphServerError
 

@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import cast
 
+import pytest
+
 from sophiagraph import ArtifactRef, MemoryCandidate, MemoryNamespace, MemoryRecord
 from sophiagraph.models import ProjectionTarget
 from sophiagraph.server.__main__ import main
@@ -202,3 +204,66 @@ def test_journal_one_shot_cli_reports_and_prunes_scoped_entries(
     assert prune_payload["pruned"] == 1
     assert missing_code == 1
     assert missing_payload["entry"] is None
+
+
+@pytest.mark.parametrize(
+    "command_args",
+    (
+        ("projection-run", "--target-id", "graph-cli"),
+        ("projection-status", "--target-id", "graph-cli"),
+        (
+            "projection-release-failure",
+            "--target-id",
+            "graph-cli",
+            "--event-id",
+            "event-1",
+            "--authorized",
+        ),
+        ("projection-reconcile", "--target-id", "graph-cli"),
+        ("journal-status", "--action-id", "action-cli"),
+        (
+            "journal-prune",
+            "--completed-before",
+            "9999-12-31T00:00:00+00:00",
+        ),
+    ),
+)
+def test_one_shot_cli_reports_sqlite_path_failures_as_json(
+    tmp_path,
+    capsys,
+    command_args,
+) -> None:
+    blocked_parent = tmp_path / "not-a-directory"
+    blocked_parent.write_text("blocked", encoding="utf-8")
+    sqlite_path = blocked_parent / "sophiagraph.sqlite3"
+
+    code = main([*command_args, "--sqlite-path", str(sqlite_path)])
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert code == 2
+    assert payload == {
+        "error": {"reason": f"unable to open sqlite backend at {str(sqlite_path)!r}"},
+        "ok": False,
+    }
+    assert captured.err == ""
+
+
+@pytest.mark.parametrize("command", ("serve-stdio", "serve-http"))
+def test_server_startup_reports_sqlite_path_failures_without_tracebacks(
+    tmp_path,
+    capsys,
+    command,
+) -> None:
+    blocked_parent = tmp_path / "not-a-directory"
+    blocked_parent.write_text("blocked", encoding="utf-8")
+    sqlite_path = blocked_parent / "sophiagraph.sqlite3"
+
+    with pytest.raises(SystemExit) as excinfo:
+        main([command, "--backend", "sqlite", "--sqlite-path", str(sqlite_path)])
+    captured = capsys.readouterr()
+
+    assert excinfo.value.code == 2
+    assert "unable to open sqlite backend" in captured.err
+    assert "Traceback" not in captured.err
+    assert captured.out == ""
