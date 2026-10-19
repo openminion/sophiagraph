@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 import json
 import sys
 
@@ -24,6 +25,7 @@ from sophiagraph.server.backend import (
     build_wired_registry,
     resolve_backend_store,
 )
+from sophiagraph.server.contracts import SophiagraphServerError
 from sophiagraph.server.deployment import DeploymentProfile
 from sophiagraph.server.http import (
     HttpTransportConfig,
@@ -443,35 +445,29 @@ def _source_head_cursor(store, target: ProjectionTarget) -> int:
 
 
 def _projection_run_cli(args: argparse.Namespace) -> int:
-    try:
-        store = _store_from_args(args)
-        target = _ensure_projection_target(store, args)
-        projector, _adapter = _projection_projector(store, target)
-        report = run_projection_batch(
-            store,
-            target_id=args.target_id,
-            projector=projector,
-            owner_id=args.owner_id,
-            now=_operation_now(args),
-            max_events=args.max_events,
-        )
-    except ValueError as exc:
-        return _operation_error(str(exc))
+    store = _store_from_args(args)
+    target = _ensure_projection_target(store, args)
+    projector, _adapter = _projection_projector(store, target)
+    report = run_projection_batch(
+        store,
+        target_id=args.target_id,
+        projector=projector,
+        owner_id=args.owner_id,
+        now=_operation_now(args),
+        max_events=args.max_events,
+    )
     _print_json({"ok": True, "projection": to_json_dict(report)})
     return 0
 
 
 def _projection_status_cli(args: argparse.Namespace) -> int:
-    try:
-        store = _store_from_args(args)
-        _ensure_projection_target(store, args)
-        health = get_projection_health(
-            store,
-            target_id=args.target_id,
-            now=_operation_now(args),
-        )
-    except ValueError as exc:
-        return _operation_error(str(exc))
+    store = _store_from_args(args)
+    _ensure_projection_target(store, args)
+    health = get_projection_health(
+        store,
+        target_id=args.target_id,
+        now=_operation_now(args),
+    )
     _print_json({"ok": True, "health": to_json_dict(health)})
     return 0
 
@@ -479,16 +475,13 @@ def _projection_status_cli(args: argparse.Namespace) -> int:
 def _projection_release_failure_cli(args: argparse.Namespace) -> int:
     if not args.authorized:
         return _operation_error("projection failure release requires authorization")
-    try:
-        store = _store_from_args(args)
-        _ensure_projection_target(store, args)
-        store.release_projection_failure(
-            target_id=args.target_id,
-            event_id=args.event_id,
-            now=_operation_now(args),
-        )
-    except ValueError as exc:
-        return _operation_error(str(exc))
+    store = _store_from_args(args)
+    _ensure_projection_target(store, args)
+    store.release_projection_failure(
+        target_id=args.target_id,
+        event_id=args.event_id,
+        now=_operation_now(args),
+    )
     _print_json(
         {
             "ok": True,
@@ -501,24 +494,21 @@ def _projection_release_failure_cli(args: argparse.Namespace) -> int:
 def _projection_reconcile_cli(args: argparse.Namespace) -> int:
     if args.apply and not args.authorized:
         return _operation_error("projection repair requires authorization")
-    try:
-        store = _store_from_args(args)
-        target = _ensure_projection_target(store, args)
-        _projector, adapter = _projection_projector(store, target)
-        namespaces = [target.namespace] if target.namespace is not None else None
-        source_events = store.list_changes(namespaces=namespaces)
-        report, plan = reconcile_projection_target(
-            target_id=args.target_id,
-            source_cursor=_source_head_cursor(store, target),
-            canonical_inventory=canonical_projection_inventory(
-                source_events,
-                target_kind=target.kind,
-            ),
-            target_inventory=adapter.inventory(),
-            target_watermark=adapter.get_projection_watermark(),
-        )
-    except ValueError as exc:
-        return _operation_error(str(exc))
+    store = _store_from_args(args)
+    target = _ensure_projection_target(store, args)
+    _projector, adapter = _projection_projector(store, target)
+    namespaces = [target.namespace] if target.namespace is not None else None
+    source_events = store.list_changes(namespaces=namespaces)
+    report, plan = reconcile_projection_target(
+        target_id=args.target_id,
+        source_cursor=_source_head_cursor(store, target),
+        canonical_inventory=canonical_projection_inventory(
+            source_events,
+            target_kind=target.kind,
+        ),
+        target_inventory=adapter.inventory(),
+        target_watermark=adapter.get_projection_watermark(),
+    )
     applied_count = 0
     if args.apply:
         applied_count = apply_projection_repair_plan(
@@ -561,17 +551,30 @@ def _journal_prune_cli(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_operation_cli(
+    operation: Callable[[argparse.Namespace], int],
+    args: argparse.Namespace,
+) -> int:
+    try:
+        return operation(args)
+    except (SophiagraphServerError, ValueError) as exc:
+        return _operation_error(str(exc))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command == "serve-stdio":
         _validate_runtime_args(parser, args)
-        if args.wire_backend:
-            registry = build_wired_registry(
-                BackendConfig(backend=args.backend, sqlite_path=args.sqlite_path)
-            )
-        else:
-            registry = ToolRegistry.default(backend=args.backend)
+        try:
+            if args.wire_backend:
+                registry = build_wired_registry(
+                    BackendConfig(backend=args.backend, sqlite_path=args.sqlite_path)
+                )
+            else:
+                registry = ToolRegistry.default(backend=args.backend)
+        except SophiagraphServerError as exc:
+            parser.error(str(exc))
         runtime = RuntimePolicyEngine(
             backend_name=args.backend,
             auth=ServerAuthConfig(
@@ -621,7 +624,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         try:
             server = make_http_server(config=config, runtime=runtime)
-        except ValueError as exc:
+        except (SophiagraphServerError, ValueError) as exc:
             parser.error(str(exc))
         print(f"sophiagraph-server HTTP listening on {server.url}", file=sys.stderr)
         try:
@@ -631,17 +634,17 @@ def main(argv: list[str] | None = None) -> int:
         finally:
             server.server_close()
     if args.command == "projection-run":
-        return _projection_run_cli(args)
+        return _run_operation_cli(_projection_run_cli, args)
     if args.command == "projection-status":
-        return _projection_status_cli(args)
+        return _run_operation_cli(_projection_status_cli, args)
     if args.command == "projection-release-failure":
-        return _projection_release_failure_cli(args)
+        return _run_operation_cli(_projection_release_failure_cli, args)
     if args.command == "projection-reconcile":
-        return _projection_reconcile_cli(args)
+        return _run_operation_cli(_projection_reconcile_cli, args)
     if args.command == "journal-status":
-        return _journal_status_cli(args)
+        return _run_operation_cli(_journal_status_cli, args)
     if args.command == "journal-prune":
-        return _journal_prune_cli(args)
+        return _run_operation_cli(_journal_prune_cli, args)
     parser.print_help(sys.stdout)
     return 0
 

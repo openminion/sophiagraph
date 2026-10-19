@@ -23,6 +23,8 @@ This file tracks package-facing release notes for `sophiagraph`.
   of Python tracebacks.
 - Rendered missing, unreadable, and invalidly encoded note body files through
   typed CLI errors instead of Python tracebacks.
+- Rendered invalid SQLite backend locations as typed server startup or JSON
+  operation errors instead of Python tracebacks.
 
 ## 0.0.12 - 2026-09-29
 
