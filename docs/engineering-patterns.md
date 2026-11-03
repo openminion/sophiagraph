@@ -99,3 +99,6 @@ Read this doc together with:
 2. [`getting-started.md`](getting-started.md)
 3. [`testing-and-validation.md`](testing-and-validation.md)
 4. [`source-tree-owner-map.md`](source-tree-owner-map.md)
+
+Apply the [comment and docstring review](../CODE_QUALITY.md#comment-and-docstring-review)
+to the final diff, including tests and scripts.
